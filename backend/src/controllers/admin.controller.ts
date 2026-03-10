@@ -41,6 +41,24 @@ export const approveDriver = async (req: Request, res: Response) => {
     }
 };
 
+export const deleteDriver = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Find and delete the user
+        const user = await User.findByIdAndDelete(id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Delete associated vehicle if exists
+        await Vehicle.deleteMany({ ownerId: id });
+
+        res.json({ message: "Driver and associated assets deleted successfully" });
+    } catch (err) {
+        console.error("Error deleting driver:", err);
+        res.status(500).json({ message: "Error deleting driver" });
+    }
+};
+
 export const getAllDrivers = async (req: Request, res: Response) => {
     try {
         const drivers = await User.find({ role: "DRIVER" }).select("-password");
