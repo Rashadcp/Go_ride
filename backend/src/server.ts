@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
+import vehicleRoutes from "./routes/vehicle.routes";
 import passport from "./config/passport";
 
 dotenv.config();
@@ -36,6 +37,7 @@ mongoose.connect(process.env.MONGO_URI!)
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/vehicles", vehicleRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 

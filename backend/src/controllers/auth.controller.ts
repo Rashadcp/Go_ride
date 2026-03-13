@@ -32,7 +32,7 @@ export const register = async (req: Request, res: Response) => {
       password: hashedPassword,
       role,
       status: role === "DRIVER" ? "PENDING" : "ACTIVE",
-      profilePhoto: (req.files as any)?.profilePhoto?.[0]?.path || undefined,
+      profilePhoto: (req.files as any)?.profilePhoto?.[0]?.location || undefined,
     });
 
     await newUser.save();
@@ -196,8 +196,8 @@ export const updateProfile = async (req: any, res: Response) => {
         }).save();
       }
     }
-    if (req.file?.path) {
-      user.profilePhoto = req.file.path;
+    if ((req.file as any)?.location) {
+      user.profilePhoto = (req.file as any).location;
     }
 
     await user.save();
@@ -330,7 +330,7 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const files = req.files as any;
     const { numberPlate, vehicleModel } = req.body;
     console.log("📦 Onboarding Body:", { numberPlate, vehicleModel });
     console.log("📁 Uploaded Files:", Object.keys(files || {}));
@@ -350,12 +350,12 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
       vehicle.vehicleModel = vehicleModel || vehicle.vehicleModel;
     }
 
-    if (files?.license?.[0]?.path) user.license = files.license[0].path;
-    if (files?.aadhaar?.[0]?.path) user.aadhaar = files.aadhaar[0].path;
-    if (files?.profilePhoto?.[0]?.path) user.profilePhoto = files.profilePhoto[0].path;
+    if (files?.license?.[0]) user.license = (files.license[0] as any).location;
+    if (files?.aadhaar?.[0]) user.aadhaar = (files.aadhaar[0] as any).location;
+    if (files?.profilePhoto?.[0]) user.profilePhoto = (files.profilePhoto[0] as any).location;
 
-    if (files?.rc?.[0]?.path) vehicle.rc = files.rc[0].path;
-    if (files?.vehiclePhoto?.[0]?.path) vehicle.vehiclePhoto = files.vehiclePhoto[0].path;
+    if (files?.rc?.[0]) vehicle.rc = (files.rc[0] as any).location;
+    if (files?.vehiclePhoto?.[0]) vehicle.vehiclePhoto = (files.vehiclePhoto[0] as any).location;
 
     const missing: string[] = [];
     if (!vehicle.numberPlate) missing.push("numberPlate");
