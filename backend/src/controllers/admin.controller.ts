@@ -106,13 +106,13 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         ]);
         const walletBalance = (creditData[0]?.total || 0) - (debitData[0]?.total || 0);
 
-        // Simulated data for charts since we don't have a full history yet
+        // Initialize actual monthly revenue slots (can be expanded later with real aggregation)
         const monthlyRevenue = [
-            { month: "Jun", amount: totalRevenue * 0.15 },
-            { month: "Jul", amount: totalRevenue * 0.18 },
-            { month: "Aug", amount: totalRevenue * 0.22 },
-            { month: "Sep", amount: totalRevenue * 0.25 },
-            { month: "Oct", amount: totalRevenue * 0.20 }
+            { month: "Jun", amount: 0 },
+            { month: "Jul", amount: 0 },
+            { month: "Aug", amount: 0 },
+            { month: "Sep", amount: 0 },
+            { month: "Oct", amount: 0 }
         ];
 
         res.json({

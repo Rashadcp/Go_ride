@@ -3,22 +3,21 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const sesRegion = process.env.AWS_REGION || "eu-north-1";
+
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  host: `email-smtp.${sesRegion}.amazonaws.com`,
   port: 465,
   secure: true,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.AWS_SES_SMTP_USER,
+    pass: process.env.AWS_SES_SMTP_PASS,
   },
-  tls: {
-    rejectUnauthorized: false
-  }
 });
 
 export const sendOTP = async (email: string, otp: string) => {
   // Check if credentials are missing
-  const isMockMode = !process.env.EMAIL_USER || !process.env.EMAIL_PASS;
+  const isMockMode = !process.env.AWS_SES_SMTP_USER || !process.env.AWS_SES_SMTP_PASS;
 
   if (isMockMode) {
     console.log("-----------------------------------------");
@@ -30,7 +29,7 @@ export const sendOTP = async (email: string, otp: string) => {
   console.log(`Attempting to send real email to ${email}...`);
 
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: `"GoRide" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "GoRide - Password Reset OTP",
     html: `
