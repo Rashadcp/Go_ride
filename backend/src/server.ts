@@ -65,7 +65,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-const PORT = 5000;
+const PORT = Number(process.env.PORT) || 5000;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server + Real-time System on port ${PORT}`);
 });
