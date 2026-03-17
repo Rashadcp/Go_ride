@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import vehicleRoutes from "./routes/vehicle.routes";
 import mapRoutes from "./routes/map.routes";
+import rideRoutes from "./routes/ride.routes";
 import passport from "./config/passport";
 
 dotenv.config();
@@ -21,7 +22,22 @@ initSocket(httpServer);
 
 // 1. CORS at the TRIPLE TOP to ensure all responses (including errors) have headers
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "http://192.168.56.1:3000",
+      "http://192.168.0.103:3000"
+    ];
+    // During development, allow all local origins and echo them back for compatibility
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.startsWith('http://192.168.')) {
+      callback(null, true);
+    } else {
+      console.log("⚠️ CORS Blocked Origin:", origin);
+      callback(null, false);
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -47,6 +63,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/map", mapRoutes);
+app.use("/api/rides", rideRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 
