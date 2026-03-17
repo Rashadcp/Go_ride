@@ -1,0 +1,158 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import api from "@/lib/axios";
+import { toast } from "react-hot-toast";
+import {
+    Wallet,
+    Download,
+    Plus,
+    Minus,
+    Loader2,
+    Search,
+    History,
+    CreditCard,
+    ArrowUpRight,
+    ArrowDownLeft
+} from "lucide-react";
+
+interface Transaction {
+    _id: string;
+    userId: { name: string, email: string };
+    amount: number;
+    type: string;
+    status: string;
+    createdAt: string;
+}
+
+export default function AdminWalletPage() {
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<any>(null);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [txRes, statsRes] = await Promise.all([
+                api.get("/admin/transactions"),
+                api.get("/admin/stats")
+            ]);
+            setTransactions(txRes.data);
+            setStats(statsRes.data.stats);
+        } catch (error: any) {
+            toast.error("Failed to load wallet data");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center gap-4 bg-bg-main">
+                <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
+                <p className="text-[#0A192F] font-bold">Initializing Secure Wallet Access...</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col bg-[#0A192F] min-h-screen">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                <div>
+                    <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Platform <span className="text-[#FFD700]">Wallet</span></h1>
+                    <p className="text-slate-400 font-medium mt-1">Manage global balances and transaction security</p>
+                </div>
+                <button className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-white rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg hover:scale-105 transition-transform">
+                    <Download className="w-4 h-4" />
+                    Download Registry
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                <div className="lg:col-span-2 bg-white/5 p-10 rounded-[48px] shadow-2xl relative overflow-hidden text-white border border-white/5 group">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-[#FFD700]/5 rounded-full -mr-32 -mt-32 blur-[100px] group-hover:scale-110 transition-transform duration-700"></div>
+                    <div className="relative z-10">
+                        <p className="text-[#FFD700] font-black uppercase tracking-[0.4em] text-[10px] mb-6">Total Custodial Balance</p>
+                        <h2 className="text-7xl font-black mb-10 tracking-tighter">₹{stats?.walletBalance?.toLocaleString()}</h2>
+                        <div className="flex items-center gap-10">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Monthly Credits</p>
+                                <div className="flex items-center gap-2 text-emerald-400 font-black text-xl">
+                                    <ArrowUpRight className="w-5 h-5" />
+                                    ₹42,850
+                                </div>
+                            </div>
+                            <div className="w-px h-12 bg-white/10"></div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Monthly Debits</p>
+                                <div className="flex items-center gap-2 text-rose-400 font-black text-xl">
+                                    <ArrowDownLeft className="w-5 h-5" />
+                                    ₹12,400
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white/5 p-10 rounded-[48px] border border-white/10 flex flex-col justify-between shadow-sm">
+                    <div>
+                        <div className="w-14 h-14 bg-[#FFD700]/10 text-[#FFD700] rounded-2xl flex items-center justify-center mb-6 border border-[#FFD700]/20">
+                            <CreditCard className="w-7 h-7" />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-2 tracking-tight">Active Accounts</h3>
+                        <p className="text-xs font-bold text-slate-400 leading-relaxed">System is currently managing 856 active user wallets across the network.</p>
+                    </div>
+                    <button className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-[#FFD700]/10 hover:-translate-y-1 transition-all mt-8">
+                        View Account Heatmap
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-white/5 rounded-[40px] border border-white/5 shadow-sm overflow-hidden flex flex-col flex-1">
+                <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                    <h3 className="font-black text-white text-[11px] uppercase tracking-[0.2em] flex items-center gap-3">
+                        <History className="w-4 h-4 text-[#FFD700]" />
+                        Platform Activity History
+                    </h3>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Find hash..."
+                            className="pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-white focus:ring-1 ring-[#FFD700]/20 transition-all outline-none"
+                        />
+                    </div>
+                </div>
+                
+                <div className="divide-y divide-white/5 overflow-y-auto max-h-[500px] custom-scrollbar">
+                    {transactions.map(tx => (
+                        <div key={tx._id} className="p-6 hover:bg-white/5 transition-all flex items-center justify-between">
+                            <div className="flex items-center gap-6">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tx.type === 'CREDIT' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-white/5 text-[#FFD700] border border-white/5'}`}>
+                                    {tx.type === 'CREDIT' ? <Plus className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
+                                </div>
+                                <div>
+                                    <p className="font-black text-sm text-white mb-0.5">{tx.userId?.name || "System Process"}</p>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FFD700] bg-white/5 border border-[#FFD700]/20 px-2 py-0.5 rounded-md">#{tx._id.slice(-6)}</span>
+                                        <span className="text-[10px] font-bold text-slate-500">{new Date(tx.createdAt).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className={`text-xl font-black mb-1 ${tx.type === 'CREDIT' ? 'text-emerald-400' : 'text-white'}`}>
+                                    {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
+                                </p>
+                                <span className="text-[9px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/10">{tx.status}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
