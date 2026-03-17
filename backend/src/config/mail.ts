@@ -3,21 +3,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const sesRegion = process.env.AWS_REGION || "eu-north-1";
-
 const transporter = nodemailer.createTransport({
-  host: `email-smtp.${sesRegion}.amazonaws.com`,
+  host: "smtp.gmail.com",
   port: 465,
   secure: true,
   auth: {
-    user: process.env.AWS_SES_SMTP_USER,
-    pass: process.env.AWS_SES_SMTP_PASS,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
 export const sendOTP = async (email: string, otp: string) => {
   // Check if credentials are missing
-  const isMockMode = !process.env.AWS_SES_SMTP_USER || !process.env.AWS_SES_SMTP_PASS;
+  const isMockMode = !process.env.EMAIL_USER || !process.env.EMAIL_PASS;
 
   if (isMockMode) {
     console.log("-----------------------------------------");
@@ -51,11 +49,11 @@ export const sendOTP = async (email: string, otp: string) => {
     const info = await transporter.sendMail(mailOptions);
     console.log(`Email sent successfully: ${info.messageId}`);
     return info;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to send real email. Error details:", error);
     console.log("-----------------------------------------");
     console.log(`[FALLBACK] OTP for ${email}: ${otp}`);
     console.log("-----------------------------------------");
-    return { success: false, message: "Email failed, logged to console" };
+    return { success: false, message: error.message || "Email failed" };
   }
 };

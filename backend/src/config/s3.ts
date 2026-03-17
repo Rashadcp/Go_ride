@@ -6,7 +6,7 @@ const { S3 } = require("@aws-sdk/client-s3");
 
 dotenv.config();
 
-const region = process.env.AWS_REGION || "eu-north-1";
+const region = process.env.AWS_S3_REGION || process.env.AWS_REGION || "eu-north-1";
 const bucket = process.env.AWS_BUCKET_NAME || process.env.S3_BUCKET_NAME || "goride-storage";
 const accessKeyId = process.env.AWS_S3_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || "";
 const secretAccessKey =

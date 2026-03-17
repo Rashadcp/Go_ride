@@ -5,11 +5,19 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes";
 import adminRoutes from "./routes/admin.routes";
 import vehicleRoutes from "./routes/vehicle.routes";
+import mapRoutes from "./routes/map.routes";
 import passport from "./config/passport";
 
 dotenv.config();
 
+import { createServer } from "http";
+import { initSocket } from "./config/socket";
+
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
 
 // 1. CORS at the TRIPLE TOP to ensure all responses (including errors) have headers
 app.use(cors({
@@ -38,6 +46,7 @@ mongoose.connect(process.env.MONGO_URI!)
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/map", mapRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 
@@ -57,6 +66,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`🚀 Server + Real-time System on port ${PORT}`);
 });

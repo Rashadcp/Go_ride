@@ -10,7 +10,7 @@ import { generateAccessToken, generateRefreshToken } from "../utils/token";
 export const register = async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, password, confirmPassword, role } = req.body;
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     console.log(`🚀 Registration attempt: ${normalizedEmail} as ${role}`);
 
     if (password !== confirmPassword) {
@@ -57,8 +57,11 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    console.error("Registration error:", err);
-    res.status(500).json({ message: "Server error during registration" });
+    console.error("❌ Registration error:", err);
+    res.status(500).json({ 
+      message: "Server error during registration", 
+      error: err.message
+    });
   }
 };
 
@@ -67,7 +70,7 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password, role } = req.body;
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     console.log(`Login attempt: ${normalizedEmail} as ${role || 'any'}`);
 
     const user = await User.findOne({ email: normalizedEmail });
@@ -248,7 +251,8 @@ export const forgotPassword = async (req: Request, res: Response) => {
     console.log("User found:", !!user);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      console.log(`❌ Forgot password failed: Email not found - ${normalizedEmail}`);
+      return res.status(404).json({ message: "This email address is not registered with us. Please check for typos or sign up." });
     }
 
     // Generate 6-digit OTP
