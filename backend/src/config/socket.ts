@@ -14,11 +14,36 @@ interface DriverLocation {
     name?: string;
     photo?: string;
     rating?: number;
+    lastSeen: number;
 }
 
 // In-memory store for active drivers only (rides now stored in DB)
 const activeDrivers = new Map<string, DriverLocation>(); // key: driverId
 const socketToDriver = new Map<string, string>(); // key: socketId, value: driverId
+const DRIVER_STALE_TIMEOUT_MS = 30000;
+
+const getFreshActiveDrivers = () => {
+    const now = Date.now();
+    const freshDrivers: DriverLocation[] = [];
+
+    for (const [driverId, driver] of activeDrivers.entries()) {
+        const isFresh = now - (driver.lastSeen || 0) <= DRIVER_STALE_TIMEOUT_MS;
+        if (!isFresh) {
+            activeDrivers.delete(driverId);
+            for (const [socketId, mappedDriverId] of socketToDriver.entries()) {
+                if (mappedDriverId === driverId) {
+                    socketToDriver.delete(socketId);
+                }
+            }
+            continue;
+        }
+        if (driver.status === "available" && driver.location?.lat != null) {
+            freshDrivers.push(driver);
+        }
+    }
+
+    return freshDrivers;
+};
 
 // Helper function to calculate distance in KM
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -137,7 +162,7 @@ export const initSocket = (server: HttpServer) => {
 
     io.on("connection", (socket) => {
         const broadcastActiveDrivers = () => {
-            broadcastActiveDrivers();
+            io.emit("active-drivers", getFreshActiveDrivers());
         };
         console.log(`🔌 New Connection: ${socket.id}`);
 
@@ -166,7 +191,8 @@ export const initSocket = (server: HttpServer) => {
                 status: "available",
                 name,
                 photo,
-                rating
+                rating,
+                lastSeen: Date.now(),
             });
             socketToDriver.set(socket.id, driverId);
             
@@ -175,8 +201,30 @@ export const initSocket = (server: HttpServer) => {
             socket.join("drivers-pool");
 
             // Broadcast updated driver list to all connected passengers
-            const drivers = Array.from(activeDrivers.values()).filter(d => d.status === "available" && d.location?.lat != null);
-            io.emit("active-drivers", drivers);
+            broadcastActiveDrivers();
+        });
+
+        socket.on("driver-offline", (
+            data: { driverId: string },
+            ack?: (response: { ok: boolean }) => void
+        ) => {
+            const { driverId } = data;
+            if (!driverId) {
+                ack?.({ ok: false });
+                return;
+            }
+            activeDrivers.delete(driverId);
+
+            for (const [socketId, mappedDriverId] of socketToDriver.entries()) {
+                if (mappedDriverId === driverId) {
+                    socketToDriver.delete(socketId);
+                }
+            }
+
+            socket.leave(`driver:${driverId}`);
+            socket.leave("drivers-pool");
+            broadcastActiveDrivers();
+            ack?.({ ok: true });
         });
 
         // 2. Live Driver Location Update
@@ -186,6 +234,7 @@ export const initSocket = (server: HttpServer) => {
             
             if (driver && location?.lat != null && location?.lng != null) {
                 driver.location = location;
+                driver.lastSeen = Date.now();
                 activeDrivers.set(driverId, driver);
 
                 // Update location in database for active rides
@@ -220,8 +269,7 @@ export const initSocket = (server: HttpServer) => {
 
         // 3. Active Driver Visibility for Passengers
         socket.on("get-active-drivers", () => {
-            const drivers = Array.from(activeDrivers.values()).filter(d => d.status === "available" && d.location?.lat != null);
-            socket.emit("active-drivers", drivers);
+            socket.emit("active-drivers", getFreshActiveDrivers());
         });
 
         // 4. Ride Request (Passenger -> Server)
@@ -240,7 +288,7 @@ export const initSocket = (server: HttpServer) => {
                 console.log(`🚨 New Ride Request: ${data.rideId} from ${data.passengerId}`);
 
                 // Filter available drivers by proximity (e.g., within 10km)
-                const nearbyDriversForRequest = Array.from(activeDrivers.values()).filter(driver => {
+                const nearbyDriversForRequest = getFreshActiveDrivers().filter(driver => {
                     if (driver.status !== "available") return false;
                     const dist = getDistance(data.pickup.lat, data.pickup.lng, driver.location.lat, driver.location.lng);
                     return dist <= 10; // 10km radius
@@ -477,6 +525,7 @@ export const initSocket = (server: HttpServer) => {
                 console.log(`🚕 Driver Offline (Disconnect): ${driverId}`);
                 activeDrivers.delete(driverId);
                 socketToDriver.delete(socket.id);
+                broadcastActiveDrivers();
             }
             console.log(`🔌 Disconnected: ${socket.id}`);
         });

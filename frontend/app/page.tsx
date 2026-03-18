@@ -51,9 +51,9 @@ export default function Home() {
 
         <div className="hidden lg:flex items-center gap-10 text-[13px] font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
           <a href="#" className="hover:text-[#FFD700] transition-colors">Home</a>
-          <a href="#" className="hover:text-[#FFD700] transition-colors">How It Works</a>
-          <a href="#" className="hover:text-[#FFD700] transition-colors">Services</a>
-          <a href="#" className="hover:text-[#FFD700] transition-colors">About</a>
+          <a href="#how-it-works" className="hover:text-[#FFD700] transition-colors">How It Works</a>
+          <a href="#services" className="hover:text-[#FFD700] transition-colors">Services</a>
+          <a href="#about" className="hover:text-[#FFD700] transition-colors">About</a>
         </div>
 
         <div className="flex items-center gap-4">
@@ -109,7 +109,7 @@ export default function Home() {
       </section>
 
       {/* --- For Users Section --- */}
-      <section className="py-32 px-6 md:px-24 max-w-7xl mx-auto">
+      <section id="how-it-works" className="py-32 px-6 md:px-24 max-w-7xl mx-auto scroll-mt-20">
         <div className="text-center mb-24">
           <h2 className="text-4xl font-extrabold text-[#0A192F] mb-4">For Users</h2>
           <div className="w-20 h-1.5 bg-[#FFD700] mx-auto rounded-full mb-6"></div>
@@ -136,7 +136,7 @@ export default function Home() {
       </section>
 
       {/* --- Unique Feature Section --- */}
-      <section className="px-6 md:px-24 mb-32">
+      <section id="services" className="px-6 md:px-24 mb-32 scroll-mt-20">
         <div className="max-w-7xl mx-auto rounded-[48px] bg-[#0A192F] overflow-hidden flex flex-col lg:flex-row border border-white/5">
           <div className="flex-1 p-12 md:p-20 flex flex-col justify-center relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 blur-[100px] -z-0"></div>
@@ -254,7 +254,7 @@ export default function Home() {
       </section>
 
       {/* --- Footer --- */}
-      <footer className="pt-32 pb-16 px-6 md:px-24 bg-black text-white transition-colors duration-500">
+      <footer id="about" className="pt-32 pb-16 px-6 md:px-24 bg-black text-white transition-colors duration-500 scroll-mt-20">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-16 mb-24">
             <div className="lg:col-span-2">
@@ -314,6 +314,9 @@ export default function Home() {
         }
         .animate-shimmer {
           animation: shimmer 2s infinite linear;
+        }
+        html {
+          scroll-behavior: smooth;
         }
       `}</style>
     </div>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
 import api from "@/lib/axios";
-import { LayoutDashboard, History, Wallet, Settings, LogOut, Car, Bike, Ghost, Star, MapPin, Mic, ChevronRight, User as UserProfile, Navigation, Loader2, Plus, Trash2, CheckCircle2, Compass, Camera, Lock, Home, Briefcase, ArrowUpRight, ArrowDownLeft, CreditCard, ShieldCheck, Search, Users, HelpCircle, Info, Minus, Zap, Bell, Truck, UserCheck, FileText, CheckCircle, XCircle, SlidersHorizontal, MoreHorizontal, Eye, TrendingUp, IndianRupee, Clock, GripVertical } from "lucide-react";
+import { LayoutDashboard, History, Wallet, Settings, LogOut, Car, Bike, Ghost, Star, MapPin, Mic, ChevronRight, User as UserProfile, Navigation, Loader2, Plus, Trash2, CheckCircle2, Compass, Camera, Lock, Home, Briefcase, ArrowUpRight, ArrowDownLeft, CreditCard, ShieldCheck, Search, Users, HelpCircle, Info, Minus, Zap, Bell, Truck, UserCheck, FileText, CheckCircle, XCircle, SlidersHorizontal, MoreHorizontal, Eye, TrendingUp, IndianRupee, Clock, GripVertical, X, ArrowLeft } from "lucide-react";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import Image from "next/image";
 import { toast } from "react-hot-toast";
@@ -81,15 +81,29 @@ export default function UserDashboard() {
     const [stops, setStops] = useState<Stop[]>([{ id: '1', query: '', coords: null, suggestions: [], showSuggestions: false }]);
     const [driverDest, setDriverDest] = useState<Stop>({ id: 'driver-dest', query: '', coords: null, suggestions: [], showSuggestions: false });
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchStarted, setSearchStarted] = useState(false);
+    const [loadingDrivers, setLoadingDrivers] = useState(false);
+    const [drivers, setDrivers] = useState<any[]>([]);
     const debounceTimer = useRef<any>(null);
     const rideRequestLock = useRef(false);
+    const searchPanelRef = useRef<HTMLDivElement | null>(null);
     // Socket states
-    const [nearbyDrivers, setNearbyDrivers] = useState<any[]>([]);
     const [isRequestingRide, setIsRequestingRide] = useState(false);
     const [isRouteSearched, setIsRouteSearched] = useState(false);
     const [activeRide, setActiveRide] = useState<any>(null);
     const [pendingRideId, setPendingRideId] = useState<string | null>(null);
     const [isDriverTripActive, setIsDriverTripActive] = useState(false);
+    const activeRideRef = useRef<any>(null);
+    const pendingRideIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        activeRideRef.current = activeRide;
+    }, [activeRide]);
+
+    useEffect(() => {
+        pendingRideIdRef.current = pendingRideId;
+    }, [pendingRideId]);
 
     // --- Data Persistence ---
     useEffect(() => {
@@ -163,18 +177,27 @@ export default function UserDashboard() {
         };
 
         fetchActiveRide();
-        socket.on("active-drivers", (drivers: any[]) => {
-            setNearbyDrivers(drivers);
-        });
-        socket.on("ride-accepted", (data: any) => {
+
+        const handleSocketConnect = () => {
+            socket.emit("get-active-drivers");
+        };
+
+        const handleActiveDrivers = (activeDrivers: any[]) => {
+            setDrivers(activeDrivers);
+            setLoadingDrivers(false);
+        };
+
+        const handleRideAccepted = (data: any) => {
             setActiveRide(data);
             setPendingRideId(data.rideId || null);
             setIsRequestingRide(false);
+            setLoadingDrivers(false);
             rideRequestLock.current = false;
             socket.emit("join-ride", { driverId: data.driverId });
             toast.success(`Ride accepted by ${data.driverInfo?.name || "Driver"}!`);
-        });
-        socket.on("ride-status-update", (data: any) => {
+        };
+
+        const handleRideStatusUpdate = (data: any) => {
             const { status } = data;
             setActiveRide((prev: any) => ({ ...prev, status }));
             if (status === "ARRIVED")
@@ -187,55 +210,82 @@ export default function UserDashboard() {
                 setPendingRideId(null);
                 setIsRequestingRide(false);
                 setIsRouteSearched(false);
+                setSearchStarted(false);
+                setLoadingDrivers(false);
                 rideRequestLock.current = false;
             }
-        });
-        socket.on("ride-request-failed", (data: any) => {
+        };
+
+        const handleRideRequestFailed = (data: any) => {
             setIsRequestingRide(false);
             setPendingRideId(null);
+            setLoadingDrivers(false);
             rideRequestLock.current = false;
             toast.error(data.reason || "Ride request failed");
-        });
-        socket.on("eta-update", (data: any) => {
+        };
+
+        const handleEtaUpdate = (data: any) => {
             setActiveRide((prev: any) => ({ ...prev, eta: data.eta }));
-        });
-        socket.on("ride-cancelled", (data: any) => {
+        };
+
+        const handleRideCancelled = (data: any) => {
             if (!data?.rideId)
                 return;
-            if (pendingRideId && data.rideId !== pendingRideId && activeRide?.rideId !== data.rideId)
+            if (pendingRideIdRef.current && data.rideId !== pendingRideIdRef.current && activeRideRef.current?.rideId !== data.rideId)
                 return;
             setActiveRide(null);
             setPendingRideId(null);
             setIsRequestingRide(false);
             setIsRouteSearched(false);
+            setSearchStarted(false);
+            setLoadingDrivers(false);
             rideRequestLock.current = false;
             toast.error("Ride cancelled.");
-        });
-        socket.on("driver-location-update", (data: any) => {
+        };
+
+        const handleDriverLocationUpdate = (data: any) => {
             setActiveRide((prev: any) => {
                 if (prev && prev.driverId === data.driverId) {
                     return { ...prev, driverInfo: { ...prev.driverInfo, location: data.location } };
                 }
                 return prev;
             });
-        });
+        };
+
+        socket.on("connect", handleSocketConnect);
+        socket.on("active-drivers", handleActiveDrivers);
+        socket.on("ride-accepted", handleRideAccepted);
+        socket.on("ride-status-update", handleRideStatusUpdate);
+        socket.on("ride-request-failed", handleRideRequestFailed);
+        socket.on("eta-update", handleEtaUpdate);
+        socket.on("ride-cancelled", handleRideCancelled);
+        socket.on("driver-location-update", handleDriverLocationUpdate);
+
+        if (socket.connected) {
+            handleSocketConnect();
+        }
+
         const pollInterval = setInterval(() => {
-            if (!activeRide) {
+            if (!activeRideRef.current) {
                 socket.emit("get-active-drivers");
             }
         }, 10000);
-        socket.emit("get-active-drivers");
+
         handleLocate();
         return () => {
-            socket.off("active-drivers");
-            socket.off("ride-accepted");
-            socket.off("ride-cancelled");
-            socket.off("driver-location-update");
+            socket.off("connect", handleSocketConnect);
+            socket.off("active-drivers", handleActiveDrivers);
+            socket.off("ride-accepted", handleRideAccepted);
+            socket.off("ride-status-update", handleRideStatusUpdate);
+            socket.off("ride-request-failed", handleRideRequestFailed);
+            socket.off("eta-update", handleEtaUpdate);
+            socket.off("ride-cancelled", handleRideCancelled);
+            socket.off("driver-location-update", handleDriverLocationUpdate);
             disconnectSocket();
             clearInterval(pollInterval);
             rideRequestLock.current = false;
         };
-    }, [activeRide, mounted, pendingRideId, user]);
+    }, [mounted, user]);
     const handleRequestRide = () => {
         if (!user || isRequestingRide || rideRequestLock.current || activeRide)
             return;
@@ -281,6 +331,8 @@ export default function UserDashboard() {
         setPendingRideId(null);
         setIsRequestingRide(false);
         setIsRouteSearched(false);
+        setSearchStarted(false);
+        setLoadingDrivers(false);
         rideRequestLock.current = false;
         toast.error("Ride cancelled.");
     };
@@ -309,7 +361,7 @@ export default function UserDashboard() {
         setRouteInfo({ distance: dist, duration: dur });
     }, []);
     const visibleNearbyDrivers = useMemo(() => {
-        return nearbyDrivers.filter((driver: any) => {
+        return drivers.filter((driver: any) => {
             const mode = String(driver.rideMode ||
                 driver.serviceMode ||
                 driver.tripType ||
@@ -322,7 +374,7 @@ export default function UserDashboard() {
                 mode.includes("pool");
             return isSharedRide ? isSharedVehicle : !isSharedVehicle;
         });
-    }, [isSharedRide, nearbyDrivers]);
+    }, [drivers, isSharedRide]);
     const estimatedRideFare = useMemo(() => calculateRideFare(routeInfo.distance, routeInfo.duration, isSharedRide ? "pool" : "taxi"), [isSharedRide, routeInfo.distance, routeInfo.duration]);
     const estimatedPoolDriverPayout = useMemo(() => Math.ceil(calculateRideFare(routeInfo.distance, routeInfo.duration, "pool") * 0.8), [routeInfo.distance, routeInfo.duration]);
     // Settings states
@@ -460,13 +512,26 @@ export default function UserDashboard() {
     const handleInputChange = (id: string, query: string) => {
         setStops((prev: Stop[]) => prev.map((s: Stop) => s.id === id ? { ...s, query, showSuggestions: query.length >= 3 } : s));
         setIsRouteSearched(false);
+        setSearchStarted(false);
+        setLoadingDrivers(false);
         if (debounceTimer.current)
             clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => fetchSuggestions(id, query), 300);
     };
     const selectSuggestion = (stopId: string, sug: any) => {
-        setStops(prev => prev.map(s => s.id === stopId ? { ...s, query: `${sug.name}${sug.city ? ', ' + sug.city : ''}`, coords: sug.coords, showSuggestions: false } : s));
-        setIsRouteSearched(false);
+        setStops((prev) => prev.map((s) => ({
+            ...s,
+            ...(s.id === stopId
+                ? { query: `${sug.name}${sug.city ? ', ' + sug.city : ''}`, coords: sug.coords }
+                : {}),
+            showSuggestions: false,
+        })));
+        setIsSearchOpen(false);
+        setSearchStarted(true);
+        setLoadingDrivers(true);
+        setDrivers([]);
+        setIsRouteSearched(true);
+        socket.emit("get-active-drivers");
         toast.success("Location selected");
     };
     const removeStop = (id: string) => {
@@ -474,6 +539,8 @@ export default function UserDashboard() {
             return;
         setStops(stops.filter(s => s.id !== id));
         setIsRouteSearched(false);
+        setSearchStarted(false);
+        setLoadingDrivers(false);
     };
     const fetchDriverSuggestions = async (query: string) => {
         if (query.length < 3) {
@@ -514,6 +581,18 @@ export default function UserDashboard() {
         setDriverDest((prev: Stop) => ({ ...prev, query: `${sug.name}${sug.city ? ', ' + sug.city : ''}`, coords: sug.coords, showSuggestions: false }));
         toast.success("Destination selected");
     };
+    useEffect(() => {
+        if (!isSearchOpen) return;
+        const handleOutsideClick = (event: MouseEvent) => {
+            const target = event.target as Node;
+            if (searchPanelRef.current && !searchPanelRef.current.contains(target)) {
+                setIsSearchOpen(false);
+                setStops((prev) => prev.map((s) => ({ ...s, showSuggestions: false })));
+            }
+        };
+        document.addEventListener("mousedown", handleOutsideClick);
+        return () => document.removeEventListener("mousedown", handleOutsideClick);
+    }, [isSearchOpen]);
     const handleLocate = useCallback(() => {
         console.log(" Location request initiated...");
         if (!("geolocation" in navigator)) {
@@ -595,7 +674,7 @@ export default function UserDashboard() {
                                         <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />                                    <span className="text-[10px] font-black text-slate-500 tracking-wider">
                                             4.9 RATIO</span>                                </div>                            </div>)}                    </div>                    <button onClick={handleLogout} className={`w-full flex items-center gap-3 rounded-[20px] bg-white/5 text-slate-400 hover:bg-rose-500 hover:text-white transition-all font-black text-[11px] uppercase tracking-widest shadow-lg group/logout ${isSidebarExpanded ? "px-4 py-4 justify-center" : "h-[64px] justify-center"}`}>                        <LogOut className={`w-4 h-4 transition-transform group-hover/logout:-translate-x-1`} />                        {isSidebarExpanded && <span>Logout</span>}                    </button>                </div>            </aside>            {/* --- Main Content Area --- */}            <main className="flex-1 relative flex flex-col overflow-hidden">
             {/* Shared Dashboard Overlays (Only show on Dashboard Tab) */}                {activeTab === "dashboard" && (<>                        {/* Role Switcher Toggle - Top Right */}                        <div className={`absolute top-8 right-8 z-50 flex items-center gap-4`}>                            <div className="flex p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden">
-                <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>                                    Passenger                                </button>                                <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>                                    Share My Ride                                </button>                            </div>                            <div className="flex gap-2">
+                <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>                                    Passenger                                </button>                                <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>                                    Share My Ride                                </button>                            </div>                            <div className="flex gap-2">
                     {isDriverMode && (<div className="bg-[#FEF3C7]/90 backdrop-blur-md px-4 py-2.5 rounded-2xl flex items-center gap-2 shadow-xl border border-white/50">
                         <Wallet className="text-[#0A192F] w-5 h-5" />
                         <div className="flex items-center gap-1 text-[#0A192F] font-black tracking-tight">
@@ -623,25 +702,66 @@ export default function UserDashboard() {
                                     ][]} onLocate={handleLocate} onRouteInfo={(dist, dur) => {
                                         setRouteInfo({ distance: dist, duration: dur });
                                     }} nearbyDrivers={activeRide ? [activeRide.driverInfo] : visibleNearbyDrivers} />                                {/* Journey Planner Overlay - Google Maps Inspired "Hub" */}                                <div className="absolute top-8 left-8 z-30 w-[420px] max-h-[calc(100vh-64px)] pointer-events-auto transition-all duration-500 flex flex-col">
-                                            <div className="bg-white rounded-[16px] shadow-[0_4px_25px_rgba(0,0,0,0.18)] border border-slate-200 overflow-hidden flex flex-col">
+                                            <div ref={searchPanelRef} className="bg-white rounded-[16px] shadow-[0_4px_25px_rgba(0,0,0,0.18)] border border-slate-200 overflow-hidden flex flex-col">
                                                 <div className="flex items-center px-4 h-14 gap-3 shrink-0 bg-white">
-                                                    {/* Search Hub */}                                            <div className="w-2.5 h-2.5 rounded-full border-2 border-rose-500 shrink-0" />                                            <input className="flex-1 bg-transparent border-none outline-none ring-0 focus:ring-0 focus:outline-none text-[15px] font-bold text-[#0A192F] placeholder:text-slate-400 min-w-0" style={{ outline: 'none', boxShadow: 'none' }} placeholder="Where to?" value={stops[stops.length - 1]?.query} onChange={(e) => { handleInputChange(stops[stops.length - 1].id, e.target.value); if (!e.target.value) setIsRouteSearched(false); }} onFocus={() => {
+                                                    {/* Search Hub */}
+                                                    {stops.some(s => s.query || s.coords) || isRouteSearched ? (
+                                                        <button 
+                                                            onClick={() => {
+                                                                setStops([{ id: '1', query: '', coords: null, suggestions: [], showSuggestions: false }]);
+                                                                setIsRouteSearched(false);
+                                                                setIsSearchOpen(false);
+                                                                setSearchStarted(false);
+                                                                setLoadingDrivers(false);
+                                                                setDrivers([]);
+                                                                setRouteInfo({ distance: 0, duration: 0 });
+                                                            }}
+                                                            className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-[#0A192F] hover:bg-slate-50 rounded-full transition-all shrink-0"
+                                                            title="Clear & Close"
+                                                        >
+                                                            <ArrowLeft className="w-5 h-5" />
+                                                        </button>
+                                                    ) : (
+                                                        <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                                                            <div className="w-2.5 h-2.5 rounded-full border-2 border-rose-500" />
+                                                        </div>
+                                                    )}
+                                                    <input className="flex-1 bg-transparent border-none outline-none ring-0 focus:ring-0 focus:outline-none text-[15px] font-bold text-[#0A192F] placeholder:text-slate-400 min-w-0" style={{ outline: 'none', boxShadow: 'none' }} placeholder="Where to?" value={stops[stops.length - 1]?.query} onChange={(e) => { handleInputChange(stops[stops.length - 1].id, e.target.value); if (!e.target.value) setIsRouteSearched(false); }} onFocus={() => {
+                                                        setIsSearchOpen(true);
                                                         const stop = stops[stops.length - 1];
                                                         if (stop.query.length >= 3) {
                                                             setStops(prev => prev.map(s => s.id === stop.id ? { ...s, showSuggestions: true } : { ...s, showSuggestions: false }));
                                                         }
                                                     }} />                                            {/* Action Icons */}                                            <div className="flex items-center gap-1.5 pr-1 border-l border-slate-100 h-8 ml-2 pl-3">
-                                                        <button onClick={() => { handleLocate(); setIsRouteSearched(false); }} className="p-2 text-slate-400 hover:text-[#00838F] transition-colors rounded-full hover:bg-slate-50" title="Use current location">                                                    <Compass className="w-5 h-5" />                                                </button>                                                <button className="w-10 h-10 bg-[#00838F] rounded-xl flex items-center justify-center text-white hover:bg-[#006064] transition-all shadow-md active:scale-95 group" onClick={() => {
+                                                        {(stops.some(s => s.query || s.coords) || isRouteSearched) && (
+                                                            <button onClick={() => {
+                                                                setStops([{ id: '1', query: '', coords: null, suggestions: [], showSuggestions: false }]);
+                                                                setIsRouteSearched(false);
+                                                                setIsSearchOpen(false);
+                                                                setSearchStarted(false);
+                                                                setLoadingDrivers(false);
+                                                                setDrivers([]);
+                                                                setRouteInfo({ distance: 0, duration: 0 });
+                                                                toast.success("Search cleared");
+                                                            }} className="p-2 text-rose-500 hover:text-rose-600 transition-colors rounded-full hover:bg-rose-50 font-bold" title="Clear all">
+                                                                <X className="w-5 h-5 stroke-[3]" />
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => { handleLocate(); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className="p-2 text-slate-400 hover:text-[#00838F] transition-colors rounded-full hover:bg-slate-50" title="Use current location">                                                    <Compass className="w-5 h-5" />                                                </button>                                                <button className="w-10 h-10 bg-[#00838F] rounded-xl flex items-center justify-center text-white hover:bg-[#006064] transition-all shadow-md active:scale-95 group" onClick={() => {
                                                             const validStops = stops.filter(s => s.coords);
                                                             if (validStops.length > 0) {
                                                                 toast.success("Calculating best route...");
                                                                 setIsRouteSearched(true);
+                                                                setSearchStarted(true);
+                                                                setLoadingDrivers(true);
+                                                                setDrivers([]);
+                                                                socket.emit("get-active-drivers");
                                                             }
                                                             else {
                                                                 toast.error("Enter a destination first");
                                                             }
                                                         }}>                                                    <Navigation className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />                                                </button>                                            </div>                                        </div>                                        {/* Scrollable Content Container */}                                        <div className="overflow-y-auto custom-scrollbar flex-1 bg-white">
-                                                    {/* Suggestions List */}                                            {stops[stops.length - 1]?.showSuggestions && (<div className="border-t border-slate-100 bg-white max-h-[350px] overflow-y-auto">
+                                                    {/* Suggestions List */}                                            {isSearchOpen && stops[stops.length - 1]?.showSuggestions && (<div className="border-t border-slate-100 bg-white max-h-[350px] overflow-y-auto">
                                                         {stops[stops.length - 1].suggestions.length > 0 ? (stops[stops.length - 1].suggestions.map((sug, idx) => (<button key={`suggestion-${sug.coords?.join('-') || idx}`} onClick={() => selectSuggestion(stops[stops.length - 1].id, sug)} className="w-full px-5 py-4 text-left flex items-start gap-4 hover:bg-slate-50 transition-colors group/item">                                                                <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover/item:bg-[#00838F]/10 group-hover/item:text-[#00838F] transition-all">
                                                             <MapPin className="w-5 h-5" />                                                                </div>                                                                <div className="min-w-0 flex-1 pt-0.5">
                                                                 <p className="text-[14px] font-black text-[#0A192F] truncate">
@@ -661,14 +781,107 @@ export default function UserDashboard() {
                                                                                                 MINS</span></span>                                                            </div>                                                            <div className="flex-1 flex flex-col items-center">
                                                                                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
                                                                                             Fare</span>                                                                <span className="text-sm font-black text-[#B8860B]">
-                                                                                            {formatCurrency(estimatedRideFare)}</span>                                                            </div>                                                        </div>)}                                                    {routeInfo.distance > 0 && !activeRide && (<div className="mb-6 space-y-3"><button onClick={handleRequestRide} disabled={isRequestingRide} className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-[#FFD700]/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50">                                                            {isRequestingRide ? `Searching Drivers • ${formatCurrency(estimatedRideFare)}` : `Request Ride • ${formatCurrency(estimatedRideFare)}`}                                                        </button>{isRequestingRide && (<button onClick={handleCancelRide} className="w-full py-3.5 bg-white text-[#0A192F] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-slate-200 hover:border-rose-200 hover:text-rose-500 transition-all">                                                            Cancel Request                                                        </button>)}</div>)}                                                    {activeRide && (<div className="mb-6 p-5 bg-[#0A192F] text-white rounded-[28px] border border-[#FFD700]/30 animate-in slide-in-from-top-4 duration-500 shadow-2xl relative overflow-hidden group">
+                                                                                            {formatCurrency(estimatedRideFare)}</span>                                                            </div>                                                        </div>)}                                                    {false && routeInfo.distance > 0 && !activeRide && (
+                                                        <div className="mb-6 space-y-3">
+                                                            {!isRequestingRide ? (
+                                                                <button 
+                                                                    onClick={handleRequestRide} 
+                                                                    className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-[#FFD700]/10 hover:scale-[1.02] active:scale-95 transition-all"
+                                                                >
+                                                                    Request Ride • {formatCurrency(estimatedRideFare)}
+                                                                </button>
+                                                            ) : (
+                                                                <div className="p-6 bg-[#0A192F] text-white rounded-[28px] border-2 border-[#FFD700]/30 shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+                                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700]/5 rounded-full -mr-16 -mt-16 blur-3xl animate-pulse"></div>
+                                                                    
+                                                                    <div className="flex items-center justify-between mb-4 relative z-10">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-ping"></div>
+                                                                            <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.2em]">Searching for Driver</span>
+                                                                        </div>
+                                                                        <Loader2 className="w-4 h-4 text-[#FFD700] animate-spin" />
+                                                                    </div>
+                                                                    
+                                                                    <div className="space-y-4 relative z-10">
+                                                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                                                            <p className="text-[11px] font-bold text-slate-300 mb-1 uppercase tracking-tight">Status</p>
+                                                                            <p className="text-sm font-black text-white italic">Finding the best match near you...</p>
+                                                                        </div>
+                                                                        
+                                                                        <button 
+                                                                            onClick={handleCancelRide} 
+                                                                            className="w-full py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-[0.2em] border border-rose-500/20 transition-all"
+                                                                        >
+                                                                            Cancel Request
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {(searchStarted || activeRide || loadingDrivers) && (<div className="mb-6 p-5 bg-white rounded-[24px] border border-slate-100 shadow-sm transition-all duration-500">
+                                                        {loadingDrivers && !activeRide ? (<div className="py-6 text-center">
+                                                            <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400 mb-3" />
+                                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Waiting for driver...</p>
+                                                        </div>) : activeRide?.status === "ACCEPTED" ? (<div className="space-y-4">
+                                                            <div className="flex items-center justify-between">
+                                                                <p className="text-[11px] font-black text-[#0A192F] uppercase tracking-wider">Driver Accepted</p>
+                                                                <p className="text-[10px] font-black text-[#00838F] uppercase tracking-wider">ETA {activeRide?.eta || "-"}</p>
+                                                            </div>
+                                                            <p className="text-sm font-bold text-slate-600">{activeRide?.driverInfo?.name || "Driver assigned"}</p>
+                                                            <div>
+                                                                <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                                    <span>Pickup</span>
+                                                                    <span>Destination</span>
+                                                                </div>
+                                                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-[#FFD700] transition-all duration-500 w-1/4" />
+                                                                </div>
+                                                            </div>
+                                                        </div>) : activeRide?.status === "ARRIVED" ? (<div className="space-y-4">
+                                                            <p className="text-[11px] font-black text-[#0A192F] uppercase tracking-wider">Driver has arrived at pickup location</p>
+                                                            <div>
+                                                                <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                                    <span>Pickup</span>
+                                                                    <span>Destination</span>
+                                                                </div>
+                                                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-[#FFD700] transition-all duration-500 w-1/2" />
+                                                                </div>
+                                                            </div>
+                                                        </div>) : activeRide?.status === "STARTED" ? (<div className="space-y-4">
+                                                            <p className="text-[11px] font-black text-[#0A192F] uppercase tracking-wider">Trip Started</p>
+                                                            <div>
+                                                                <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                                                                    <span>Pickup</span>
+                                                                    <span>Destination</span>
+                                                                </div>
+                                                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-emerald-500 transition-all duration-500 w-3/4" />
+                                                                </div>
+                                                            </div>
+                                                        </div>) : activeRide?.status === "COMPLETED" ? (<div className="py-6 text-center">
+                                                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wider">Trip Completed</p>
+                                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-3 max-w-[220px] mx-auto">
+                                                                <div className="h-full bg-emerald-500 transition-all duration-500 w-full" />
+                                                            </div>
+                                                        </div>) : !activeRide && searchStarted && visibleNearbyDrivers.length > 0 ? (<div className="py-6 text-center">
+                                                            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse mx-auto mb-3" />
+                                                            <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wider">{visibleNearbyDrivers.length} Drivers Available</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-2">Choose a driver from the list</p>
+                                                        </div>) : !activeRide && searchStarted ? (<div className="py-6 text-center">
+                                                            <XCircle className="w-6 h-6 mx-auto text-slate-300 mb-3" />
+                                                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">No drivers available</p>
+                                                        </div>) : null}
+                                                    </div>)}
+                                                    {false && activeRide && (<div className="mb-6 p-5 bg-[#0A192F] text-white rounded-[28px] border border-[#FFD700]/30 animate-in slide-in-from-top-4 duration-500 shadow-2xl relative overflow-hidden group">
                                                                                                 {/* Background Decor */}                                                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700]/5 rounded-full -mr-16 -mt-16 blur-3xl">
                                                                                                 </div>                                                                                                                        <div className="flex items-center justify-between mb-5 relative z-10">
                                                                                                     <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-widest px-2.5 py-1 bg-[#FFD700]/10 rounded-full border border-[#FFD700]/20">
-                                                                                                        {activeRide.status === "ACCEPTED" ? "Driver Dispatched" : activeRide.status === "ARRIVED" ? "Driver has Arrived" : activeRide.status === "STARTED" ? "Trip in Progress" : "Processing"}                                                                </span>                                                                <div className="flex items-center gap-1.5">
-                                                                                                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse">
+                                                                                                        {activeRide.status === "ACCEPTED" ? "Driver is Coming" : activeRide.status === "ARRIVED" ? "Driver Arrived at Pickup" : activeRide.status === "STARTED" ? "Trip Started • Navigating" : "Processing"}                                                                </span>                                                                <div className="flex items-center gap-1.5">
+                                                                                                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse bg-emerald-500`}>
                                                                                                         </div>                                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
-                                                                                                            Live Tracker</span>                                                                </div>                                                            </div>                                                            <div className="flex items-center gap-4 mb-6 relative z-10">
+                                                                                                            {activeRide.status === "ACCEPTED" ? "Action: Accepted" : activeRide.status === "ARRIVED" ? "Action: Arrived" : "Action: On Trip"}</span>                                                                </div>                                                            </div>                                                            <div className="flex items-center gap-4 mb-6 relative z-10">
                                                                                                     <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/5 overflow-hidden">
                                                                                                         {activeRide.driverInfo?.photo ? (<Image src={activeRide.driverInfo.photo} alt="Driver" width={48} height={48} className="object-cover" unoptimized />) : (<UserProfile className="w-6 h-6 text-[#FFD700]" />)}                                                                </div>                                                                <div className="flex-1 min-w-0">
                                                                                                         <p className="font-black text-white text-sm uppercase truncate mb-0.5">
@@ -676,7 +889,7 @@ export default function UserDashboard() {
                                                                                                             <div className="flex items-center gap-1">
                                                                                                                 <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />                                                                            <span className="text-[10px] font-black text-[#FFD700]">
                                                                                                                     {activeRide.driverInfo?.rating || '4.8'}</span>                                                                        </div>                                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-                                                                                                                {activeRide.status === "ACCEPTED" ? `ETA: ${Math.ceil(routeInfo.duration)} mins` : activeRide.status === "ARRIVED" ? "Ready to depart" : "Navigating..."}                                                                        </p>                                                                    </div>                                                                </div>                                                            </div>                                                            {/* Mini Progress Bar */}                                                            <div className="space-y-2 relative z-10 px-1">
+                                                                                                                {activeRide.status === "ACCEPTED" ? `On the way • ETA: ${activeRide.eta || Math.ceil(routeInfo.duration)} mins` : activeRide.status === "ARRIVED" ? "At your location" : "Heading to destination"}                                                                        </p>                                                                    </div>                                                                </div>                                                            </div>                                                            {/* Mini Progress Bar */}                                                            <div className="space-y-2 relative z-10 px-1">
                                                                                                     <div className="flex justify-between text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">
                                                                                                         <span>Pickup</span>                                                                    <span>Destination</span>                                                                </div>                                                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 flex gap-0.5">
                                                                                                         <div className={`h-full transition-all duration-1000 ${activeRide.status === "ACCEPTED" ? "w-1/3 bg-[#FFD700]" : activeRide.status === "ARRIVED" ? "w-1/2 bg-[#FFD700]" : "w-1/2 bg-emerald-500"}`}></div>                                                                    <div className={`h-full transition-all duration-1000 ${activeRide.status === "STARTED" ? "w-1/2 bg-emerald-500" : "w-1/2 bg-white/5"}`}></div>                                                                </div>                                                            </div>{(activeRide.status === "ACCEPTED" || activeRide.status === "ARRIVED") && (<button onClick={handleCancelRide} className="w-full mt-5 py-3.5 bg-white text-[#0A192F] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white/20 hover:text-rose-500 hover:border-rose-300 transition-all relative z-10">                                                                Cancel Ride                                                            </button>)}                                                        </div>)}                                                    <div className="flex items-center justify-between mb-4 mt-2">
@@ -711,6 +924,7 @@ export default function UserDashboard() {
                                                                                                 </div>
                                                                                                 <div className="flex-1 relative">
                                                                                                     <Input className="!h-11 !rounded-xl !bg-white !border-slate-100 !text-xs !font-bold pr-10 focus:!border-[#00838F]/30 focus:!ring-0 !outline-none" placeholder={i === stops.length - 1 ? "Where to?" : `Stop ${i + 1}`} value={stop.query} onChange={(e) => handleInputChange(stop.id, e.target.value)} onFocus={() => {
+                                                                                                        setIsSearchOpen(true);
                                                                                                         if (stop.query.length >= 3)
                                                                                                             setStops(prev => prev.map(s => s.id === stop.id ? { ...s, showSuggestions: true } : { ...s, showSuggestions: false }));
                                                                                                     }} />
@@ -722,7 +936,7 @@ export default function UserDashboard() {
                                                                                                 </div>
                                                                                             </div>
                                                                                             {/* Suggestions list for individual input */}
-                                                                                            {stop.showSuggestions && stop.suggestions.length > 0 && (
+                                                                                            {isSearchOpen && stop.showSuggestions && stop.suggestions.length > 0 && (
                                                                                                 <div className="absolute left-12 right-0 top-12 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden py-1">
                                                                                                     {stop.suggestions.map((sug, idx) => (
                                                                                                         <button key={`stop-sug-${stop.id}-${sug.coords?.join('-') || idx}`} onClick={() => selectSuggestion(stop.id, sug)} className="w-full px-4 py-3 text-left flex items-start gap-3 hover:bg-slate-50 transition-colors group/item">
@@ -767,8 +981,8 @@ export default function UserDashboard() {
                                         </div>
 
 
-                                        {/* Drivers Sidebar - Visible only after search and if drivers are online */}
-                                        {!activeRide && isRouteSearched && stops[stops.length - 1].coords && routeInfo.distance > 0 && visibleNearbyDrivers.length > 0 && (
+                                        {/* Drivers Sidebar - Visible only after search starts */}
+                                        {!activeRide && searchStarted && stops[stops.length - 1].coords && (
                                             <div className="absolute right-8 bottom-8 w-[360px] max-h-[calc(100vh-160px)] pointer-events-auto transition-all duration-500 hover:scale-[1.01] z-40">
                                                 <div className="bg-white/95 backdrop-blur-2xl border border-white/50 rounded-[40px] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] px-6 py-6 h-fit flex flex-col overflow-hidden border-b-4 border-b-[#FFD700]/10">
                                                     <div className="flex items-start justify-between gap-4 mb-6">
@@ -778,15 +992,30 @@ export default function UserDashboard() {
                                                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                                                                 {isSharedRide ? "Pool vehicles near you" : "Taxi coverage map"}</p>
                                                         </div>
-                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-2xl border border-emerald-100/50 shrink-0">
-                                                            <div className={`w-2 h-2 rounded-full ${visibleNearbyDrivers.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
-                                                            <span className="text-emerald-600 text-[9px] font-black uppercase tracking-tighter">
-                                                                {visibleNearbyDrivers.length} Online</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-2xl border border-emerald-100/50 shrink-0">
+                                                                <div className={`w-2 h-2 rounded-full ${visibleNearbyDrivers.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></div>
+                                                                <span className="text-emerald-600 text-[9px] font-black uppercase tracking-tighter">
+                                                                    {visibleNearbyDrivers.length} Online</span>
+                                                            </div>
+                                                            <button onClick={() => { setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all" title="Close">
+                                                                <X className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </div>
 
                                                     <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar min-h-0">
-                                                        {visibleNearbyDrivers.map((driver, idx) => (
+                                                        {loadingDrivers ? (
+                                                            <div className="py-10 text-center">
+                                                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400 mb-3" />
+                                                                <p className="text-xs font-black text-slate-500 uppercase tracking-wider">Searching for drivers...</p>
+                                                            </div>
+                                                        ) : visibleNearbyDrivers.length === 0 ? (
+                                                            <div className="py-10 text-center">
+                                                                <XCircle className="w-6 h-6 mx-auto text-slate-300 mb-3" />
+                                                                <p className="text-xs font-black text-slate-500 uppercase tracking-wider">No drivers available</p>
+                                                            </div>
+                                                        ) : visibleNearbyDrivers.map((driver, idx) => (
                                                             <div key={driver.driverId || `driver-${idx}`} className="px-5 py-4 rounded-[28px] border-2 transition-all cursor-pointer relative group bg-white border-slate-50 hover:border-[#FFD700]/30 shadow-sm hover:shadow-xl hover:-translate-y-1">
                                                                 <div className="absolute top-4 right-4 bg-[#FFD700] text-[#0A192F] px-3 py-1 rounded-full text-[8px] font-black uppercase shadow-lg z-10 border-2 border-white">
                                                                     Online</div>
@@ -882,7 +1111,7 @@ export default function UserDashboard() {
                                                                                 toast.error("Please select a destination first");
                                                                             }
                                                                         }} className="w-full py-4 bg-[#FACC15] hover:bg-[#FACC15]/90 text-[#0f1729] font-bold rounded-xl shadow-lg shadow-[#FACC15]/20 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98]">
-                                                                Activate Trip                                                    <Zap className="w-5 h-5" />                                                </button>                                            </div>                                        </div>                                        {/* Seat Status Panel */}                                        <div className="bg-[#0f1729] rounded-xl p-6 text-white shadow-xl">
+                                                                Activate Trip                                                    <Zap className="w-5 h-5" />                                                </button>                                            </div>                                        </div>                                        {/* Seat Status Panel */}                                        <div className="bg-gradient-to-br from-[#0F172A] via-[#0F3A4A] to-[#115E59] rounded-xl p-6 text-white shadow-xl border border-white/10">
                                                         <div className="flex items-center justify-between mb-6">
                                                             <h3 className="font-bold text-lg">
                                                                 Seat Status</h3>                                                <div className="px-3 py-1 bg-[#FACC15] rounded-full text-[#0f1729] text-xs font-bold">
@@ -919,7 +1148,7 @@ export default function UserDashboard() {
                                                                         {Array.from({ length: Math.min(3, bookedCount) }).map((_, i) => (<div key={`rider-${i}`} className="w-8 h-8 rounded-full border-2 border-white bg-[#FEF3C7] flex items-center justify-center shrink-0">
                                                                             <UserProfile className="w-4 h-4 text-[#B8860B]" />                                                                </div>))}                                                            {bookedCount > 3 && (<div className="w-8 h-8 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
                                                                                 +{bookedCount - 3}</div>)}                                                            {bookedCount === 0 && (<div className="w-8 h-8 rounded-full border-2 border-white bg-slate-50 flex items-center justify-center shrink-0">
-                                                                                    <Users className="w-4 h-4 text-slate-300" />                                                                </div>)}                                                        </div>                                                        <button className="bg-[#0f1729] text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors whitespace-nowrap hidden sm:block">
+                                                                                    <Users className="w-4 h-4 text-slate-300" />                                                                </div>)}                                                        </div>                                                        <button className="bg-white/15 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-white/25 transition-colors whitespace-nowrap hidden sm:block border border-white/20">
                                                                         View Requests</button>                                                    </div>                                                </div>                                            </div>)}                                        </div>                                        {/* Bottom Grid Stats */}                                        <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0 transition-all duration-500 ${isDriverTripActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"}`}>
                                                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
                                                             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shrink-0">

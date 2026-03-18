@@ -59,6 +59,31 @@ export default function DriverDashboard() {
         }
     }, [user, router]);
 
+    useEffect(() => {
+        try {
+            const savedOnline = localStorage.getItem("driverOnlineStatus");
+            if (savedOnline === "true") {
+                setIsOnline(true);
+            }
+
+            const savedLocation = localStorage.getItem("driverLastLocation");
+            if (savedLocation) {
+                const parsed = JSON.parse(savedLocation);
+                if (Array.isArray(parsed) && parsed.length === 2) {
+                    setUserLoc([Number(parsed[0]), Number(parsed[1])]);
+                }
+            }
+        } catch {
+            // Ignore localStorage parse errors and continue with defaults
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("driverOnlineStatus", String(isOnline));
+        }
+    }, [isOnline]);
+
     // WebSocket Integration
     useEffect(() => {
         if (isOnline && user) {
@@ -110,7 +135,7 @@ export default function DriverDashboard() {
                 disconnectSocket();
             };
         }
-    }, [isOnline, user]);
+    }, [isOnline, user, userLoc]);
 
     // Continuous location updates when online
     useEffect(() => {
@@ -142,6 +167,7 @@ export default function DriverDashboard() {
             try {
                 const { latitude, longitude } = position.coords;
                 setUserLoc([latitude, longitude]);
+                localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
                 const { data } = await api.get(`/map/reverse-geocode`, {
                     params: { lat: latitude, lon: longitude }
                 });
@@ -160,9 +186,45 @@ export default function DriverDashboard() {
         });
     };
 
+    useEffect(() => {
+        if (isOnline && !userLoc) {
+            handleLocateLive();
+        }
+    }, [isOnline, userLoc]);
+
     const handleLogout = () => {
         clearAuth();
         router.push("/login");
+    };
+
+    const handleGoOnline = () => {
+        setIsOnline(true);
+    };
+
+    const handleGoOffline = () => {
+        if (!user) {
+            setIsOnline(false);
+            return;
+        }
+
+        if (!socket.connected) {
+            setIsOnline(false);
+            return;
+        }
+
+        let finalized = false;
+        const finalizeOffline = () => {
+            if (finalized) return;
+            finalized = true;
+            setIsOnline(false);
+        };
+
+        socket.emit("driver-offline", { driverId: user.id }, () => {
+            finalizeOffline();
+        });
+
+        // Fallback in case ack is not received due transient network issues.
+        setTimeout(finalizeOffline, 800);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -353,13 +415,13 @@ export default function DriverDashboard() {
 
                                 <div className="flex items-center bg-[#0A192F]/90 backdrop-blur-2xl border border-white/10 rounded-full p-1.5 shadow-2xl scale-95">
                                     <button
-                                        onClick={() => setIsOnline(true)}
+                                        onClick={handleGoOnline}
                                         className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-[#FFD700] text-[#0A192F] shadow-lg shadow-[#FFD700]/20' : 'text-slate-500 hover:text-white'}`}
                                     >
                                         Online
                                     </button>
                                     <button
-                                        onClick={() => setIsOnline(false)}
+                                        onClick={handleGoOffline}
                                         className={`px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${!isOnline ? 'bg-white/5 text-white' : 'text-slate-500 hover:text-white'}`}
                                     >
                                         Offline

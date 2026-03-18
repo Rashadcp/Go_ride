@@ -142,9 +142,9 @@ export default function MapComponent({
                     waypoints = [(passengerLoc || userLoc)!, stops[stops.length - 1]];
                 }
             } else {
-                // Standard mode: Route from User to first stop/destination
+                // Standard mode: Route from user through all added stops in order
                 if (userLoc && stops.length > 0) {
-                    waypoints = [userLoc, stops[stops.length - 1]];
+                    waypoints = [userLoc, ...stops];
                 }
             }
 
