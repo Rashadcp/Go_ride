@@ -86,55 +86,86 @@ export default function DriverDashboard() {
 
     // WebSocket Integration
     useEffect(() => {
-        if (isOnline && user) {
-            connectSocket();
-
-            // Only emit driver-online if we have a valid location
-            if (userLoc) {
-                socket.emit("driver-online", {
-                    driverId: user.id,
-                    location: { lat: userLoc[0], lng: userLoc[1] },
-                    name: user.name,
-                    photo: user.profilePhoto, // Use profilePhoto from authStore
-                    rating: 4.8 // Fallback rating
-                });
+        if (!(isOnline && user && userLoc)) {
+            if (isOnline && !userLoc) {
+                // fetch location before going online
+                handleLocateLive();
             }
-
-            socket.on("new-ride-request", (request: any) => {
-                setIncomingRequests(prev => {
-                    // Avoid duplicates
-                    if (prev.find(r => r.rideId === request.rideId)) return prev;
-                    return [request, ...prev];
-                });
-                toast.success("New Ride Request Nearby!", { icon: "🚗" });
-            });
-
-            socket.on("ride-cancelled", (data: any) => {
-                setIncomingRequests(prev => prev.filter(r => r.rideId !== data.rideId));
-                setActiveTrip((prev: any) => {
-                    if (prev?.rideId === data.rideId) {
-                        toast.error("Passenger cancelled the ride.");
-                        return null;
-                    }
-                    return prev;
-                });
-            });
-
-            socket.on("ride-status-update", (data: any) => {
-                setActiveTrip((prev: any) => {
-                    if (!prev || prev.rideId !== data.rideId) return prev;
-                    if (data.status === "COMPLETED" || data.status === "CANCELLED") return null;
-                    return { ...prev, status: data.status };
-                });
-            });
-
-            return () => {
-                socket.off("new-ride-request");
-                socket.off("ride-cancelled");
-                socket.off("ride-status-update");
-                disconnectSocket();
-            };
+            return;
         }
+
+        connectSocket();
+
+        // Join rooms so broadcasted requests reach this driver
+        socket.emit("join-driver", { driverId: user.id });
+        socket.emit("join-drivers"); // generic drivers room (backend-friendly fallback)
+
+        // Emit online status with a valid location
+        socket.emit("driver-online", {
+            driverId: user.id,
+            location: { lat: userLoc[0], lng: userLoc[1] },
+            name: user.name,
+            photo: user.profilePhoto,
+            rating: 4.8
+        });
+
+        const handleIncoming = (request: any) => {
+            console.debug("Received ride request for driver:", request);
+            setIncomingRequests(prev => {
+                const id = request?.rideId || request?.id || request?._id;
+                if (id && prev.find(r => (r.rideId || r.id || r._id) === id)) return prev;
+                return [request, ...prev];
+            });
+            toast.success("New Ride Request Nearby!", { icon: "🚗" });
+        };
+
+        const handleCancelled = (data: any) => {
+            const id = data?.rideId || data?.id;
+            setIncomingRequests(prev => prev.filter(r => (r.rideId || r.id) !== id));
+            setActiveTrip((prev: any) => {
+                if (id && prev?.rideId === id) {
+                    toast.error("Passenger cancelled the ride.");
+                    return null;
+                }
+                return prev;
+            });
+        };
+
+        const handleStatusUpdate = (data: any) => {
+            setActiveTrip((prev: any) => {
+                if (!prev || prev.rideId !== data.rideId) return prev;
+                if (data.status === "COMPLETED" || data.status === "CANCELLED") return null;
+                return { ...prev, status: data.status };
+            });
+        };
+
+        const handleConnectError = (err: Error) => {
+            console.warn("Socket connect error:", err.message);
+            toast.error("Driver socket disconnected. Is the backend socket server running?");
+        };
+
+        // Debug: log all incoming events
+        const handleAny = (event: string, ...args: any[]) => {
+            console.debug("[driver socket]", event, args);
+        };
+
+        // Support both possible event names from backend
+        socket.on("new-ride-request", handleIncoming);
+        socket.on("ride-request", handleIncoming);
+        socket.on("ride-cancelled", handleCancelled);
+        socket.on("ride-status-update", handleStatusUpdate);
+        socket.on("connect_error", handleConnectError);
+        socket.onAny(handleAny);
+
+        return () => {
+            socket.off("new-ride-request", handleIncoming);
+            socket.off("ride-request", handleIncoming);
+            socket.off("ride-cancelled", handleCancelled);
+            socket.off("ride-status-update", handleStatusUpdate);
+            socket.off("connect_error", handleConnectError);
+            socket.offAny(handleAny);
+            disconnectSocket();
+        };
     }, [isOnline, user, userLoc]);
 
     // Continuous location updates when online

@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import { register, login, getMe, updateProfile, forgotPassword, resetPassword, changePassword, completeDriverOnboarding, getTransactions, getDashboardStats, clearTransactions, refreshToken, logout } from "../controllers/auth.controller";
 import { upload } from "../middleware/upload.middleware";
 import { protect } from "../middleware/auth.middleware";
@@ -14,7 +15,7 @@ router.post(
     { name: "license", maxCount: 1 },
     { name: "rc", maxCount: 1 },
     { name: "aadhaar", maxCount: 1 },
-    { name: "vehiclePhoto", maxCount: 1 },
+    { name: "vehiclePhotos", maxCount: 5 },
   ]),
   register
 );
@@ -78,13 +79,24 @@ router.get(
 router.put(
   "/driver/onboarding",
   protect,
-  upload.fields([
-    { name: "profilePhoto", maxCount: 1 },
-    { name: "license", maxCount: 1 },
-    { name: "rc", maxCount: 1 },
-    { name: "aadhaar", maxCount: 1 },
-    { name: "vehiclePhoto", maxCount: 1 },
-  ]),
+  (req, res, next) => {
+    upload.fields([
+      { name: "profilePhoto", maxCount: 1 },
+      { name: "license", maxCount: 1 },
+      { name: "rc", maxCount: 1 },
+      { name: "aadhaar", maxCount: 1 },
+      { name: "vehiclePhotos", maxCount: 10 },
+    ])(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        console.error("Multer error in onboarding:", err);
+        return res.status(400).json({ message: `Upload error: ${err.message}`, field: (err as any).field });
+      } else if (err) {
+        console.error("Unknown upload error:", err);
+        return res.status(500).json({ message: "Unknown upload error", error: err.message });
+      }
+      next();
+    });
+  },
   completeDriverOnboarding
 );
 

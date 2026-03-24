@@ -17,7 +17,7 @@ export const getMyVehicle = async (req: any, res: Response) => {
 
 export const createVehicle = async (req: any, res: Response) => {
     try {
-        const { numberPlate, vehicleModel } = req.body;
+        const { numberPlate, vehicleModel, vehicleType } = req.body;
         const files = req.files as any;
 
         const existingVehicle = await Vehicle.findOne({ ownerId: req.user.id });
@@ -29,8 +29,9 @@ export const createVehicle = async (req: any, res: Response) => {
             ownerId: req.user.id,
             numberPlate,
             vehicleModel,
+            vehicleType,
             rc: files?.rc?.[0]?.location,
-            vehiclePhoto: files?.vehiclePhoto?.[0]?.location,
+            vehiclePhotos: (files?.vehiclePhotos || []).map((f: any) => f.location),
             status: "PENDING"
         });
 
@@ -55,18 +56,22 @@ export const createVehicle = async (req: any, res: Response) => {
 
 export const updateVehicle = async (req: any, res: Response) => {
     try {
-        const { numberPlate, vehicleModel } = req.body;
+        const { numberPlate, vehicleModel, vehicleType } = req.body;
         const files = req.files as any;
 
-        const vehicle = await Vehicle.findOne({ ownerId: req.user.id });
+        const vehicle = await (Vehicle as any).findOne({ ownerId: req.user.id });
         if (!vehicle) {
             return res.status(404).json({ message: "Vehicle not found." });
         }
 
         if (numberPlate) vehicle.numberPlate = numberPlate;
         if (vehicleModel) vehicle.vehicleModel = vehicleModel;
+        if (vehicleType) vehicle.vehicleType = vehicleType;
+
         if (files?.rc?.[0]) vehicle.rc = files.rc[0].location;
-        if (files?.vehiclePhoto?.[0]) vehicle.vehiclePhoto = files.vehiclePhoto[0].location;
+        if (files?.vehiclePhotos) {
+            vehicle.vehiclePhotos = files.vehiclePhotos.map((f: any) => f.location);
+        }
 
         // Reset status to PENDING on update to require re-approval
         vehicle.status = "PENDING";

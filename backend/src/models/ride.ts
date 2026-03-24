@@ -7,7 +7,13 @@ const rideSchema = new mongoose.Schema(
             required: true,
             unique: true,
         },
-        passengerId: {
+        type: {
+            type: String,
+            enum: ["TAXI", "CARPOOL"],
+            required: true,
+            uppercase: true,
+        },
+        createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true,
@@ -15,43 +21,57 @@ const rideSchema = new mongoose.Schema(
         driverId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: false, // Will be set when driver accepts
+            required: false,
         },
         status: {
             type: String,
-            enum: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED"],
-            default: "REQUESTED",
+            enum: ["SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED", "OPEN", "FULL"],
+            default: "SEARCHING",
+            uppercase: true,
         },
         pickup: {
             lat: { type: Number, required: true },
             lng: { type: Number, required: true },
             label: { type: String, default: "Pickup Location" },
         },
-        destination: {
+        drop: {
             lat: { type: Number, required: true },
             lng: { type: Number, required: true },
             label: { type: String, default: "Destination" },
         },
-        rideType: {
-            type: String,
-            enum: ["taxi", "shared"],
-            default: "taxi",
-        },
         requestedVehicleType: {
             type: String,
-            enum: ["bike", "auto", "car"],
+            enum: ["bike", "auto", "car", "go", "sedan", "xl"],
             default: "car",
         },
-        fare: {
+        passengers: [{
+            userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            name: String,
+            seats: Number,
+            joinedAt: { type: Date, default: Date.now }
+        }],
+        availableSeats: {
+            type: Number,
+            default: 1,
+        },
+        departureTime: {
+            type: Date,
+            default: null,
+        },
+        price: {
             type: Number,
             required: true,
         },
+        pricePerSeat: {
+            type: Number,
+            default: 0,
+        },
         distance: {
-            type: Number, // in km
+            type: Number,
             required: true,
         },
         duration: {
-            type: Number, // in minutes
+            type: Number,
             required: true,
         },
         candidateDrivers: [{
@@ -72,16 +92,23 @@ const rideSchema = new mongoose.Schema(
             lng: Number,
         },
         eta: {
-            type: Number, // ETA in minutes to pickup
+            type: Number,
         },
     },
     { timestamps: true }
 );
 
-// Index for efficient queries
-rideSchema.index({ passengerId: 1, status: 1 });
+// Proxies for legacy compatibility (if needed)
+rideSchema.virtual('passengerId').get(function() { return this.createdBy; });
+rideSchema.virtual('destination').get(function() { return this.drop; });
+rideSchema.virtual('rideType').get(function() { return this.type?.toLowerCase(); });
+rideSchema.set('toJSON', { virtuals: true });
+rideSchema.set('toObject', { virtuals: true });
+
+rideSchema.index({ createdBy: 1, status: 1 });
 rideSchema.index({ driverId: 1, status: 1 });
 rideSchema.index({ status: 1 });
 rideSchema.index({ rideId: 1 });
+rideSchema.index({ type: 1 });
 
-export default mongoose.model("Ride", rideSchema);
+export default mongoose.model("Ride", rideSchema);

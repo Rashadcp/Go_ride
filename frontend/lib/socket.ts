@@ -1,6 +1,8 @@
 import { io } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:5000";
+// Derive socket host from the API host; fall back to the running backend port (5001)
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001/api";
+const SOCKET_URL = apiUrl.replace(/\/api\/?$/, "");
 
 export const socket = io(SOCKET_URL, {
     autoConnect: false,

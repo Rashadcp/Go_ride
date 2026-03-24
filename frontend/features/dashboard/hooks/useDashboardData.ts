@@ -1,0 +1,97 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/axios';
+
+export const useDashboardData = () => {
+  const queryClient = useQueryClient();
+
+  // Queries
+  const { data: activeRide, isLoading: loadingActiveRide } = useQuery({
+    queryKey: ['activeRide'],
+    queryFn: async () => {
+      const { data } = await api.get('/rides/active');
+      return data;
+    },
+    // Don't retry since it throws 404 naturally when no active ride
+    retry: false, 
+  });
+
+  const { data: ridesHistory = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ['ridesHistory'],
+    queryFn: async () => {
+      const { data } = await api.get('/rides/history');
+      return data;
+    },
+  });
+
+  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: async () => {
+      const { data } = await api.get('/auth/transactions');
+      return data;
+    },
+  });
+
+  // Mutations
+  const updateProfileMutation = useMutation({
+    mutationFn: async (payload: { name: string }) => {
+      await api.put('/auth/me', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const updateProfilePhotoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('profilePhoto', file);
+      await api.put('/auth/me', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      await api.put('/auth/change-password', payload);
+    },
+  });
+
+  const topUpMutation = useMutation({
+    mutationFn: async ({ currentBalance, amount }: { currentBalance: number; amount: number }) => {
+      await api.put('/auth/me', { walletBalance: currentBalance + amount });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+
+  const updateAddressesMutation = useMutation({
+    mutationFn: async (addresses: any[]) => {
+      await api.put('/auth/me', { addresses });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  return {
+    activeRide,
+    loadingActiveRide,
+    ridesHistory,
+    loadingHistory,
+    transactions,
+    loadingTransactions,
+    
+    // mutations
+    updateProfileMutation,
+    updateProfilePhotoMutation,
+    changePasswordMutation,
+    topUpMutation,
+    updateAddressesMutation,
+  };
+};

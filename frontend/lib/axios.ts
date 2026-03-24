@@ -5,12 +5,12 @@ const api = axios.create({
     withCredentials: true,
 });
 
-console.log(`🔌 Platform API Endpoint: ${api.defaults.baseURL}`);
+// api.defaults.baseURL log removed for cleaner console
 
 // Add a request interceptor to add the auth token
 api.interceptors.request.use(
     (config) => {
-        console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+        // Reduced logging
         const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -25,7 +25,6 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
     (response) => {
-        console.log(`✅ API Response: ${response.status} from ${response.config.url}`);
         return response;
     },
     (error) => {

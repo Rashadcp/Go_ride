@@ -37,8 +37,9 @@ interface Driver {
         _id: string;
         numberPlate: string;
         vehicleModel: string;
+        vehicleType: string;
         rc: string;
-        vehiclePhoto: string;
+        vehiclePhotos: string[];
         status: string;
     };
 }
@@ -199,7 +200,7 @@ export default function DriverVerificationPage() {
                                                         <Car className="w-4 h-4" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-xs font-bold text-white">{driver.vehicle.vehicleModel}</p>
+                                                        <p className="text-xs font-bold text-white">{driver.vehicle.vehicleModel} <span className="text-[#FFD700] ml-1 opacity-70">({driver.vehicle.vehicleType})</span></p>
                                                         <p className="text-[10px] text-slate-400 font-bold uppercase bg-white/5 px-2 py-0.5 rounded-md w-fit mt-1 border border-white/5">{driver.vehicle.numberPlate}</p>
                                                     </div>
                                                 </div>
@@ -371,19 +372,23 @@ export default function DriverVerificationPage() {
                                     </h3>
                                     <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
                                         <div className="relative z-10 flex flex-col gap-8">
-                                            <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border-4 border-slate-50 group-hover:border-[#FFD700]/10 transition-colors">
-                                                {selectedDriver.vehicle?.vehiclePhoto ? (
-                                                    <img src={selectedDriver.vehicle.vehiclePhoto} alt="" className="w-full h-full object-cover" />
+                                            <div className="w-full grid grid-cols-2 gap-4">
+                                                {selectedDriver.vehicle?.vehiclePhotos && selectedDriver.vehicle.vehiclePhotos.length > 0 ? (
+                                                    selectedDriver.vehicle.vehiclePhotos.map((photo, idx) => (
+                                                        <div key={idx} className="aspect-video rounded-2xl overflow-hidden shadow-xl border-4 border-slate-50 hover:border-[#FFD700]/30 transition-all cursor-zoom-in">
+                                                            <img src={photo} alt={`Vehicle ${idx + 1}`} className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))
                                                 ) : (
-                                                    <div className="w-full h-full bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
+                                                    <div className="col-span-2 aspect-video rounded-2xl bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
                                                         <Car className="w-12 h-12" />
                                                     </div>
                                                 )}
                                             </div>
                                             <div className="grid grid-cols-2 gap-6">
                                                 <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Fleet Model</p>
-                                                    <p className="text-xl font-black text-[#0A192F]">{selectedDriver.vehicle?.vehicleModel || "Unknown"}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Fleet Model & Type</p>
+                                                    <p className="text-xl font-black text-[#0A192F]">{selectedDriver.vehicle?.vehicleModel || "Unknown"} <span className="text-slate-400 text-sm">({selectedDriver.vehicle?.vehicleType || "N/A"})</span></p>
                                                 </div>
                                                 <div>
                                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">License ID</p>

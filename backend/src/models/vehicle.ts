@@ -13,8 +13,15 @@ const vehicleSchema = new mongoose.Schema(
             unique: true,
         },
         vehicleModel: String,
+        vehicleType: {
+            type: String,
+            enum: {
+                values: ["Go", "Sedan", "XL", "Auto", "Bike", "Luxury", "Tavera"],
+                message: "{VALUE} is not a valid vehicle type."
+            },
+        },
         rc: String, // Registration Certificate (Vehicle specific)
-        vehiclePhoto: String, // Car Photo
+        vehiclePhotos: [String], // Car Photos
         status: {
             type: String,
             enum: ["PENDING", "APPROVED", "REJECTED"],

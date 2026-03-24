@@ -7,11 +7,11 @@ export const getUserRides = async (req: any, res: Response) => {
     try {
         const rides = await Ride.find({
             $or: [
-                { passengerId: req.user.id },
+                { createdBy: req.user.id },
                 { driverId: req.user.id }
             ]
         })
-        .populate('passengerId', 'name email phone')
+        .populate('createdBy', 'name email phone')
         .populate('driverId', 'name email phone')
         .sort({ createdAt: -1 });
 
@@ -27,11 +27,11 @@ export const getActiveRide = async (req: any, res: Response) => {
     try {
         const ride = await Ride.findOne({
             $or: [
-                { passengerId: req.user.id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED"] } },
+                { createdBy: req.user.id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED"] } },
                 { driverId: req.user.id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED"] } }
             ]
         })
-        .populate('passengerId', 'name email phone')
+        .populate('createdBy', 'name email phone')
         .populate('driverId', 'name email phone');
 
         res.json(ride || null);
@@ -55,7 +55,7 @@ export const updateRideStatus = async (req: any, res: Response) => {
         if (req.user.role === "DRIVER" && ride.driverId?.toString() !== req.user.id) {
             return res.status(403).json({ message: "Not authorized to update this ride" });
         }
-        if (req.user.role === "USER" && ride.passengerId?.toString() !== req.user.id) {
+        if (req.user.role === "USER" && ride.createdBy?.toString() !== req.user.id) {
             return res.status(403).json({ message: "Not authorized to update this ride" });
         }
 
@@ -95,7 +95,7 @@ export const cancelRide = async (req: any, res: Response) => {
         if (req.user.role === "DRIVER" && ride.driverId?.toString() !== req.user.id) {
             return res.status(403).json({ message: "Not authorized to cancel this ride" });
         }
-        if (req.user.role === "USER" && ride.passengerId?.toString() !== req.user.id) {
+        if (req.user.role === "USER" && ride.createdBy?.toString() !== req.user.id) {
             return res.status(403).json({ message: "Not authorized to cancel this ride" });
         }
 

@@ -334,13 +334,23 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const files = req.files as any;
-    const { numberPlate, vehicleModel } = req.body;
-    console.log("📦 Onboarding Body:", { numberPlate, vehicleModel });
+    let files = req.files as any;
+    if (Array.isArray(files)) {
+        // Convert array of files to dictionary for current logic
+        const filesDict: any = {};
+        files.forEach((f: any) => {
+            if (!filesDict[f.fieldname]) filesDict[f.fieldname] = [];
+            filesDict[f.fieldname].push(f);
+        });
+        files = filesDict;
+    }
+
+    const { numberPlate, vehicleModel, vehicleType } = req.body;
+    console.log("📦 Onboarding Body:", { numberPlate, vehicleModel, vehicleType });
     console.log("📁 Uploaded Files:", Object.keys(files || {}));
 
     // Check if vehicle already exists for this user
-    let vehicle = await Vehicle.findOne({ ownerId: user._id });
+    let vehicle = await (Vehicle as any).findOne({ ownerId: user._id });
     console.log("🚗 Existing Vehicle Found:", !!vehicle);
 
     if (!vehicle) {
@@ -348,10 +358,12 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
         ownerId: user._id,
         numberPlate,
         vehicleModel,
+        vehicleType,
       });
     } else {
       vehicle.numberPlate = numberPlate || vehicle.numberPlate;
       vehicle.vehicleModel = vehicleModel || vehicle.vehicleModel;
+      vehicle.vehicleType = vehicleType || vehicle.vehicleType;
     }
 
     if (files?.license?.[0]) user.license = (files.license[0] as any).location;
@@ -359,19 +371,23 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
     if (files?.profilePhoto?.[0]) user.profilePhoto = (files.profilePhoto[0] as any).location;
 
     if (files?.rc?.[0]) vehicle.rc = (files.rc[0] as any).location;
-    if (files?.vehiclePhoto?.[0]) vehicle.vehiclePhoto = (files.vehiclePhoto[0] as any).location;
+
+    if (files?.vehiclePhotos) {
+      vehicle.vehiclePhotos = files.vehiclePhotos.map((f: any) => f.location);
+    }
 
     const missing: string[] = [];
     if (!vehicle.numberPlate) missing.push("numberPlate");
+    if (!vehicle.vehicleType) missing.push("vehicleType");
     if (!vehicle.rc) missing.push("rc");
-    if (!vehicle.vehiclePhoto) missing.push("vehiclePhoto");
+    if (!vehicle.vehiclePhotos || vehicle.vehiclePhotos.length === 0) missing.push("vehiclePhotos");
     if (!user.license) missing.push("license");
     if (!user.aadhaar) missing.push("aadhaar");
 
     if (missing.length > 0) {
       console.log("❌ Missing fields in onboarding:", missing);
       return res.status(400).json({
-        message: "Driver documents and vehicle info are required",
+        message: "Driver documents and complete vehicle info are required",
         missing,
       });
     }
@@ -403,14 +419,19 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
       },
       vehicle,
     });
-  } catch (err: any) {
-    console.error("❌ Driver onboarding error details:", err);
-    res.status(500).json({
-      message: "An internal error occurred during onboarding. Please try again or contact support.",
-      error: err.message,
-      code: err.code
-    });
-  }
+    } catch (err: any) {
+        console.error("❌ CRITICAL Driver Onboarding Error:", {
+            error: err,
+            body: req.body,
+            files: req.files ? Object.keys(req.files) : 'NONE',
+            userId: req.user?.id
+        });
+        res.status(500).json({
+            message: "Internal server error during onboarding",
+            error: err.message,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+    }
 };
 
 

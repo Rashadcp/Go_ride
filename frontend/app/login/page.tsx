@@ -6,8 +6,9 @@ import SocialAuth from "@/components/auth/SocialAuth";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
+import { Button } from "@/components/ui/Button";
 
-import { Eye, EyeOff, Navigation, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Navigation, ArrowRight, ShieldCheck, Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
     const { setAuth } = useAuthStore();
@@ -27,7 +28,6 @@ export default function LoginPage() {
             setAuth(user, accessToken, refreshToken);
             toast.success(`Welcome back, ${user.name}!`);
 
-            // 4. Smart Redirect
             if (user.role === "ADMIN") {
                 router.push("/admin/dashboard");
             } else if (user.role === "DRIVER") {
@@ -47,46 +47,50 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-bg-main text-text-main flex overflow-hidden transition-colors duration-500">
-            {/* --- Left Side: Form --- */}
-            <div className="w-full lg:w-1/2 flex flex-col px-8 md:px-16 lg:px-24 py-8 relative z-10 transition-colors duration-500 overflow-hidden">
-                <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3 cursor-pointer group" onClick={() => router.push("/")}>
-                        <div className="w-8 h-8 bg-[#FFD700] rounded-lg flex items-center justify-center shadow-lg shadow-[#FFD700]/20 group-hover:scale-110 transition-transform">
-                            <Navigation className="w-5 h-5 text-[#0A192F]" />
-                        </div>
-                        <span className="font-black text-xl tracking-tighter text-[#0A192F] dark:text-white uppercase italic">Go<span className="text-[#FFD700]">Ride</span></span>
+        <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] flex font-[family-name:var(--font-roboto)] overflow-hidden transition-all duration-500">
+            {/* Left Side: Editorial Form */}
+            <div className="w-full lg:w-[45%] flex flex-col px-6 sm:px-12 lg:px-20 py-8 relative z-10">
+                <div className="flex items-center gap-3 cursor-pointer group mb-12 sm:mb-20" onClick={() => router.push("/")}>
+                    <div className="w-9 h-9 bg-[#1A1A1A] rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+                        <Navigation className="w-5 h-5 text-[#FFD700] fill-current" strokeWidth={1.5} />
                     </div>
+                    <span className="font-[family-name:var(--font-montserrat)] font-black text-xl tracking-tighter uppercase text-[#1A1A1A]">GO<span className="text-[#FFD700]">RIDE</span></span>
                 </div>
 
-                <div className="max-w-md w-full mx-auto my-auto py-4">
-                    <div className="mb-8">
-                        <h1 className="text-4xl font-black text-[#0A192F] dark:text-white mb-2 tracking-tight">Identity Login</h1>
-                        <p className="text-[#0A192F] dark:text-slate-400 font-medium text-base leading-tight">Access your Go Ride command center.</p>
+                <div className="max-w-md w-full mx-auto lg:ml-0 my-auto pb-10">
+                    <div className="mb-10 font-[family-name:var(--font-montserrat)] text-center sm:text-left">
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Access Terminal</span>
+                        <h1 className="text-4xl sm:text-5xl font-black mb-3 tracking-tighter uppercase leading-tight">Authorize <br /> <span className="text-[#B8860B]">Session</span></h1>
+                        <p className="text-[#4A4A48] font-semibold text-sm leading-relaxed border-l-2 border-[#FFD700] pl-4 font-[family-name:var(--font-roboto)] text-left">
+                            Welcome back. Please authorize your session to continue managing your travels.
+                        </p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div>
-                            <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-[#0A192F] dark:text-slate-400 mb-2 ml-1">Secure Email</label>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between ml-1">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Official Email</label>
+                                <Mail className="w-3.5 h-3.5 text-slate-300" />
+                            </div>
                             <input
                                 type="email"
                                 required
-                                className="w-full px-5 py-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[#0A192F] dark:text-white focus:outline-none focus:border-[#FFD700] focus:ring-4 ring-[#FFD700]/5 transition-all font-medium shadow-sm"
+                                className="w-full px-5 py-4 bg-white border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
                                 placeholder="name@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
-                        <div>
-                            <div className="flex items-center justify-between mb-2 ml-1">
-                                <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-[#0A192F] dark:text-slate-400">Password</label>
-                                <a href="/forgot-password" className="text-[#FFD700] hover:underline text-[10px] font-black uppercase tracking-widest">Forgot password?</a>
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between ml-1">
+                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Secure Password</label>
+                                <a href="/forgot-password" className="text-[#B8860B] hover:text-[#FFD700] text-[10px] font-black uppercase tracking-widest transition-colors">Recover?</a>
                             </div>
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    className="w-full px-5 py-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[#0A192F] dark:text-white focus:outline-none focus:border-[#FFD700] focus:ring-4 ring-[#FFD700]/5 transition-all font-medium pr-14 shadow-sm"
+                                    className="w-full px-5 py-4 bg-white border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all pr-14"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -94,60 +98,55 @@ export default function LoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#FFD700] transition-colors"
+                                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#1A1A1A] transition-colors"
                                 >
-                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
 
-                        <button
+                        <Button
                             type="submit"
-                            disabled={loading}
-                            className="w-full py-5 bg-[#FFD700] text-[#0A192F] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#FFD700]/20 hover:bg-[#FFC000] hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 text-xs"
+                            loading={loading}
+                            className="w-full py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none"
                         >
-                            {loading ? "Authenticating..." : "Sign In to Account"}
-                            <ArrowRight className="w-4 h-4" />
-                        </button>
+                            Authorize Account <ArrowRight className="w-4 h-4" />
+                        </Button>
                     </form>
 
                     <SocialAuth mode="login" />
 
-                    <p className="mt-10 text-center text-[#0A192F] dark:text-slate-400 text-sm font-medium">
-                        New to Go Ride?{" "}
-                        <a href="/register" className="text-[#FFD700] font-black hover:underline uppercase tracking-widest text-[11px] ml-1">Create Account</a>
-                    </p>
-                </div>
-            </div>
-
-            {/* --- Right Side: Image --- */}
-            <div className="hidden lg:block lg:w-1/2 relative overflow-hidden bg-[#0A192F]">
-                <img
-                    src="/images/login-bg.png"
-                    alt="Login Background"
-                    className="absolute inset-0 w-full h-full object-cover opacity-60 scale-105 hover:scale-100 transition-transform duration-[10s] ease-linear"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0A192F] via-[#0A192F]/20 to-transparent"></div>
-                <div className="absolute bottom-20 left-16 right-16">
-                    <div className="p-8 backdrop-blur-xl bg-white/5 border border-white/10 rounded-[40px] shadow-2xl">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 rounded-full bg-[#FFD700] flex items-center justify-center text-[#0A192F] font-black shadow-glow">
-                                GR
-                            </div>
-                            <div>
-                                <h3 className="text-white font-black text-xl tracking-tight">Move Smarter, Drive Better.</h3>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Join 10,000+ active riders today</p>
-                            </div>
-                        </div>
-                        <p className="text-slate-300 text-sm leading-relaxed font-medium">
-                            Experience the premium ride-sharing platform designed for both speed and safety. Whether you're commuting or navigating your city, Go Ride gets you there.
+                    <div className="mt-12 text-center sm:text-left pt-6 border-t border-[#E5E5E0]">
+                        <p className="text-[#4A4A48] text-[11px] font-black uppercase tracking-widest leading-tight">
+                            No credentials?{" "}
+                            <a href="/register" className="text-[#FFD700] hover:text-[#B8860B] transition-colors ml-2 underline decoration-2 underline-offset-4">Join Go Ride Today</a>
                         </p>
                     </div>
                 </div>
+            </div>
 
-                {/* Floating Elements for Premium Feel */}
-                <div className="absolute top-20 right-20 w-32 h-32 bg-[#FFD700]/10 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute middle-0 left-10 w-24 h-24 bg-[#FFD700]/5 rounded-full blur-2xl"></div>
+            {/* Right Side: Editorial Canvas */}
+            <div className="hidden lg:flex lg:w-[55%] bg-[#1A1A1A] relative items-center justify-center overflow-hidden">
+                <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[#FFD700]/5 rounded-full blur-[150px]"></div>
+                <div className="absolute bottom-0 left-0 w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px]"></div>
+                
+                <div className="relative z-10 text-center px-12">
+                   <div className="w-16 h-16 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-full flex items-center justify-center mx-auto mb-10">
+                        <ShieldCheck className="w-8 h-8 text-[#FFD700]" strokeWidth={1} />
+                   </div>
+                   <h2 className="text-6xl font-[family-name:var(--font-montserrat)] font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
+                      Travel <br /> <span className="text-[#FFD700]">Authorized.</span>
+                   </h2>
+                   <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
+                      Efficiency is the foundation of excellence. Access your portal to manage your urban mobility with precision.
+                   </p>
+                </div>
+                
+                {/* Decorative section number */}
+                <div className="absolute bottom-10 right-10 flex items-center gap-4 text-white hover:text-[#FFD700] transition-colors font-[family-name:var(--font-montserrat)]">
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em]">Section 01 / Auth</span>
+                    <div className="w-12 h-px bg-white/20"></div>
+                </div>
             </div>
         </div>
     );

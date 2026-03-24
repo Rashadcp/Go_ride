@@ -7,6 +7,14 @@ import adminRoutes from "./routes/admin.routes";
 import vehicleRoutes from "./routes/vehicle.routes";
 import mapRoutes from "./routes/map.routes";
 import rideRoutes from "./routes/ride.routes";
+
+// New Modular Routes
+import taxiRoutes from "./modules/taxi/taxi.routes";
+import carpoolRoutes from "./modules/carpool/carpool.routes";
+import paymentRoutes from "./modules/payment/payment.routes";
+import emergencyRoutes from "./modules/emergency/emergency.routes";
+import ratingRoutes from "./modules/rating/rating.routes";
+
 import passport from "./config/passport";
 
 dotenv.config();
@@ -43,14 +51,10 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// 2. Request Logger (Safe check for body)
-app.use((req, res, next) => {
-  console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log("📦 Body:", req.body);
-  }
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+//   next();
+// });
 
 app.use(express.json());
 app.use(passport.initialize());
@@ -64,6 +68,13 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/map", mapRoutes);
 app.use("/api/rides", rideRoutes);
+
+// New Modular endpoints
+app.use("/api/taxi", taxiRoutes);
+app.use("/api/carpool", carpoolRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/emergency", emergencyRoutes);
+app.use("/api/rating", ratingRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 

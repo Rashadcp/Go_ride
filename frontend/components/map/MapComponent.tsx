@@ -30,33 +30,44 @@ const DestIcon = L.icon({
     iconAnchor: [12, 41],
 });
 
-// Custom Driver Icon (Car)
 const DriverMarkerIcon = L.divIcon({
-    html: `<div style="
-        background-color: white; 
-        width: 36px; 
-        height: 36px; 
-        border-radius: 12px; 
-        display: flex; 
-        items-center: center; 
-        justify-content: center; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border: 2px solid #0A192F;
-        font-size: 20px;
-        line-height: 1;
-        padding-top: 4px;
-    ">🚕</div>`,
-    className: "custom-driver-icon",
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
+    html: `
+        <div style="
+            background: #facc15;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            border: 3px solid #0a192f;
+            cursor: pointer;
+        ">
+            🚕
+        </div>
+    `,
+    className: "",
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
 });
 
-L.Marker.prototype.options.icon = DefaultIcon;
+const UserMarkerIcon = L.divIcon({
+    html: `
+        <div class="user-marker-pulse">
+            <div class="pulse-ring"></div>
+            <div class="dot"></div>
+        </div>
+    `,
+    className: "custom-div-icon-user",
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+});
 
 // Helper to auto-fit map bounds
 function BoundsHandler({ points }: { points: [number, number][] }) {
     const map = useMap();
-    // Use a stringified version of points to ensure the hook only runs when coordinates actually change
     const pointsKey = JSON.stringify(points);
 
     useEffect(() => {
@@ -68,20 +79,20 @@ function BoundsHandler({ points }: { points: [number, number][] }) {
                 console.warn("Map Bounds Error:", err);
             }
         }
-    }, [pointsKey, map]); // Use string key for deep comparison
+    }, [pointsKey, map]);
     return null;
 }
 
-// Separate component for centering on user location specifically
+// Separate component for centering on a single point
 function RecenterHandler({ center }: { center: [number, number] | null }) {
     const map = useMap();
-    const centerKey = center ? center.join(',') : '';
+    const centerKey = center ? center.join(",") : "";
 
     useEffect(() => {
         if (center) {
             map.flyTo(center, map.getZoom(), { animate: true, duration: 1 });
         }
-    }, [centerKey, map]); // Use stable string key
+    }, [centerKey, map]);
     return null;
 }
 
@@ -91,8 +102,8 @@ interface MapProps {
     onLocate: () => void;
     onRouteInfo?: (distance: number, duration: number) => void;
     showUserMarker?: boolean;
-    nearbyDrivers?: { 
-        driverId: string; 
+    nearbyDrivers?: {
+        driverId: string;
         location: { lat: number; lng: number };
         name?: string;
         photo?: string;
@@ -143,8 +154,10 @@ export default function MapComponent({
                 }
             } else {
                 // Standard mode: Route from user through all added stops in order
-                if (userLoc && stops.length > 0) {
-                    waypoints = [userLoc, ...stops];
+                if (stops.length >= 2) {
+                    waypoints = [...stops];
+                } else if (userLoc && stops.length === 1) {
+                    waypoints = [userLoc, stops[0]];
                 }
             }
 
@@ -154,14 +167,34 @@ export default function MapComponent({
                 return;
             }
 
+            // If the leg is extremely long (e.g., cross-continent), OSRM often returns 400.
+            // Fallback to a straight line approximation to avoid spamming failed requests.
+            const toRad = (deg: number) => deg * Math.PI / 180;
+            const haversine = (a: [number, number], b: [number, number]) => {
+                const R = 6371; // km
+                const dLat = toRad(b[0] - a[0]);
+                const dLon = toRad(b[1] - a[1]);
+                const lat1 = toRad(a[0]);
+                const lat2 = toRad(b[0]);
+                const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+                return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+            };
+            const approxDistanceKm = haversine(waypoints[0], waypoints[waypoints.length - 1]);
+            if (approxDistanceKm > 2000) {
+                setRouteData([...waypoints]);
+                const estDurationMins = (approxDistanceKm / 60) * 60; // assume 60km/h
+                onRouteInfo?.(approxDistanceKm, estDurationMins);
+                return;
+            }
+
             const coordsString = waypoints.map(p => `${p[1]},${p[0]}`).join(';');
 
             try {
                 const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`);
 
                 if (!response.ok) {
-                    setRouteData([]);
-                    onRouteInfo?.(0, 0);
+                    setRouteData([...waypoints]);
+                    onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
                     return;
                 }
 
@@ -175,25 +208,35 @@ export default function MapComponent({
                     const durationMins = route.duration / 60;
                     onRouteInfo?.(distanceKm, durationMins);
                 } else {
-                    setRouteData([]);
-                    onRouteInfo?.(0, 0);
+                    setRouteData([...waypoints]);
+                    onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
                 }
             } catch (err) {
-                setRouteData([]);
-                onRouteInfo?.(0, 0);
+                setRouteData([...waypoints]);
+                onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
             }
         };
 
         const timer = setTimeout(fetchRoute, 500);
         return () => clearTimeout(timer);
-    }, [userLoc, stops, onRouteInfo, rideStatus, nearbyDrivers, passengerLoc]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userLoc, JSON.stringify(stops), rideStatus, passengerLoc]);
 
     if (!mapMounted) {
         return <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center font-medium text-slate-400">Initializing Map...</div>;
     }
 
+    const driverPoints = nearbyDrivers
+        .filter((driver) => driver.location?.lat != null && driver.location?.lng != null)
+        .map((driver) => [driver.location.lat, driver.location.lng] as [number, number]);
+
+    const allPoints: [number, number][] = [];
+    if (userLoc) allPoints.push(userLoc);
+    allPoints.push(...stops);
+    allPoints.push(...driverPoints);
+
     const defaultCenter: [number, number] = [40.73061, -73.935242]; // Default: NYC
-    const center = userLoc || defaultCenter;
+    const center = userLoc || driverPoints[0] || defaultCenter;
 
     return (
         <div className="w-full h-full relative z-0 group">
@@ -214,28 +257,34 @@ export default function MapComponent({
 
                 {/* User Marker */}
                 {showUserMarker && userLoc && (
-                    <Marker position={userLoc}>
-                        <Popup className="font-bold">Dispatch Location</Popup>
+                    <Marker position={userLoc} icon={UserMarkerIcon}>
+                        <Popup className="font-bold">Your Location</Popup>
                     </Marker>
                 )}
 
                 {/* Waypoints/Stops Markers */}
-                {stops.map((stop, idx) => (
-                    <Marker
-                        key={`stop-${idx}-${stop.join('-')}`}
-                        position={stop}
-                        icon={idx === stops.length - 1 ? DestIcon : StopIcon}
-                    >
-                        <Popup className="font-bold">
-                            {idx === stops.length - 1 ? `Final Destination` : `Stop ${idx + 1}`}
-                        </Popup>
-                    </Marker>
-                ))}
+                {stops.map((stop, idx) => {
+                    if (idx === 0 && userLoc && stop[0] === userLoc[0] && stop[1] === userLoc[1]) {
+                        return null; // Avoid rendering a redundant 'Pick-up' pin explicitly over the active 'Your Location' pulse pin
+                    }
+                    
+                    return (
+                        <Marker
+                            key={`stop-${idx}-${stop.join('-')}`}
+                            position={stop}
+                            icon={idx === stops.length - 1 ? DestIcon : StopIcon}
+                        >
+                            <Popup className="font-bold">
+                                {idx === stops.length - 1 ? `Final Destination` : (idx === 0 ? "Pick-up Location" : `Stop ${idx}`)}
+                            </Popup>
+                        </Marker>
+                    );
+                })}
 
                 {/* Nearby Online Drivers */}
                 {nearbyDrivers.filter((driver) => driver.location?.lat != null && driver.location?.lng != null).map((driver, idx) => (
                     <Marker
-                        key={`driver-marker-${driver.driverId || idx}`}
+                        key={`driver-${driver.driverId || idx}-${driver.location.lat}-${driver.location.lng}`}
                         position={[driver.location.lat, driver.location.lng]}
                         icon={DriverMarkerIcon}
                     >
@@ -270,10 +319,10 @@ export default function MapComponent({
                 )}
 
                 {/* Adjust View to fit all points */}
-                <BoundsHandler points={stops.length > 0 && userLoc ? [userLoc, ...stops] : []} />
+                <BoundsHandler points={allPoints} />
 
-                {/* Specifically center on user if no stops are active */}
-                {stops.length === 0 && <RecenterHandler center={userLoc} />}
+                {/* Specifically center when nothing to fit yet */}
+                {allPoints.length === 0 && <RecenterHandler center={center} />}
             </MapContainer>
 
             {/* Locate Button Overlay */}
@@ -294,6 +343,42 @@ export default function MapComponent({
         .leaflet-overlay-pane path {
            stroke-linejoin: round;
            stroke-linecap: round;
+        }
+        .user-marker-pulse {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            background-color: #3B82F6;
+            border: 2px solid white;
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+        .pulse-ring {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(59, 130, 246, 0.4);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            z-index: 1;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(0.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
         }
       `}</style>
         </div>

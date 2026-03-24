@@ -22,7 +22,15 @@ import {
     Home,
     LogIn,
     UserPlus,
-    Navigation as NavIcon
+    Navigation as NavIcon,
+    Bike,
+    Users,
+    ChevronRight,
+    Star,
+    Layers,
+    Layout,
+    Check,
+    Smartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -39,6 +47,7 @@ export default function DriverOnboardingPage() {
     const [vehicleInfo, setVehicleInfo] = useState({
         numberPlate: "",
         vehicleModel: "",
+        vehicleType: "Go",
     });
 
     const [documents, setDocuments] = useState({
@@ -46,7 +55,7 @@ export default function DriverOnboardingPage() {
         license: null as File | null,
         rc: null as File | null,
         aadhaar: null as File | null,
-        vehiclePhoto: null as File | null,
+        vehiclePhotos: [] as File[],
     });
 
     const [previews, setPreviews] = useState({
@@ -54,7 +63,7 @@ export default function DriverOnboardingPage() {
         license: "",
         rc: "",
         aadhaar: "",
-        vehiclePhoto: "",
+        vehiclePhotos: [] as string[],
     });
 
     useEffect(() => {
@@ -62,8 +71,16 @@ export default function DriverOnboardingPage() {
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        const file = e.target.files?.[0];
-        if (file) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        if (field === "vehiclePhotos") {
+            const fileList = Array.from(files);
+            setDocuments(prev => ({ ...prev, [field]: [...prev.vehiclePhotos, ...fileList] }));
+            const urls = fileList.map(file => URL.createObjectURL(file));
+            setPreviews(prev => ({ ...prev, [field]: [...prev.vehiclePhotos, ...urls] }));
+        } else {
+            const file = files[0];
             setDocuments(prev => ({ ...prev, [field]: file }));
             const url = URL.createObjectURL(file);
             setPreviews(prev => ({ ...prev, [field]: url }));
@@ -73,9 +90,8 @@ export default function DriverOnboardingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Basic validation
-        if (!documents.license || !documents.rc || !documents.aadhaar || !documents.vehiclePhoto) {
-            toast.error("Please upload all required documents");
+        if (!documents.license || !documents.rc || !documents.aadhaar || documents.vehiclePhotos.length === 0) {
+            toast.error("Please upload all required documents and vehicle photos");
             return;
         }
 
@@ -84,17 +100,21 @@ export default function DriverOnboardingPage() {
         const formData = new FormData();
         formData.append("numberPlate", vehicleInfo.numberPlate);
         formData.append("vehicleModel", vehicleInfo.vehicleModel);
+        formData.append("vehicleType", vehicleInfo.vehicleType);
 
         if (documents.profilePhoto) formData.append("profilePhoto", documents.profilePhoto);
         if (documents.license) formData.append("license", documents.license);
         if (documents.rc) formData.append("rc", documents.rc);
         if (documents.aadhaar) formData.append("aadhaar", documents.aadhaar);
-        if (documents.vehiclePhoto) formData.append("vehiclePhoto", documents.vehiclePhoto);
+        
+        documents.vehiclePhotos.forEach(file => {
+            formData.append("vehiclePhotos", file);
+        });
 
         try {
             await api.put("/auth/driver/onboarding", formData);
             toast.success("Details submitted for verification!");
-            refetchUser(); // Trigger UI to show AWAITING_APPROVAL view
+            refetchUser();
         } catch (error: any) {
             console.error("Submission Error:", error);
             const msg = error.response?.data?.message || "Submission failed";
@@ -109,248 +129,220 @@ export default function DriverOnboardingPage() {
         router.push("/");
     };
 
-    const handleNavigateAuth = (path: string) => {
-        clearAuth();
-        router.push(path);
-    };
-
     if (!mounted || userLoading) {
         return (
-            <div className="h-screen bg-bg-main flex items-center justify-center transition-colors duration-500">
-                <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
+            <div className="h-screen bg-[#F5F5F0] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-[#1A1A1A] animate-spin" />
             </div>
         );
     }
 
-    const AwaitingApprovalView = () => (
-        <div className="min-h-screen bg-bg-main flex items-center justify-center px-6 py-12 transition-colors duration-500">
-            <div className="max-w-xl w-full text-center">
-                <div className="w-24 h-24 bg-[#FFD700]/10 rounded-full flex items-center justify-center mx-auto mb-8 relative">
-                    <ShieldCheck className="w-12 h-12 text-[#FFD700]" />
-                    <div className="absolute inset-0 rounded-full border-2 border-[#FFD700] animate-ping opacity-25"></div>
-                </div>
-                <h1 className="text-4xl font-bold text-[#0A192F] dark:text-white mb-4">Verification in Progress</h1>
-                <p className="text-xl text-slate-400 mb-10 leading-relaxed">
-                    Great job! Your documents have been submitted successfully. Our administrative team is currently reviewing your profile to ensure everything is in order.
-                </p>
+    if (user?.status === "AWAITING_APPROVAL") {
+        return (
+            <div className="min-h-screen bg-[#F5F5F0] flex items-center justify-center px-4 sm:px-6 py-10 relative font-[family-name:var(--font-roboto)]">
+                <div className="max-w-md w-full">
+                    <div className="bg-white rounded-[32px] sm:rounded-[40px] p-8 sm:p-12 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.05)] border border-slate-100 text-center">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#FFD700]/10 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8">
+                            <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-[#FFD700]" strokeWidth={1.5} />
+                        </div>
+                        
+                        <h1 className="text-2xl sm:text-3xl font-[family-name:var(--font-montserrat)] font-black text-[#1A1A1A] mb-3 sm:mb-4">UNDER REVIEW</h1>
+                        <p className="text-slate-500 mb-8 sm:mb-12 text-sm leading-relaxed max-w-sm mx-auto font-medium">
+                            We are currently checking your documents. You can start driving once our team approves your profile.
+                        </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm">
-                        <Clock className="w-8 h-8 text-[#FFD700] mx-auto mb-3" />
-                        <h3 className="text-[#0A192F] dark:text-white font-bold text-sm uppercase tracking-wider mb-2">Wait Time</h3>
-                        <p className="text-slate-600 dark:text-slate-400 text-xs text-balance">Review usually takes 24-48 hours</p>
+                        <div className="flex flex-col gap-3">
+                            <Button
+                                variant="primary"
+                                className="w-full !py-4 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                                onClick={handleNavigateHome}
+                            >
+                                Back Home
+                            </Button>
+                            <button
+                                onClick={() => {
+                                    clearAuth();
+                                    window.location.href = "/login";
+                                }}
+                                className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-3 hover:text-[#1A1A1A] transition-colors"
+                            >
+                                Log Out Securely
+                            </button>
+                        </div>
                     </div>
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm">
-                        <Mail className="w-8 h-8 text-[#FFD700] mx-auto mb-3" />
-                        <h3 className="text-[#0A192F] dark:text-white font-bold text-sm uppercase tracking-wider mb-2">Notification</h3>
-                        <p className="text-slate-600 dark:text-slate-400 text-xs text-balance">We'll email you once you're approved</p>
-                    </div>
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm">
-                        <CheckCircle2 className="w-8 h-8 text-[#FFD700] mx-auto mb-3" />
-                        <h3 className="text-[#0A192F] dark:text-white font-bold text-sm uppercase tracking-wider mb-2">Next Steps</h3>
-                        <p className="text-slate-600 dark:text-slate-400 text-xs text-balance">Set up your profile and start earning!</p>
-                    </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <Button
-                        variant="primary"
-                        className="px-10 h-14 font-bold"
-                        onClick={handleNavigateHome}
-                    >
-                        Return Home
-                    </Button>
-                    <button
-                        onClick={() => {
-                            clearAuth();
-                            window.location.href = "/login";
-                        }}
-                        className="px-10 h-14 text-slate-400 hover:text-white font-bold transition-colors"
-                    >
-                        Log Out
-                    </button>
                 </div>
             </div>
-        </div>
-    );
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-bg-main selection:bg-[#FFD700]/30 font-sans pb-20 transition-colors duration-500">
-            {/* Ambient Background Elements */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#FFD700]/5 rounded-full blur-[120px]"></div>
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px]"></div>
-            </div>
-
-            <header className="sticky top-0 z-50 w-full bg-bg-main/80 backdrop-blur-xl border-b border-white/5 px-8 h-20 flex items-center justify-between transition-colors duration-500">
-                <div className="flex items-center gap-3 cursor-pointer group" onClick={handleNavigateHome}>
-                    <div className="w-10 h-10 bg-[#FFD700] rounded-xl flex items-center justify-center shadow-lg shadow-[#FFD700]/10 group-hover:scale-105 transition-transform">
-                        <NavIcon className="text-[#0A192F] w-6 h-6" />
+        <div className="min-h-screen bg-[#F5F5F0] font-[family-name:var(--font-roboto)] selection:bg-[#FFD700]/30 selection:text-[#1A1A1A]">
+            <nav className="sticky top-0 z-50 bg-[#F5F5F0]/80 backdrop-blur-2xl border-b border-slate-200/60 h-16 sm:h-20 px-4 sm:px-8 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 cursor-pointer" onClick={handleNavigateHome}>
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#1A1A1A] rounded-lg flex items-center justify-center text-[#FFD700] shadow-sm">
+                        <NavIcon className="w-4 h-4 sm:w-5 sm:h-5 fill-current" strokeWidth={1.5} />
                     </div>
-                    <span className="font-extrabold text-xl tracking-tight text-[#0A192F] dark:text-white uppercase italic">Go<span className="text-[#FFD700]">Ride</span></span>
+                    <span className="text-base sm:text-lg font-[family-name:var(--font-montserrat)] font-black text-[#1A1A1A] tracking-tighter">GO<span className="text-[#FFD700]">RIDE</span></span>
                 </div>
 
-                <div className="flex items-center gap-8">
-                    <div className="hidden lg:flex items-center gap-6">
-                        <button onClick={handleNavigateHome} className="flex items-center gap-2 text-[10px] font-black text-[#0A192F] dark:text-slate-400 uppercase tracking-widest hover:text-[#FFD700] transition-colors">
-                            <Home className="w-4 h-4" />
-                            <span>Home</span>
-                        </button>
-                        <button onClick={() => handleNavigateAuth('/login')} className="flex items-center gap-2 text-[10px] font-black text-[#0A192F] dark:text-slate-400 uppercase tracking-widest hover:text-[#FFD700] transition-colors">
-                            <LogIn className="w-4 h-4" />
-                            <span>Login</span>
-                        </button>
-                        <button onClick={() => handleNavigateAuth('/register')} className="flex items-center gap-2 text-[10px] font-black text-[#0A192F] dark:text-slate-400 uppercase tracking-widest hover:text-[#FFD700] transition-colors">
-                            <UserPlus className="w-4 h-4" />
-                            <span>Register</span>
-                        </button>
-                    </div>
-                    <div className="h-4 w-px bg-white/10 hidden lg:block"></div>
-                    <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black tracking-[0.2em] text-[#FFD700] uppercase hidden sm:block">Verification Hub</span>
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                        </div>
-                    </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver Portal</span>
                 </div>
-            </header>
+            </nav>
 
-            {user?.status === "AWAITING_APPROVAL" ? (
-                <AwaitingApprovalView />
-            ) : (
-                <main className="max-w-4xl mx-auto px-6 pt-12 relative z-10">
-                    <div className="mb-12">
-                        <h1 className="text-4xl font-black text-[#0A192F] dark:text-white mb-3 tracking-tight">Onboarding <span className="text-[#FFD700]">Console</span></h1>
-                        <p className="text-[#0A192F] dark:text-slate-400 font-medium">Verify your identity and vehicle to start earning with Go Ride.</p>
-                    </div>
+            <main className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-16 pb-24 sm:pb-32">
+                <div className="mb-10 sm:mb-16 text-center sm:text-left">
+                    <span className="text-[10px] sm:text-[11px] font-black text-[#FFD700] uppercase tracking-[0.3em] mb-2 sm:mb-3 block">Step 1: Registration</span>
+                    <h1 className="text-3xl sm:text-5xl font-[family-name:var(--font-montserrat)] font-black text-[#1A1A1A] mb-3 sm:mb-4 tracking-tight leading-tight uppercase">
+                        Driver Onboarding
+                    </h1>
+                    <p className="text-xs sm:text-sm font-semibold text-slate-500 max-w-md mx-auto sm:mx-0">
+                        Please finish your profile to start receiving ride requests from the platform.
+                    </p>
+                </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-10">
-                        {/* Section 1: Vehicle Information */}
-                        <div className="bg-white/5 border border-white/10 rounded-[40px] p-10 overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <Car className="w-32 h-32 text-white" />
+                <form onSubmit={handleSubmit} className="flex flex-col lg:grid lg:grid-cols-2 gap-6 sm:gap-8 items-start">
+                    <div className="w-full space-y-6">
+                        <div className="bg-white rounded-3xl sm:rounded-[32px] p-6 sm:p-8 border border-slate-100 shadow-sm space-y-6 sm:space-y-8">
+                            <div className="flex items-center gap-3 text-slate-900 mb-1 sm:mb-2">
+                                <Car className="w-5 h-5 text-[#FFD700]" strokeWidth={1.5} />
+                                <h2 className="text-lg font-[family-name:var(--font-montserrat)] font-black uppercase tracking-tight">Vehicle Details</h2>
                             </div>
 
-                            <div className="flex items-center gap-4 mb-10">
-                                <div className="w-12 h-12 bg-[#FFD700] text-[#0A192F] rounded-2xl flex items-center justify-center shadow-xl">
-                                    <Car className="w-6 h-6" />
+                            <div className="grid grid-cols-1 gap-5 sm:gap-6">
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">What car do you have?</label>
+                                    <input 
+                                        placeholder="e.g. Maruti Swift 2024"
+                                        className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 border border-transparent rounded-xl sm:rounded-2xl text-sm font-bold text-[#1A1A1A] focus:bg-white focus:border-[#FFD700] outline-none transition-all placeholder:text-slate-300"
+                                        value={vehicleInfo.vehicleModel}
+                                        onChange={(e) => setVehicleInfo({ ...vehicleInfo, vehicleModel: e.target.value })}
+                                        required
+                                    />
                                 </div>
-                                <div>
-                                    <h2 className="text-xl font-black text-[#0A192F] dark:text-white leading-none mb-1">Vehicle Assets</h2>
-                                    <p className="text-xs font-bold text-[#0A192F] dark:text-slate-500 uppercase tracking-widest">Identify your ride</p>
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Number Plate</label>
+                                    <input 
+                                        placeholder="e.g. KL 11 AN 007"
+                                        className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 border border-transparent rounded-xl sm:rounded-2xl text-sm font-black text-[#1A1A1A] uppercase focus:bg-white focus:border-[#FFD700] outline-none transition-all placeholder:text-slate-300"
+                                        value={vehicleInfo.numberPlate}
+                                        onChange={(e) => setVehicleInfo({ ...vehicleInfo, numberPlate: e.target.value.toUpperCase() })}
+                                        required
+                                    />
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-                                <Input
-                                    label="Vehicle Model"
-                                    placeholder="e.g., Toyota Camry 2024"
-                                    value={vehicleInfo.vehicleModel}
-                                    onChange={(e) => setVehicleInfo({ ...vehicleInfo, vehicleModel: e.target.value })}
-                                    required
-                                />
-                                <Input
-                                    label="Number Plate"
-                                    placeholder="e.g., NY-7482"
-                                    value={vehicleInfo.numberPlate}
-                                    onChange={(e) => setVehicleInfo({ ...vehicleInfo, numberPlate: e.target.value })}
-                                    required
-                                />
+                            <div className="space-y-4">
+                                <label className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1 block">Vehicle Type</label>
+                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                                    {[
+                                        { id: "Bike", icon: Bike },
+                                        { id: "Auto", icon: Users },
+                                        { id: "Go", icon: Car },
+                                        { id: "Sedan", icon: Car },
+                                        { id: "XL", icon: Users }
+                                    ].map((type) => (
+                                        <button
+                                            key={type.id}
+                                            type="button"
+                                            onClick={() => setVehicleInfo({ ...vehicleInfo, vehicleType: type.id })}
+                                            className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all ${
+                                                vehicleInfo.vehicleType === type.id 
+                                                ? "bg-[#1A1A1A] border-[#1A1A1A] text-[#FFD700]" 
+                                                : "bg-[#FAFAFA] border-transparent text-slate-400 hover:border-slate-200"
+                                            }`}
+                                        >
+                                            <type.icon className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-2" strokeWidth={1.5} />
+                                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-tighter">{type.id}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Section 2: Identity & Vehicle Docs */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-4 mb-4 ml-2">
-                                <div className="w-12 h-12 bg-[#FFD700]/10 border border-[#FFD700]/20 text-[#FFD700] rounded-2xl flex items-center justify-center shadow-inner">
-                                    <FileText className="w-6 h-6" />
+                        <div className="p-6 sm:p-8 bg-[#1A1A1A] rounded-[24px] sm:rounded-[32px] text-white">
+                             <div className="flex items-start gap-3 sm:gap-4">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#FFD700]/10 rounded-lg sm:rounded-xl flex items-center justify-center text-[#FFD700] shrink-0">
+                                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black text-[#0A192F] dark:text-white leading-none mb-1">Documentation</h2>
-                                    <p className="text-xs font-bold text-[#0A192F] dark:text-slate-500 uppercase tracking-widest">Verify your credentials</p>
+                                    <h3 className="text-xs sm:text-sm font-[family-name:var(--font-montserrat)] font-black mb-1.5 sm:mb-2 tracking-wide text-[#FFD700]">PRO TIP</h3>
+                                    <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 leading-relaxed">
+                                        Make sure your documents are clear. Blurry photos might take longer to approve. We usually check everything in 6-12 hours.
+                                    </p>
                                 </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="w-full space-y-6">
+                        <div className="bg-white rounded-3xl sm:rounded-[40px] p-6 sm:p-8 border border-slate-100 shadow-sm space-y-6 sm:space-y-8 text-center sm:text-left">
+                            <div className="flex items-center justify-center sm:justify-start gap-3 text-slate-900">
+                                <Layers className="w-5 h-5 text-[#FFD700]" strokeWidth={1.5} />
+                                <h2 className="text-lg font-[family-name:var(--font-montserrat)] font-black uppercase tracking-tight">Upload Documents</h2>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* Document Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                                 {[
-                                    { id: "license", label: "Driver's License", icon: CreditCard, desc: "Personal Driving Permit" },
-                                    { id: "aadhaar", label: "Aadhaar Card", icon: ShieldCheck, desc: "Government Identity Doc" },
-                                    { id: "rc", label: "Vehicle RC", icon: FileText, desc: "Registration Certificate" },
-                                    { id: "vehiclePhoto", label: "Vehicle Photo", icon: Camera, desc: "Clear Exterior Preview" },
-                                    { id: "profilePhoto", label: "Driver Selfie", icon: Camera, desc: "Professional Face Photo" },
-                                ].map((doc) => (
-                                    <div key={doc.id} className="group relative">
-                                        <label className="block h-full cursor-pointer">
-                                            <div className={`h-full bg-white/5 border-2 border-dashed ${previews[doc.id as keyof typeof previews] ? 'border-[#FFD700]/40 bg-[#FFD700]/5' : 'border-white/10 hover:border-[#FFD700]/30'} rounded-[32px] p-6 transition-all duration-300 flex flex-col items-center text-center`}>
-                                                <input
-                                                    type="file"
-                                                    className="hidden"
-                                                    accept="image/*"
-                                                    onChange={(e) => handleFileChange(e, doc.id)}
-                                                />
-
-                                                <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                                                    {previews[doc.id as keyof typeof previews] ? (
-                                                        <div className="relative w-full h-full rounded-2xl overflow-hidden border-2 border-[#FFD700]">
-                                                            <Image src={previews[doc.id as keyof typeof previews]} alt="Preview" fill className="object-cover" />
-                                                        </div>
-                                                    ) : (
-                                                        <doc.icon className="w-6 h-6 text-[#FFD700]" />
-                                                    )}
+                                    { id: "license", label: "License", desc: "Driving Permit" },
+                                    { id: "aadhaar", label: "Identity", desc: "National ID" },
+                                    { id: "rc", label: "RC Card", desc: "Vehicle Registry" },
+                                    { id: "profilePhoto", label: "Selfie", desc: "Driver Photo" }
+                                ].map((doc) => {
+                                    const hasPreview = !!previews[doc.id as keyof typeof previews];
+                                    return (
+                                        <label key={doc.id} className="cursor-pointer group">
+                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, doc.id)} />
+                                            <div className={`p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border-2 border-dashed flex items-center gap-3 h-full transition-all ${
+                                                hasPreview ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-transparent hover:border-slate-200'
+                                            }`}>
+                                                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center shrink-0 border border-slate-100 overflow-hidden shadow-xs relative">
+                                                    {hasPreview ? (
+                                                        <Image src={previews[doc.id as keyof typeof previews] as string} alt="Doc" fill className="object-cover" />
+                                                    ) : <UploadCloud className="w-4 h-4 text-slate-300" />}
                                                 </div>
-
-                                                <p className="text-sm font-black text-[#0A192F] dark:text-white mb-1">{doc.label}</p>
-                                                <p className="text-[10px] font-bold text-[#0A192F] dark:text-slate-500 uppercase tracking-wider mb-4">{doc.desc}</p>
-
-                                                <div className={`mt-auto px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${previews[doc.id as keyof typeof previews] ? 'bg-[#FFD700] text-[#0A192F] border-[#FFD700]' : 'bg-white/5 text-slate-400 border-white/10 group-hover:bg-white/10'}`}>
-                                                    {previews[doc.id as keyof typeof previews] ? 'Change Document' : 'Upload Document'}
+                                                <div className="min-w-0 text-left">
+                                                    <p className={`text-[10px] font-black uppercase tracking-tight truncate ${hasPreview ? 'text-emerald-700' : 'text-slate-500'}`}>{doc.label}</p>
+                                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">{doc.desc}</p>
                                                 </div>
+                                                {hasPreview && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 ml-auto" strokeWidth={2} />}
                                             </div>
                                         </label>
-                                        {previews[doc.id as keyof typeof previews] && (
-                                            <div className="absolute top-4 right-4 animate-bounce">
-                                                <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                                    <CheckCircle2 className="w-4 h-4 text-white" />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                    );
+                                })}
 
-                                <div className="bg-[#FFD700]/5 border border-[#FFD700]/20 rounded-[32px] p-8 flex flex-col justify-center">
-                                    <div className="flex items-start gap-4 mb-4">
-                                        <AlertCircle className="w-5 h-5 text-[#FFD700] shrink-0 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs font-black text-[#FFD700] uppercase tracking-widest mb-2">Audit Process</p>
-                                            <p className="text-[11px] font-bold text-slate-400 leading-relaxed">Our Verification Team manually audits every document. Approval typically reflects in your dashboard within <span className="text-white">6-12 hours</span>.</p>
+                                <label className="sm:col-span-2 cursor-pointer">
+                                    <input type="file" className="hidden" accept="image/*" multiple onChange={(e) => handleFileChange(e, "vehiclePhotos")} />
+                                    <div className={`p-6 sm:p-8 rounded-2xl sm:rounded-[24px] border-2 border-dashed text-center transition-all ${
+                                        previews.vehiclePhotos.length > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-transparent hover:border-slate-200'
+                                    }`}>
+                                        <div className="mx-auto w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl flex items-center justify-center text-slate-300 mb-3 border border-slate-100 shadow-sm overflow-hidden relative">
+                                            {previews.vehiclePhotos.length > 0 ? (
+                                                <Image src={previews.vehiclePhotos[0]} alt="Car" fill className="object-cover" />
+                                            ) : <Camera className="w-5 h-5" />}
                                         </div>
+                                        <p className="text-xs font-black text-[#1A1A1A] uppercase tracking-widest mb-1">Car Photos</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">{previews.vehiclePhotos.length} Images Uploaded</p>
                                     </div>
-                                </div>
+                                </label>
+                            </div>
+
+                            <div className="pt-2 sm:pt-4">
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    loading={loading}
+                                    className="w-full !py-4 sm:!py-5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-black uppercase tracking-widest shadow-lg shadow-[#FFD700]/20 active:scale-[0.98] transition-all"
+                                >
+                                    Finish Registration <ArrowRight className="ml-2 w-4 h-4" />
+                                </Button>
+                                <p className="text-center mt-5 sm:mt-6 text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">End of Registration</p>
                             </div>
                         </div>
-
-                        {/* Submit Button */}
-                        <div className="pt-6">
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                loading={loading}
-                                className="w-full !py-8 !rounded-[32px] text-lg font-black tracking-widest uppercase italic shadow-2xl shadow-[#FFD700]/10 group"
-                            >
-                                <span className="flex items-center gap-3">
-                                    Submit for Verification
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
-                                </span>
-                            </Button>
-                        </div>
-                    </form>
-
-                    <p className="text-center mt-12 text-slate-500 font-bold text-sm">
-                        Encountering issues? Contact our <span className="text-[#FFD700] cursor-pointer hover:underline">Verification Specialist</span>.
-                    </p>
-                </main>
-            )}
+                    </div>
+                </form>
+            </main>
         </div>
     );
 }
