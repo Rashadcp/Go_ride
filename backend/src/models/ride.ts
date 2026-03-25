@@ -33,11 +33,19 @@ const rideSchema = new mongoose.Schema(
             lat: { type: Number, required: true },
             lng: { type: Number, required: true },
             label: { type: String, default: "Pickup Location" },
+            location: {
+                type: { type: String, enum: ['Point'], default: 'Point' },
+                coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
+            }
         },
         drop: {
             lat: { type: Number, required: true },
             lng: { type: Number, required: true },
             label: { type: String, default: "Destination" },
+            location: {
+                type: { type: String, enum: ['Point'], default: 'Point' },
+                coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
+            }
         },
         requestedVehicleType: {
             type: String,
@@ -108,7 +116,9 @@ rideSchema.set('toObject', { virtuals: true });
 rideSchema.index({ createdBy: 1, status: 1 });
 rideSchema.index({ driverId: 1, status: 1 });
 rideSchema.index({ status: 1 });
-rideSchema.index({ rideId: 1 });
+rideSchema.index({ "pickup.location": "2dsphere" });
+rideSchema.index({ "drop.location": "2dsphere" });
+// rideSchema.index({ rideId: 1 }); // Duplicate index removed - already defined as unique: true in field definition
 rideSchema.index({ type: 1 });
 
 export default mongoose.model("Ride", rideSchema);

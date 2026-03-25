@@ -107,6 +107,11 @@ export const login = async (req: Request, res: Response) => {
     user.refreshToken = refreshToken;
     await user.save();
 
+    let vehicle = null;
+    if (user.role === "DRIVER") {
+      vehicle = await Vehicle.findOne({ ownerId: user._id });
+    }
+
     res.json({
       accessToken,
       refreshToken,
@@ -117,6 +122,9 @@ export const login = async (req: Request, res: Response) => {
         role: user.role,
         profilePhoto: user.profilePhoto,
         status: user.status,
+        vehicleType: vehicle?.vehicleType,
+        vehicleNumber: vehicle?.numberPlate,
+        vehicleModel: vehicle?.vehicleModel
       },
     });
   } catch (err) {
@@ -162,7 +170,18 @@ export const getMe = async (req: any, res: Response) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    
+    let vehicle = null;
+    if (user.role === "DRIVER") {
+      vehicle = await Vehicle.findOne({ ownerId: user._id });
+    }
+    
+    res.json({
+      ...user.toObject(),
+      vehicleType: vehicle?.vehicleType,
+      vehicleNumber: vehicle?.numberPlate,
+      vehicleModel: vehicle?.vehicleModel
+    });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -414,8 +433,13 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
       message: "Onboarding documents submitted successfully. Pending approval.",
       user: {
         id: user._id,
+        name: user.name,
+        email: user.email,
         role: user.role,
         status: user.status,
+        vehicleNumber: vehicle.numberPlate,
+        vehicleType: vehicle.vehicleType,
+        vehicleModel: vehicle.vehicleModel
       },
       vehicle,
     });

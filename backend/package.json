@@ -4,7 +4,7 @@
   "description": "Go Ride Backend - Hybrid MongoDB + PostgreSQL",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "npm run build && node dist/server.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },

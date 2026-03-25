@@ -91,17 +91,17 @@ export default function RegisterPage() {
             <div className="hidden lg:flex lg:w-[45%] bg-[#1A1A1A] relative items-center justify-center overflow-hidden">
                 <div className="absolute top-0 left-0 w-[50%] h-[50%] bg-[#FFD700]/5 rounded-full blur-[150px]"></div>
                 <div className="absolute bottom-0 right-0 w-[80%] h-[80%] bg-white/5 rounded-full blur-[120px]"></div>
-                
+
                 <div className="relative z-10 text-center px-12 font-[family-name:var(--font-montserrat)]">
-                   <div className="w-16 h-16 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-full flex items-center justify-center mx-auto mb-10">
+                    <div className="w-16 h-16 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-full flex items-center justify-center mx-auto mb-10">
                         <UserPlus className="w-8 h-8 text-[#FFD700]" strokeWidth={1} />
-                   </div>
-                   <h2 className="text-6xl font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
-                      Join the <br /> <span className="text-[#FFD700]">Elite Network.</span>
-                   </h2>
-                   <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                      Whether you are traveling or driving, precision is our standard. Start your journey with Go Ride.
-                   </p>
+                    </div>
+                    <h2 className="text-6xl font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
+                        Join the <br /> <span className="text-[#FFD700]">Elite Network.</span>
+                    </h2>
+                    <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
+                        Whether you are traveling or driving, precision is our standard. Start your journey with Go Ride.
+                    </p>
                 </div>
             </div>
 
@@ -179,7 +179,7 @@ export default function RegisterPage() {
                                     type="text"
                                     name="firstName"
                                     required
-                                    className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
+                                    className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                     placeholder="Jane"
                                     onChange={handleChange}
                                 />
@@ -190,7 +190,7 @@ export default function RegisterPage() {
                                     type="text"
                                     name="lastName"
                                     required
-                                    className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
+                                    className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                     placeholder="Smith"
                                     onChange={handleChange}
                                 />
@@ -217,7 +217,7 @@ export default function RegisterPage() {
                                         type={showPassword ? "text" : "password"}
                                         name="password"
                                         required
-                                        className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all pr-12"
+                                        className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                         placeholder="••••••••"
                                         onChange={handleChange}
                                     />
@@ -237,7 +237,7 @@ export default function RegisterPage() {
                                         type={showConfirmPassword ? "text" : "password"}
                                         name="confirmPassword"
                                         required
-                                        className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all pr-12"
+                                        className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                         placeholder="••••••••"
                                         onChange={handleChange}
                                     />

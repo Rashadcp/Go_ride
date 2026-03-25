@@ -9,6 +9,7 @@ import { useAuthStore } from "@/store/authStore";
 
 // Stores
 import { useRideStore } from "@/features/ride/store/useRideStore";
+import { useRideSocket } from "@/features/ride/hooks/useRideSocket";
 
 // Hooks
 import { useDashboardData } from "@/features/dashboard/hooks/useDashboardData";
@@ -27,6 +28,9 @@ export default function UserDashboard() {
   const { user, isLoading: userLoading } = useUser();
   const { clearAuth } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+
+  // Activate WebSocket for real-time ride tracking/requests
+  useRideSocket(user);
 
   // Global State
   const { 

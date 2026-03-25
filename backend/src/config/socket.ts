@@ -35,10 +35,27 @@ export const initSocket = (server: HttpServer) => {
 
         // Global Handlers
         socket.on("join", (data: { userId: string; role: string }) => {
-            console.log(`👤 User ${data.userId} joined as ${data.role}`);
+            console.log(`-----------------------------------------`);
+            console.log(`👤 [USER JOINED]`);
+            console.log(`   User ID: ${data.userId}`);
+            console.log(`   Role: ${data.role}`);
+            console.log(`   Socket ID: ${socket.id}`);
+            console.log(`-----------------------------------------`);
+            
             socket.join(data.role === "DRIVER" ? "drivers-pool" : `user:${data.userId}`);
             if (data.role === "DRIVER") {
                 socket.join(`driver:${data.userId}`);
+                // [FIX] Automatically mark connected drivers as active/available if they haven't sent driver-online yet
+                if (!activeDrivers.has(data.userId)) {
+                    activeDrivers.set(data.userId, { 
+                        driverId: data.userId, 
+                        socketId: socket.id, 
+                        lastSeen: Date.now(), 
+                        status: "available",
+                        isAutoJoined: true // Mark as auto-joined to distinguish
+                    });
+                    socketToDriver.set(socket.id, data.userId);
+                }
             }
         });
 
@@ -48,6 +65,15 @@ export const initSocket = (server: HttpServer) => {
             socketToDriver.set(socket.id, data.driverId);
             socket.join(`driver:${data.driverId}`);
             socket.join("drivers-pool");
+            
+            console.log(`-----------------------------------------`);
+            console.log(`🚗 [DRIVER ONLINE]`);
+            console.log(`   Driver ID: ${data.driverId}`);
+            console.log(`   Socket ID: ${socket.id}`);
+            console.log(`   Vehicle: ${data.vehicleType || 'Not specified'}`);
+            console.log(`   Total Active Drivers: ${activeDrivers.size}`);
+            console.log(`-----------------------------------------`);
+
             io.emit("active-drivers", Array.from(activeDrivers.values()).filter(d => d.status === "available"));
         });
 

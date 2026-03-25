@@ -8,9 +8,8 @@ export const registerTrackingHandlers = (io: Server, socket: Socket) => {
             const { driverId, location } = data;
             
             // Broadcast location to specific ride rooms
-            // In the modular architecture, we join rooms for rides
-            // io.to(`ride:${driverId}`).emit("driver-location-update", data); // Existing format
-            io.to(`track:${driverId}`).emit("driver:location:updated", data);
+            io.to(`track:${driverId}`).emit("driver-location-update", data); // Match front-end expectation
+            io.to(`track:${driverId}`).emit("driver:location:updated", data); // Maintain modular naming too
 
             // Update DB if needed (not for every heartbeat, but occasionally)
             // Existing logic does this every check - let's maintain consistency for now but follow blueprint path.
@@ -24,6 +23,19 @@ export const registerTrackingHandlers = (io: Server, socket: Socket) => {
             }
         } catch (error) {
             console.error("Tracking location update error:", error);
+        }
+    });
+
+    // Handle passenger joining the tracking and status rooms for a ride
+    socket.on("join-ride", (data: { driverId?: string; rideId?: string }) => {
+        const { driverId, rideId } = data;
+        if (driverId) {
+            socket.join(`track:${driverId}`);
+            console.log(`👤 Socket ${socket.id} joined tracking room track:${driverId}`);
+        }
+        if (rideId) {
+            socket.join(`ride:${rideId}`);
+            console.log(`👤 Socket ${socket.id} joined status room ride:${rideId}`);
         }
     });
 };

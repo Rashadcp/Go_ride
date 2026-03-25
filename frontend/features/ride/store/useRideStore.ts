@@ -71,6 +71,7 @@ interface RideState {
   setActiveRide: (v: any | null | ((prev: any) => any)) => void;
   setPendingRideId: (v: string | null) => void;
   setIncomingCarpoolRequests: (v: any[] | ((prev: any[]) => any[])) => void;
+  resetRideState: () => void;
 }
 
 export const useRideStore = create<RideState>()(
@@ -81,7 +82,7 @@ export const useRideStore = create<RideState>()(
       isSidebarExpanded: false,
       isNotificationsOpen: false,
 
-      vehicleType: "car",
+      vehicleType: "go",
       isSharedRide: false,
       isDriverMode: false,
       isDriverTripActive: false,
@@ -137,6 +138,20 @@ export const useRideStore = create<RideState>()(
       setActiveRide: (v) => set((state) => ({ activeRide: typeof v === 'function' ? v(state.activeRide) : v })),
       setPendingRideId: (pendingRideId) => set({ pendingRideId }),
       setIncomingCarpoolRequests: (v) => set((state) => ({ incomingCarpoolRequests: typeof v === 'function' ? v(state.incomingCarpoolRequests) : v })),
+      resetRideState: () => set({
+        activeRide: null,
+        pendingRideId: null,
+        isRouteSearched: false,
+        searchStarted: false,
+        isRequestingRide: false,
+        loadingDrivers: false,
+        stops: [
+          { id: 'pickup', query: '', coords: null, suggestions: [], showSuggestions: false },
+          { id: 'dropoff', query: '', coords: null, suggestions: [], showSuggestions: false }
+        ],
+        routeInfo: { distance: 0, duration: 0 },
+        visibleNearbyDrivers: [],
+      }),
     }),
     {
       name: "ride-storage",

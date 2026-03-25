@@ -8,6 +8,9 @@ interface User {
     role: "USER" | "DRIVER" | "ADMIN";
     profilePhoto?: string;
     status?: string;
+    vehicleNumber?: string;
+    vehicleType?: string;
+    vehicleModel?: string;
 }
 
 interface AuthState {

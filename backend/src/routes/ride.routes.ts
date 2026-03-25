@@ -5,6 +5,7 @@ import {
     getActiveRide,
     updateRideStatus,
     cancelRide,
+    rateRide,
 } from "../controllers/ride.controller";
 import { createCarpool } from "../modules/carpool/carpool.controller";
 

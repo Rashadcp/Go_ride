@@ -1,5 +1,11 @@
-import { ArrowUpRight, Car, Bike, Star, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { 
+  ArrowUpRight, Car, Bike, Star, MapPin, X, 
+  Clock, Calendar, CreditCard, Shield, User as UserIcon,
+  Navigation, Info
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import Image from "next/image";
 
 const AutoRickshawIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -15,45 +21,51 @@ const AutoRickshawIcon = ({ className }: { className?: string }) => (
 );
 
 export function HistoryTab({ ridesHistory, setActiveTab }: { ridesHistory: any[]; setActiveTab: (t: string) => void }) {
-  const totalSpent = ridesHistory.reduce((acc: number, ride: any) => acc + (ride.fare || 0), 0);
-  const totalDistance = ridesHistory.reduce((acc: number, ride: any) => acc + Number(ride.distance || 0), 0);
+  const [selectedRide, setSelectedRide] = useState<any>(null);
+  const totalSpent = ridesHistory.reduce((acc: number, ride: any) => acc + (ride.price || 0), 0);
+  const totalDistance = ridesHistory.reduce((acc: number, ride: any) => acc + (Number(ride.distance) || 0), 0);
 
   return (
-    <div className="flex-1 bg-slate-50 p-12 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 bg-slate-50 p-6 sm:p-12 overflow-y-auto custom-scrollbar relative">
       <div className="max-w-4xl mx-auto space-y-10">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black text-[#0A192F] mb-1 tracking-tight">Ride History</h1>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">Track your journeys and expenses</p>
           </div>
-          <div className="flex gap-4">
-            <div className="px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
+          <div className="flex gap-4 w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Spent</span>
               <span className="text-lg font-black text-[#0A192F]">Rs {totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
+            <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Distance</span>
               <span className="text-lg font-black text-[#00838F]">{totalDistance.toFixed(1)} km</span>
             </div>
           </div>
         </div>
+
         <div className="space-y-6">
           {ridesHistory.length > 0 ? ridesHistory.map((ride: any, i: number) => (
-            <div key={ride.id} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-[#FFD700]/30 transition-all group relative overflow-hidden animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 group-hover:bg-[#FFD700]/5 transition-colors" />
+            <div key={ride.id || ride._id} 
+              onClick={() => setSelectedRide(ride)}
+              className="bg-white p-6 sm:p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-[#FFD700]/30 transition-all group cursor-pointer relative overflow-hidden animate-fade-in" 
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
               <div className="relative z-10 flex flex-col lg:flex-row gap-8 items-start lg:items-center">
                 <div className="flex items-center gap-4 min-w-[180px]">
-                  <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-[24px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    {ride.type === 'car' ? <Car className="w-8 h-8" /> : ride.type === 'bike' ? <Bike className="w-8 h-8" /> : <AutoRickshawIcon className="w-8 h-8" />}
+                  <div className="w-14 h-14 bg-[#0A192F] text-[#FFD700] rounded-[22px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    {ride.requestedVehicleType === 'car' ? <Car className="w-7 h-7" /> : ride.requestedVehicleType === 'bike' ? <Bike className="w-7 h-7" /> : <AutoRickshawIcon className="w-8 h-8" />}
                   </div>
                   <div>
-                    <h4 className="font-black text-[#0A192F] text-sm uppercase tracking-tight">{ride.vehicle}</h4>
+                    <h4 className="font-black text-[#0A192F] text-sm uppercase tracking-tight">{ride.requestedVehicleType || 'Ride'}</h4>
                     <div className="flex items-center gap-1.5 mt-1">
                       <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
-                      <span className="text-[10px] font-black text-slate-500">{ride.rating}.0 Rating</span>
+                      <span className="text-[10px] font-black text-slate-500">{(ride.driverId as any)?.rating || '5'}.0 Rating</span>
                     </div>
                   </div>
                 </div>
+                
                 <div className="flex-1 space-y-4">
                   <div className="flex items-start gap-4">
                     <div className="flex flex-col items-center gap-1 mt-1">
@@ -62,33 +74,35 @@ export function HistoryTab({ ridesHistory, setActiveTab }: { ridesHistory: any[]
                       <MapPin className="w-3.5 h-3.5 text-rose-500" />
                     </div>
                     <div className="space-y-3">
-                      <div>
+                      <div className="max-w-[300px]">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pickup</p>
-                        <p className="text-sm font-bold text-[#0A192F]">{ride.from}</p>
+                        <p className="text-sm font-bold text-[#0A192F] truncate">{ride.pickup?.label || 'Pickup Location'}</p>
                       </div>
-                      <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Drop-off</p>
-                        <p className="text-sm font-bold text-[#0A192F]">{ride.to}</p>
+                      <div className="max-w-[300px]">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Destination</p>
+                        <p className="text-sm font-bold text-[#0A192F] truncate">{ride.drop?.label || 'Destination'}</p>
                       </div>
                     </div>
                   </div>
                 </div>
+
                 <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-auto gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                   <div className="text-left lg:text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{ride.date}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
                     <div className="flex items-center lg:justify-end gap-2">
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-tight">{ride.status}</span>
-                      <span className="text-sm font-black text-[#00838F]">{ride.distance}</span>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${ride.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                        {ride.status}
+                      </span>
+                      <span className="text-sm font-black text-[#00838F]">{ride.distance?.toFixed(1) || '0.0'} km</span>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fare Paid</p>
-                    <h3 className="text-2xl font-black text-[#0A192F] tracking-tighter">Rs {ride.price}</h3>
+                    <h3 className="text-2xl font-black text-[#0A192F] tracking-tighter">Rs {ride.price || 0}</h3>
                   </div>
                 </div>
-                <button className="absolute bottom-6 right-8 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all p-3 bg-[#FFD700] text-[#0A192F] rounded-xl shadow-lg hover:bg-[#0A192F] hover:text-[#FFD700]">
-                  <ArrowUpRight className="w-5 h-5" />
-                </button>
               </div>
             </div>
           )) : (
@@ -97,12 +111,152 @@ export function HistoryTab({ ridesHistory, setActiveTab }: { ridesHistory: any[]
                 <Car className="w-10 h-10 text-slate-200" />
               </div>
               <h3 className="text-xl font-black text-[#0A192F] mb-2">No Rides Yet</h3>
-              <p className="text-slate-400 text-sm font-medium max-w-xs mx-auto text-balance">Your journey history will appear here once you take your first ride with Go Ride.</p>
+              <p className="text-slate-400 text-sm font-medium max-w-xs mx-auto">Your journey history will appear here once you take your first ride with Go Ride.</p>
               <Button variant="primary" className="mt-8" onClick={() => setActiveTab('dashboard')}>Book Your First Ride</Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* RIDE DETAILS MODAL */}
+      {selectedRide && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#0A192F]/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-2xl overflow-hidden relative animate-in slide-in-from-bottom-8 duration-500">
+            {/* Header with status map/background */}
+            <div className="h-40 bg-[#0A192F] relative flex items-center px-10 overflow-hidden">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-[#FFD700]/10 rounded-full blur-3xl -mr-20 -mt-20" />
+                <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full blur-2xl -ml-10 -mb-10" />
+                
+                <div className="relative z-10 w-full flex justify-between items-center">
+                    <div>
+                        <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.4em] mb-2 block">Trip Receipt</span>
+                        <h2 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">Rs {selectedRide.price}</h2>
+                    </div>
+                    <button 
+                      onClick={() => setSelectedRide(null)}
+                      className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all backdrop-blur-md"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-8 sm:p-10 space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                {/* Driver Section */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-10 border-b border-slate-100">
+                    <div className="flex items-center gap-5">
+                        <div className="w-20 h-20 rounded-3xl bg-slate-100 overflow-hidden relative border-4 border-white shadow-xl">
+                            {selectedRide.driverId?.profilePhoto ? (
+                                <Image src={selectedRide.driverId.profilePhoto} alt="Driver" fill className="object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
+                                    <UserIcon className="w-10 h-10" strokeWidth={1} />
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Driver Profile</p>
+                            <h4 className="text-xl font-black text-[#0A192F] uppercase tracking-tighter">{selectedRide.driverId?.name || "Independent Partner"}</h4>
+                            <div className="flex items-center gap-2 mt-1.5">
+                                <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 rounded-lg">
+                                    <Star className="w-3.5 h-3.5 fill-[#FFA000] text-[#FFA000]" />
+                                    <span className="text-[11px] font-black text-[#FFA000]">{selectedRide.driverId?.rating || "5.0"}</span>
+                                </span>
+                                <span className="text-[11px] font-bold text-slate-400 ml-2 uppercase">Verified Member</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Vehicle Identity */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 flex items-center gap-4 w-full sm:w-auto shadow-inner">
+                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#0A192F] shadow-sm">
+                            {selectedRide.requestedVehicleType === 'car' ? <Car className="w-6 h-6" /> : selectedRide.requestedVehicleType === 'bike' ? <Bike className="w-6 h-6" /> : <AutoRickshawIcon className="w-7 h-7" />}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Status</p>
+                            <p className="text-sm font-black text-[#0A192F] uppercase">{selectedRide.driverId?.vehicleNumber || "KL 10 BG 1122"}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{selectedRide.requestedVehicleType || "Sedan Private"}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Logistics Section */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+                    <div className="space-y-8">
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Navigation className="w-4 h-4 text-[#FFD700]" />
+                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Route Details</h5>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex flex-col items-center gap-1 mt-1.5">
+                                    <div className="w-3 h-3 rounded-full border-2 border-[#FFD700]" />
+                                    <div className="w-0.5 h-12 bg-slate-100" />
+                                    <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                                </div>
+                                <div className="space-y-6">
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Pickup Information</p>
+                                        <p className="text-sm font-bold text-[#0A192F] leading-snug">{selectedRide.pickup?.label}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Destination Target</p>
+                                        <p className="text-sm font-bold text-[#0A192F] leading-snug">{selectedRide.drop?.label}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div>
+                            <div className="flex items-center gap-2 mb-4">
+                                <Info className="w-4 h-4 text-[#FFD700]" />
+                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Journey Metrics</h5>
+                            </div>
+                            <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 space-y-5 shadow-inner">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <Clock className="w-4 h-4 text-slate-400" />
+                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Duration</span>
+                                    </div>
+                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">~ {Math.round(selectedRide.duration / 60) || 15} Mins</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <Calendar className="w-4 h-4 text-slate-400" />
+                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Session Date</span>
+                                    </div>
+                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">{new Date(selectedRide.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <CreditCard className="w-4 h-4 text-slate-400" />
+                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Method</span>
+                                    </div>
+                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">Digital Wallet</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-[#0A192F] rounded-3xl p-6 flex items-center justify-between group cursor-default">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 bg-[#FFD700] rounded-2xl flex items-center justify-center text-[#0A192F]">
+                                    <Shield className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.15em]">Security Verified</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase">Protected by GoRide Safety</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

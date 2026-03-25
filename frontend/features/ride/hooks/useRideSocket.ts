@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import toast from "react-hot-toast";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import api from "@/lib/axios";
 
-export const useRideSocket = (user: any) => {
+export const useRideSocket = (user: any, enableListeners = true) => {
   const {
     setActiveRide,
     setPendingRideId,
@@ -15,13 +15,14 @@ export const useRideSocket = (user: any) => {
     setSearchStarted,
     setIncomingCarpoolRequests,
     setDashboardStep,
-    setAvailableCarpools
+    setAvailableCarpools,
+    resetRideState,
+    isDriverMode
   } = useRideStore();
 
-  const rideRequestLock = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!enableListeners || !user) return;
 
     connectSocket();
 
@@ -29,10 +30,32 @@ export const useRideSocket = (user: any) => {
       try {
         const response = await api.get("/rides/active");
         if (response.data) {
-          setActiveRide(response.data);
-          setPendingRideId(response.data.rideId);
-          if (response.data.driverId) {
-            socket.emit("join-ride", { driverId: response.data.driverId });
+          const ride = response.data;
+          // Normalize driver data: if driverId is an object (populated), use it as driverInfo
+          if (ride.driverId && typeof ride.driverId === 'object') {
+            // Failsafe: if ride is already completed, clear it and return
+            if (ride.status === "COMPLETED" || ride.status === "CANCELLED") {
+               setActiveRide(null);
+               setPendingRideId(null);
+               return;
+            }
+
+            ride.driverInfo = {
+              ...ride.driverInfo,
+              ...ride.driverId,
+              name: ride.driverId.name,
+              profilePhoto: ride.driverId.profilePhoto,
+              vehiclePlate: ride.driverId.vehicleNumber || ride.driverInfo?.vehiclePlate || "NOT AVAILABLE",
+              location: ride.driverLocation || ride.driverInfo?.location
+            };
+            ride.driverId = ride.driverId._id || ride.driverId.id;
+          }
+          
+          setActiveRide(ride);
+          setPendingRideId(ride.rideId);
+          setIsRequestingRide(false);
+          if (ride.driverId || ride.rideId) {
+            socket.emit("join-ride", { driverId: ride.driverId, rideId: ride.rideId });
           }
         }
       } catch (error) {
@@ -43,6 +66,10 @@ export const useRideSocket = (user: any) => {
     fetchActiveRide();
 
     const handleSocketConnect = () => {
+      socket.emit("join", { 
+          userId: user.id || user._id || "507f1f77bcf86cd799439011", 
+          role: isDriverMode ? "DRIVER" : "USER" 
+      });
       socket.emit("get-active-drivers");
     };
 
@@ -56,33 +83,26 @@ export const useRideSocket = (user: any) => {
       setPendingRideId(data.rideId || null);
       setIsRequestingRide(false);
       setLoadingDrivers(false);
-      rideRequestLock.current = false;
-      socket.emit("join-ride", { driverId: data.driverId });
+      socket.emit("join-ride", { driverId: data.driverId, rideId: data.rideId });
       toast.success(`Ride accepted by ${data.driverInfo?.name || "Driver"}!`);
     };
 
     const handleRideStatusUpdate = (data: any) => {
       const { status } = data;
+      
+      if (status === "COMPLETED") {
+        toast.success("Destination reached!");
+        resetRideState();
+        return;
+      }
+      
       setActiveRide((prev: any) => ({ ...prev, status }));
       if (status === "ARRIVED") toast.success("Driver has arrived at pickup!");
       if (status === "STARTED") toast.success("Trip has started!");
-      if (status === "COMPLETED") {
-        toast.success("Destination reached!");
-        setActiveRide(null);
-        setPendingRideId(null);
-        setIsRequestingRide(false);
-        setIsRouteSearched(false);
-        setSearchStarted(false);
-        setLoadingDrivers(false);
-        rideRequestLock.current = false;
-      }
     };
 
     const handleRideRequestFailed = (data: any) => {
-      setIsRequestingRide(false);
-      setPendingRideId(null);
-      setLoadingDrivers(false);
-      rideRequestLock.current = false;
+      resetRideState();
       toast.error(data.reason || "Ride request failed");
     };
 
@@ -91,13 +111,7 @@ export const useRideSocket = (user: any) => {
     };
 
     const handleRideCancelled = () => {
-      setActiveRide(null);
-      setPendingRideId(null);
-      setIsRequestingRide(false);
-      setIsRouteSearched(false);
-      setSearchStarted(false);
-      setLoadingDrivers(false);
-      rideRequestLock.current = false;
+      resetRideState();
       toast.error("Ride cancelled.");
     };
 
@@ -128,10 +142,21 @@ export const useRideSocket = (user: any) => {
       toast.success(`Pool Request: New join request!`);
     });
 
+    socket.on("ride:update", (updatedRide: any) => {
+      const currentActiveRide = useRideStore.getState().activeRide;
+      if (currentActiveRide && (currentActiveRide.rideId === updatedRide.rideId || currentActiveRide._id === updatedRide._id)) {
+        setActiveRide(updatedRide);
+      }
+    });
+
     socket.on("carpool:join:accepted", (data: any) => {
       toast.success("Joined carpool successfully!");
       setActiveRide(data.ride);
       setDashboardStep("ACTIVE");
+    });
+
+    socket.on("carpool:join:rejected", (data: any) => {
+      toast.error(data.reason || "Carpool join request declined.");
     });
 
     if (socket.connected) {
@@ -143,7 +168,12 @@ export const useRideSocket = (user: any) => {
       if (!stateId) {
         socket.emit("get-active-drivers");
         if (useRideStore.getState().isSharedRide) {
-           socket.emit("get-available-carpools");
+           const pickup = useRideStore.getState().stops.find(s => s.id === 'pickup' && s.coords);
+           const dest = useRideStore.getState().stops.find(s => s.id !== 'pickup' && s.coords);
+           socket.emit("get-available-carpools", { 
+               pickup: pickup?.coords ? { lat: pickup.coords[0], lng: pickup.coords[1] } : null,
+               destination: dest?.coords ? { lat: dest.coords[0], lng: dest.coords[1] } : null 
+           });
         }
       }
     }, 10000);
@@ -160,11 +190,11 @@ export const useRideSocket = (user: any) => {
       
       socket.off("carpool:join:new_request");
       socket.off("carpool:join:accepted");
+      socket.off("carpool:join:rejected");
       disconnectSocket();
       clearInterval(pollInterval);
-      rideRequestLock.current = false;
     };
-  }, [user]);
+  }, [user, enableListeners, isDriverMode]);
 
   const handleCancelRide = () => {
     const { activeRide, pendingRideId } = useRideStore.getState();
@@ -173,18 +203,12 @@ export const useRideSocket = (user: any) => {
 
     socket.emit("ride-cancel", {
         rideId,
-        passengerId: user.id,
+        passengerId: user.id || user._id || "507f1f77bcf86cd799439011",
         driverId: activeRide?.driverId,
     });
-    setActiveRide(null);
-    setPendingRideId(null);
-    setIsRequestingRide(false);
-    setIsRouteSearched(false);
-    setSearchStarted(false);
-    setLoadingDrivers(false);
-    rideRequestLock.current = false;
+    resetRideState();
     toast.error("Ride cancelled.");
   };
 
-  return { handleCancelRide, rideRequestLock };
+  return { handleCancelRide };
 };

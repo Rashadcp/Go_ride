@@ -5,13 +5,25 @@ export const createCarpool = async (req: any, res: Response) => {
     try {
         const { rideId, pickup, drop, price, pricePerSeat, distance, duration, departureTime, availableSeats } = req.body;
         
+        if (!pickup?.lat || !pickup?.lng || !drop?.lat || !drop?.lng) {
+            console.error("❌ Missing coordinates in carpool request:", { pickup, drop });
+            return res.status(400).json({ message: "Pickup and destination coordinates are required." });
+        }
+        
         const newRide = new Ride({
             rideId,
             type: "CARPOOL",
             createdBy: req.user.id,
+            driverId: req.user.id,
             status: "OPEN",
-            pickup,
-            drop,
+            pickup: {
+                ...pickup,
+                location: { type: "Point", coordinates: [pickup.lng, pickup.lat] }
+            },
+            drop: {
+                ...drop,
+                location: { type: "Point", coordinates: [drop.lng, drop.lat] }
+            },
             price,
             pricePerSeat,
             distance,
@@ -21,8 +33,24 @@ export const createCarpool = async (req: any, res: Response) => {
         });
 
         await newRide.save();
+        
+        // Fetch user name for the console log
+        const User = require("../../models/user").default;
+        const hostUser = await User.findById(req.user.id).select('name');
+
+        console.log(`-----------------------------------------`);
+        console.log(`🚗 [NEW CARPOOL SHARED]`);
+        console.log(`   Ride ID: ${rideId}`);
+        console.log(`   Host Driver: ${hostUser?.name || 'Unknown'} (${req.user.id})`);
+        console.log(`   Pickup: ${pickup.label || 'Unknown location'}`);
+        console.log(`   Destination: ${drop.label || 'Unknown location'}`);
+        console.log(`   Available Seats: ${availableSeats}`);
+        console.log(`   Price per Seat: ${pricePerSeat}`);
+        console.log(`-----------------------------------------`);
+
         res.status(201).json(newRide);
     } catch (err: any) {
+        console.error("❌ Error creating carpool:", err);
         res.status(500).json({ message: "Error creating carpool", error: err.message });
     }
 };

@@ -75,7 +75,7 @@ export default function LoginPage() {
                             <input
                                 type="email"
                                 required
-                                className="w-full px-5 py-4 bg-white border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
+                                className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                 placeholder="name@example.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -90,7 +90,7 @@ export default function LoginPage() {
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     required
-                                    className="w-full px-5 py-4 bg-white border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all pr-14"
+                                    className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -129,19 +129,19 @@ export default function LoginPage() {
             <div className="hidden lg:flex lg:w-[55%] bg-[#1A1A1A] relative items-center justify-center overflow-hidden">
                 <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[#FFD700]/5 rounded-full blur-[150px]"></div>
                 <div className="absolute bottom-0 left-0 w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px]"></div>
-                
+
                 <div className="relative z-10 text-center px-12">
-                   <div className="w-16 h-16 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-full flex items-center justify-center mx-auto mb-10">
+                    <div className="w-16 h-16 bg-[#FFD700]/10 border border-[#FFD700]/20 rounded-full flex items-center justify-center mx-auto mb-10">
                         <ShieldCheck className="w-8 h-8 text-[#FFD700]" strokeWidth={1} />
-                   </div>
-                   <h2 className="text-6xl font-[family-name:var(--font-montserrat)] font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
-                      Travel <br /> <span className="text-[#FFD700]">Authorized.</span>
-                   </h2>
-                   <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                      Efficiency is the foundation of excellence. Access your portal to manage your urban mobility with precision.
-                   </p>
+                    </div>
+                    <h2 className="text-6xl font-[family-name:var(--font-montserrat)] font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
+                        Travel <br /> <span className="text-[#FFD700]">Authorized.</span>
+                    </h2>
+                    <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
+                        Efficiency is the foundation of excellence. Access your portal to manage your urban mobility with precision.
+                    </p>
                 </div>
-                
+
                 {/* Decorative section number */}
                 <div className="absolute bottom-10 right-10 flex items-center gap-4 text-white hover:text-[#FFD700] transition-colors font-[family-name:var(--font-montserrat)]">
                     <span className="text-[10px] font-black uppercase tracking-[0.4em]">Section 01 / Auth</span>

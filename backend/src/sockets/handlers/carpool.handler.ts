@@ -42,6 +42,14 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 rideId: data.rideId, 
                 ride 
             });
+
+            // [FIX] Clean up any other "SEARCHING" taxi requests for this passenger 
+            // since they are now part of this carpool
+            await Ride.updateMany(
+                { createdBy: data.userId, status: "SEARCHING", type: "CARPOOL" },
+                { status: "CANCELLED", cancelledAt: new Date() }
+            );
+            console.log(`🧹 Cleaned up searching requests for joined passenger ${data.userId}`);
             
             // Re-broadcast updated ride list to everyone
             io.emit("ride:update", ride);
@@ -49,6 +57,20 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             console.log(`✅ Carpool join approved for ride ${data.rideId}, user ${data.userId} joined`);
         } catch (error) {
             console.error("Carpool join accept error:", error);
+        }
+    });
+
+    // Carpool Join Reject
+    socket.on("carpool:join:reject", async (data: { rideId: string; userId: string; passengerSocketId: string }) => {
+        try {
+            // Notify passenger
+            io.to(data.passengerSocketId).emit("carpool:join:rejected", { 
+                rideId: data.rideId,
+                reason: "Driver declined your join request."
+            });
+            console.log(`❌ Carpool join rejected for ride ${data.rideId}, user ${data.userId} declined`);
+        } catch (error) {
+            console.error("Carpool join reject error:", error);
         }
     });
 };

@@ -32,25 +32,27 @@ const DestIcon = L.icon({
 
 const DriverMarkerIcon = L.divIcon({
     html: `
-        <div style="
-            background: #facc15;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            border: 3px solid #0a192f;
-            cursor: pointer;
-        ">
-            🚕
+        <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+            <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Shadow -->
+                <ellipse cx="50" cy="55" rx="35" ry="40" fill="black" fill-opacity="0.2"/>
+                <!-- Car Body -->
+                <path d="M30 25C30 15 35 10 50 10C65 10 70 15 70 25L75 45V80C75 85.5228 70.5228 90 65 90H35C29.4772 90 25 85.5228 25 80V45L30 25Z" fill="#0A192F"/>
+                <!-- Windows -->
+                <path d="M35 30L65 30L68 45H32L35 30Z" fill="#FFD700" fill-opacity="0.6"/>
+                <rect x="30" y="50" width="40" height="25" rx="2" fill="#FFD700" fill-opacity="0.4"/>
+                <!-- Headlights -->
+                <rect x="32" y="15" width="8" height="4" rx="1" fill="white" fill-opacity="0.9"/>
+                <rect x="60" y="15" width="8" height="4" rx="1" fill="white" fill-opacity="0.9"/>
+                <!-- Tail Lights -->
+                <rect x="28" y="85" width="10" height="3" rx="1" fill="#FF4444"/>
+                <rect x="62" y="85" width="10" height="3" rx="1" fill="#FF4444"/>
+            </svg>
         </div>
     `,
     className: "",
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
 });
 
 const UserMarkerIcon = L.divIcon({
