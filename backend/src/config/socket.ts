@@ -5,9 +5,7 @@ import { registerCarpoolHandlers } from "../sockets/handlers/carpool.handler";
 import { registerTrackingHandlers } from "../sockets/handlers/tracking.handler";
 import { registerEmergencyHandlers } from "../sockets/handlers/emergency.handler";
 
-// In-memory store for active drivers (re-sharing with handlers if needed, but keeping here for central management)
-export const activeDrivers = new Map<string, any>(); 
-export const socketToDriver = new Map<string, string>();
+import { activeDrivers, socketToDriver } from "../sockets/state";
 
 export const initSocket = (server: HttpServer) => {
     const io = new Server(server, {
@@ -42,9 +40,10 @@ export const initSocket = (server: HttpServer) => {
             console.log(`   Socket ID: ${socket.id}`);
             console.log(`-----------------------------------------`);
             
-            socket.join(data.role === "DRIVER" ? "drivers-pool" : `user:${data.userId}`);
+            socket.join(`user:${data.userId}`);
             if (data.role === "DRIVER") {
                 socket.join(`driver:${data.userId}`);
+                socket.join("drivers-pool");
                 // [FIX] Automatically mark connected drivers as active/available if they haven't sent driver-online yet
                 if (!activeDrivers.has(data.userId)) {
                     activeDrivers.set(data.userId, { 

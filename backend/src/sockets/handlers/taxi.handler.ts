@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { activeDrivers } from "../../config/socket";
+import { activeDrivers } from "../state";
 import Ride from "../../models/ride";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
@@ -36,12 +36,38 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             // For TAXI, look for available drivers of specific type
             // For CARPOOL, we broadcast to the carpool logic/drivers (already handled by carpool.handler if specific)
             // But we can filter drivers who are 'available' and match vehicle type
-            const nearbyDrivers = Array.from(activeDrivers.values()).filter(d =>
-                d.status === "available" && (isSharedRide || d.vehicleType === requestedVehicleType)
-            );
+            // Distance helper (Haversine formula)
+            const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+                const R = 6371; // km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            };
+
+            const nearbyDrivers = Array.from(activeDrivers.values()).filter(d => {
+                if (!d.location?.lat || !d.location?.lng) return false;
+                
+                const distance = getDistance(pickup.lat, pickup.lng, d.location.lat, d.location.lng);
+                const driverVehicleType = (d.vehicleType || "").toLowerCase();
+                const passengerRequestedType = (requestedVehicleType || "").toLowerCase();
+                
+                // Only notify if within 20km AND (it's carpool OR vehicle type matches)
+                const isMatch = d.status === "available" && distance <= 20 && (isSharedRide || driverVehicleType === passengerRequestedType);
+                
+                console.log(`   🔍 [CHECK] Driver: ${d.driverId} | Dist: ${distance.toFixed(2)}km | Status: ${d.status} | Vehicle: ${driverVehicleType} | Req: ${passengerRequestedType} | Match: ${isMatch}`);
+                return isMatch;
+            });
 
             // Notify them
+            console.log(`📡 [DISPATCH] Searching for ${requestedVehicleType} drivers (Shared: ${isSharedRide})`);
+            console.log(`   Active Drivers Count: ${activeDrivers.size}`);
+            
             nearbyDrivers.forEach(driver => {
+                console.log(`   🔔 Notifying Driver: ${driver.driverId} (Socket: ${driver.socketId})`);
                 io.to(driver.socketId).emit("ride-request", {
                     rideId: newRide.rideId,
                     dbId: newRide._id,

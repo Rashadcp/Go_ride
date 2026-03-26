@@ -98,8 +98,7 @@ export default function DriverDashboard() {
         connectSocket();
 
         // Join rooms so broadcasted requests reach this driver
-        socket.emit("join-driver", { driverId: user.id });
-        socket.emit("join-drivers"); // generic drivers room (backend-friendly fallback)
+        socket.emit("join", { userId: user.id, role: "DRIVER" });
 
         // Emit online status with a valid location
         socket.emit("driver-online", {
