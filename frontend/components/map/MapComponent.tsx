@@ -136,32 +136,36 @@ export default function MapComponent({
     // Fetch Route from OSRM
     useEffect(() => {
         const fetchRoute = async () => {
-            // Find active driver if in ride
-            const activeDriver = nearbyDrivers?.length === 1 ? nearbyDrivers[0] : null;
+            // Find ANY valid driver info to start the route from your position
+            const activeDriver = nearbyDrivers?.[0] || (userLoc ? { location: { lat: userLoc[0], lng: userLoc[1] } } : null);
 
             let waypoints: [number, number][] = [];
 
             if (rideStatus === "ACCEPTED" || rideStatus === "ARRIVED") {
-                // Route from Driver to Passenger
-                if (activeDriver && (passengerLoc || userLoc)) {
+                // Route from Driver to Passenger Pickup
+                const destination = passengerLoc || (stops.length > 0 ? stops[0] : null);
+                if (activeDriver?.location && destination) {
                     waypoints = [
                         [activeDriver.location.lat, activeDriver.location.lng],
-                        (passengerLoc || userLoc)!
+                        destination
                     ];
                 }
             } else if (rideStatus === "STARTED") {
-                // Route from Passenger to Destination
-                if ((passengerLoc || userLoc) && stops.length > 0) {
-                    waypoints = [(passengerLoc || userLoc)!, stops[stops.length - 1]];
+                // Route from current position to Destination
+                const pickup = passengerLoc || userLoc;
+                const destination = stops.length > 0 ? stops[stops.length - 1] : null;
+                if (pickup && destination) {
+                    waypoints = [pickup, destination];
                 }
             } else {
-                // Standard mode: Route from user through all added stops in order
+                // Standard mode: Route through all stops
                 if (stops.length >= 2) {
                     waypoints = [...stops];
                 } else if (userLoc && stops.length === 1) {
                     waypoints = [userLoc, stops[0]];
                 }
             }
+
 
             if (waypoints.length < 2) {
                 setRouteData([]);
@@ -222,7 +226,7 @@ export default function MapComponent({
         const timer = setTimeout(fetchRoute, 500);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userLoc, JSON.stringify(stops), rideStatus, passengerLoc]);
+    }, [userLoc, JSON.stringify(stops), rideStatus, passengerLoc, JSON.stringify(nearbyDrivers)]);
 
     if (!mapMounted) {
         return <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center font-medium text-slate-400">Initializing Map...</div>;
@@ -257,10 +261,17 @@ export default function MapComponent({
 
                 <ZoomControl position="bottomright" />
 
-                {/* User Marker */}
+                {/* User/Driver Current Marker */}
                 {showUserMarker && userLoc && (
                     <Marker position={userLoc} icon={UserMarkerIcon}>
                         <Popup className="font-bold">Your Location</Popup>
+                    </Marker>
+                )}
+                
+                {/* Passenger Pick-up Marker (Visible when heading to pickup) */}
+                {passengerLoc && (rideStatus === "ACCEPTED" || rideStatus === "ARRIVED") && (
+                    <Marker position={passengerLoc} icon={StopIcon}>
+                        <Popup className="font-bold">Pick-up Location</Popup>
                     </Marker>
                 )}
 

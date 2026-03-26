@@ -7,6 +7,40 @@ import Transaction from "../models/transaction";
 import { sendOTP } from "../config/mail";
 import { generateAccessToken, generateRefreshToken } from "../utils/token";
 
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3 } from "../config/s3";
+import stream from "stream";
+
+export const getProfilePhoto = async (req: Request, res: Response) => {
+  try {
+    const { key } = req.params;
+    const bucket = process.env.AWS_BUCKET_NAME || "go-ride";
+    
+    // Attempt to determine folder based on file naming or just try both
+    let folder = "goride/profiles/";
+    if (key.startsWith('vehiclePhotos') || key.startsWith('vehiclePhoto')) {
+        folder = "goride/vehicles/";
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: `${folder}${key}`
+    });
+
+    const { Body, ContentType } = await s3.send(command);
+
+    if (Body instanceof stream.Readable) {
+      res.setHeader("Content-Type", ContentType || "image/jpeg");
+      Body.pipe(res);
+    } else {
+      res.status(404).json({ message: "File body is invalid" });
+    }
+  } catch (err: any) {
+    console.warn("⚠️ S3 Proxy Error:", err.message);
+    res.status(404).json({ message: "Image not found on S3" });
+  }
+};
+
 export const register = async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, password, confirmPassword, role } = req.body;
@@ -176,15 +210,20 @@ export const getMe = async (req: any, res: Response) => {
       vehicle = await Vehicle.findOne({ ownerId: user._id });
     }
     
+    const userObj = user.toObject();
     res.json({
-      ...user.toObject(),
-      vehicleType: vehicle?.vehicleType,
-      vehicleNumber: vehicle?.numberPlate,
-      vehicleModel: vehicle?.vehicleModel
+        ...userObj,
+        id: user._id,
+        _id: user._id,
+        vehicleType: vehicle?.vehicleType,
+        vehicleNumber: vehicle?.numberPlate,
+        vehicleModel: vehicle?.vehicleModel,
+        vehiclePhoto: vehicle?.vehiclePhotos?.[0] || null
     });
-  } catch (err) {
+} catch (err) {
+    console.error("getMe error:", err);
     res.status(500).json({ message: "Server error" });
-  }
+}
 };
 
 export const updateProfile = async (req: any, res: Response) => {

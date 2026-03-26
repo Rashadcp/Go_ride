@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { register, login, getMe, updateProfile, forgotPassword, resetPassword, changePassword, completeDriverOnboarding, getTransactions, getDashboardStats, clearTransactions, refreshToken, logout } from "../controllers/auth.controller";
+import { register, login, getMe, updateProfile, getProfilePhoto, forgotPassword, resetPassword, changePassword, completeDriverOnboarding, getTransactions, getDashboardStats, clearTransactions, refreshToken, logout } from "../controllers/auth.controller";
 import { upload } from "../middleware/upload.middleware";
 import { protect } from "../middleware/auth.middleware";
 import passport from "../config/passport";
@@ -24,6 +24,7 @@ router.post("/login", login);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", protect, logout);
 router.get("/me", protect, getMe);
+router.get("/profile-photo/:key", getProfilePhoto);
 router.put("/me", protect, upload.single("profilePhoto"), updateProfile);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);

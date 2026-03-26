@@ -22,6 +22,7 @@ import path from "path";
 export const storage = multerS3({
     s3,
     bucket,
+    acl: "public-read",
     contentType: multerS3.AUTO_CONTENT_TYPE,
     metadata: function (req: any, file: any, cb: any) {
         cb(null, { fieldName: file.fieldname });

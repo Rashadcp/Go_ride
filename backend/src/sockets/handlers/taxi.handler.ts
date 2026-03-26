@@ -223,8 +223,10 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     socket.on("ride-accept", async (data: any) => {
         try {
             const { rideId, driverId, driverInfo } = data;
+            const finalDriverId = driverId || socket.data.user?.id || socket.data.user?._id;
+            
             const updatedRide = await Ride.findOneAndUpdate({ rideId }, {
-                driverId,
+                driverId: finalDriverId,
                 status: 'ACCEPTED',
                 acceptedAt: new Date()
             }, { new: true });

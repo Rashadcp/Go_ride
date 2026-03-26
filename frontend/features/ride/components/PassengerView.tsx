@@ -26,6 +26,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const [isExpanding, setIsExpanding] = useState(false);
   const [rating, setRating] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [ratingStep, setRatingStep] = useState(1);
 
   const {
     userLoc, stops, routeInfo, activeRide,
@@ -456,80 +457,188 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
 
             {activeRide.driverInfo && (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-5 mb-8 shadow-inner">
-                <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg border-2 border-white/20">
-                  {activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo ? (
-                    <img src={activeRide.driverInfo.profilePhoto || activeRide.driverInfo.photo} alt="Driver" className="w-full h-full object-cover" />
-                  ) : (
-                    <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M30 25C30 15 35 10 50 10C65 10 70 15 70 25L75 45V80C75 85.5228 70.5228 90 65 90H35C29.4772 90 25 85.5228 25 80V45L30 25Z" fill="#0A192F" />
-                      <path d="M35 30L65 30L68 45H32L35 30Z" fill="#FFD700" fillOpacity="0.6" />
-                      <rect x="30" y="50" width="40" height="25" rx="2" fill="#FFD700" fillOpacity="0.4" />
-                    </svg>
-                  )}
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-5 mb-8 shadow-inner overflow-hidden">
+                <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg border-2 border-white/20 shrink-0">
+                  {(() => {
+                    const rawPhoto = activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo;
+                    if (!rawPhoto) return (
+                      <div className="w-full h-full bg-[#FFD700] flex items-center justify-center">
+                        <Users className="text-[#0A192F] w-7 h-7" />
+                      </div>
+                    );
+
+                    // Normalize URL: handles S3 URLs (via proxy), full URLs, and local paths
+                    let finalSrc = rawPhoto;
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+
+                    if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
+                      // Redirect through our backend proxy to bypass S3 Access Denied (403)
+                      const filename = rawPhoto.split('/').pop();
+                      finalSrc = `${baseUrl}/api/auth/profile-photo/${filename}`;
+                    } else if (!rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
+                      const cleanPath = rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`;
+                      finalSrc = `${baseUrl}${cleanPath}`;
+                    }
+
+
+                    return (
+                      <img 
+                        src={finalSrc} 
+                        alt="Driver" 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          console.error("❌ Failed to load driver photo:", finalSrc);
+                          target.onerror = null;
+                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeRide.driverInfo?.name || "Driver")}&background=FFD700&color=0A192F&bold=true`;
+                        }}
+                      />
+                    );
+                  })()}
                 </div>
                 <div className="flex-1">
-                  <p className="font-black text-lg text-white mb-1">{activeRide.driverInfo.name || "Driver"}</p>
-                  <div className="inline-flex px-3 py-1 bg-[#FFD700]/10 rounded-lg border border-[#FFD700]/20">
-                    <p className="text-[#FFD700] font-black text-[11px] tracking-widest">{activeRide.driverInfo.vehiclePlate || activeRide.driverInfo.vehicleNumber || "NOT AVAILABLE"}</p>
+                  <p className="font-black text-lg text-white mb-1 leading-none">{activeRide.driverInfo.name || "Driver"}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/5 bg-black/20">
+                      <Star className="w-3.5 h-3.5 fill-[#FFD700] text-[#FFD700]" />
+                      <span className="font-black text-[12px] text-[#FFD700]">{activeRide.driverInfo.rating || "4.9"}</span>
+                    </div>
+                    {activeRide.driverInfo.vehicleModel && (
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[120px]">{activeRide.driverInfo.vehicleModel}</span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right flex flex-col items-end gap-1">
-                  <div className="flex items-center gap-1.5 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">
-                    <Star className="w-3.5 h-3.5 fill-[#FFD700] text-[#FFD700]" />
-                    <span className="font-black text-[13px]">4.9</span>
-                  </div>
-                </div>
+                {activeRide.driverInfo.vehiclePlate && (
+                   <div className="bg-white text-[#0A192F] px-4 py-2 rounded-xl font-black text-[11px] uppercase tracking-tighter border-2 border-slate-200 shadow-sm leading-none shrink-0">
+                      {activeRide.driverInfo.vehiclePlate}
+                   </div>
+                )}
               </div>
             )}
 
+            {/* Vehicle Preview Card (Secondary) */}
+            {activeRide.driverInfo?.vehiclePhoto && (
+               <div className="mb-8 rounded-[24px] overflow-hidden border border-white/10 bg-black/20 relative group aspect-video">
+                  <img 
+                    src={activeRide.driverInfo.vehiclePhoto.startsWith('http') ? activeRide.driverInfo.vehiclePhoto : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/${activeRide.driverInfo.vehiclePhoto}`} 
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700"
+                    alt="Vehicle"
+                    onError={(e) => (e.target as any).style.display = 'none'}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                     <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-widest">{activeRide.driverInfo.vehicleModel || "Car Information"}</span>
+                     <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-[8px] font-black text-white/60 uppercase tracking-widest italic">Verified Transport</span>
+                     </div>
+                  </div>
+               </div>
+            )}
+
+            {/* Multi-Step Rating & Feedback UI (Compact) */}
             {activeRide.status === "COMPLETED" && (
-              <div className="space-y-6">
-                <div className="text-center pt-2">
-                  <p className="text-slate-400 font-bold text-[11px] uppercase tracking-[0.2em] mb-3">Rate your experience</p>
-                  <div className="flex justify-center gap-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => setRating(star)}
-                        className="p-1 transition-transform hover:scale-110 active:scale-95"
-                      >
-                        <Star
-                          className={`w-8 h-8 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700]' : 'text-white/20'}`}
-                        />
-                      </button>
-                    ))}
+              <div className="fixed inset-0 z-[2500] flex items-end justify-center pointer-events-auto">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in pointer-events-auto" />
+                
+                <div className="relative w-full max-w-sm bg-[#0A192F] rounded-[40px] border border-white/10 shadow-[0_-20px_100px_-20px_rgba(0,0,0,0.8)] p-8 text-center animate-slide-up pointer-events-auto overflow-hidden mx-4 mb-4">
+                  {/* Step Indicators (Tiny) */}
+                  <div className="flex justify-center gap-1.5 mb-6 shrink-0">
+                    <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 1 ? 'w-6 bg-[#FFD700]' : 'w-2 bg-white/10'}`} />
+                    <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 2 ? 'w-6 bg-[#FFD700]' : 'w-2 bg-white/10'}`} />
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
+                    {ratingStep === 1 ? (
+                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="space-y-2">
+                          <h1 className="text-2xl font-[family-name:var(--font-montserrat)] font-black text-white italic uppercase tracking-tighter leading-none">
+                            Trip <span className="text-[#FFD700]">Rating</span>
+                          </h1>
+                          <p className="text-slate-400 font-bold text-[8px] uppercase tracking-[0.2em] opacity-60">
+                            Rate {activeRide.driverInfo?.name || "driver"}
+                          </p>
+                        </div>
+
+                        <div className="flex justify-center gap-3">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              onClick={() => setRating(star)}
+                              className={`group transition-all duration-300 transform ${star <= rating ? 'scale-110' : 'hover:scale-105 active:scale-95 opacity-20 hover:opacity-100'}`}
+                            >
+                              <Star
+                                className={`w-8 h-8 sm:w-10 sm:h-10 transition-all duration-300 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_10px_rgba(255,215,0,0.4)]' : 'text-slate-500'}`}
+                                strokeWidth={1}
+                              />
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => setRatingStep(2)}
+                          disabled={rating === 0}
+                          className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-[0_15px_30px_-10px_rgba(255,215,0,0.3)] hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-20 disabled:grayscale"
+                        >
+                          Next Step
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <div className="space-y-2">
+                          <h1 className="text-2xl font-[family-name:var(--font-montserrat)] font-black text-white italic uppercase tracking-tighter leading-none">
+                            Trip <span className="text-[#FFD700]">Feedback</span>
+                          </h1>
+                          <p className="text-slate-400 font-bold text-[8px] uppercase tracking-[0.2em] opacity-60">
+                            Tell us what you think
+                          </p>
+                        </div>
+
+                        <div className="relative">
+                          <textarea
+                            placeholder="Your message (Optional)..."
+                            value={feedback}
+                            onChange={(e) => setFeedback(e.target.value)}
+                            className="w-full h-24 bg-white/[0.02] border border-white/10 rounded-[20px] p-5 text-white text-sm font-medium outline-none focus:border-[#FFD700]/30 transition-all placeholder:text-slate-700 resize-none shadow-inner"
+                          />
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setRatingStep(1)}
+                            className="flex-1 py-4 bg-white/5 text-white/50 rounded-[20px] font-black text-[9px] uppercase tracking-[0.2em] hover:bg-white/10 hover:text-white transition-all shadow-inner border border-white/5"
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (rating > 0) {
+                                  await api.post('/rating', {
+                                    rideId: activeRide._id || activeRide.id || activeRide.rideId,
+                                    targetId: activeRide.driverId?._id || activeRide.driverId,
+                                    rating,
+                                    feedback
+                                  });
+                                }
+                                rideState.resetRideState();
+                                setRating(0);
+                                setFeedback("");
+                                setRatingStep(1);
+                                toast.success("Thanks for your feedback!");
+                              } catch (err) {
+                                toast.error("Failed to submit rating");
+                              }
+                            }}
+                            className="flex-[2] py-4 bg-[#FFD700] text-[#0A192F] rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-[0_15px_30px_-10px_rgba(255,215,0,0.3)] hover:scale-[1.01] active:scale-[0.98] transition-all"
+                          >
+                            Submit & Finish
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                <textarea
-                  placeholder="Share your feedback (optional)..."
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-[13px] outline-none focus:border-[#FFD700]/30 transition-all placeholder:text-slate-600 resize-none"
-                />
-
-                <button
-                  onClick={async () => {
-                    try {
-                      if (rating > 0) {
-                        await api.post('/rides/rate', {
-                          rideId: activeRide._id || activeRide.id,
-                          targetId: activeRide.driverId?._id || activeRide.driverId,
-                          rating,
-                          feedback
-                        });
-                      }
-                      rideState.resetRideState();
-                      toast.success("Thanks for your rating!");
-                    } catch (err) {
-                      toast.error("Failed to submit rating");
-                    }
-                  }}
-                  className="w-full py-5 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all"
-                >
-                  Submit & Complete
-                </button>
               </div>
             )}
 

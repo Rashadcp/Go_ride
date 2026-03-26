@@ -11,6 +11,9 @@ interface User {
     vehicleNumber?: string;
     vehicleType?: string;
     vehicleModel?: string;
+    rating?: number;
+    totalReviews?: number;
+    _id?: string;
 }
 
 interface AuthState {

@@ -92,7 +92,7 @@ export const useRideSocket = (user: any, enableListeners = true) => {
       
       if (status === "COMPLETED") {
         toast.success("Destination reached!");
-        resetRideState();
+        setActiveRide((prev: any) => ({ ...prev, status: "COMPLETED" }));
         return;
       }
       
