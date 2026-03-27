@@ -147,8 +147,11 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                         <Compass className="w-7 h-7 text-[#FFD700] animate-pulse" />
                      </div>
                      <div>
-                        <h3 className="text-2xl font-black text-white tracking-tight mb-1">{rideState.activeRide?.status === "ARRIVED" ? "At Pickup Point" :
-                           rideState.activeRide?.status === "STARTED" ? "Trip in Progress" : "Looking for riders"}</h3>
+                        <h3 className="text-2xl font-black text-white tracking-tight mb-1">
+                           {rideState.activeRide?.status === "ARRIVED" ? "At Pickup Point" :
+                            rideState.activeRide?.status === "STARTED" ? "Trip in Progress" :
+                            (rideState.activeRide?.passengers?.length > 0) ? "Heading to Pickup" : "Looking for riders"}
+                        </h3>
                         <p className="font-black text-[#FFD700] text-[12px] tracking-widest uppercase">
                            {rideState.activeRide?.availableSeats !== undefined ? rideState.activeRide.availableSeats : seatsAvailable} SEAT{(rideState.activeRide?.availableSeats ?? seatsAvailable) > 1 ? 'S' : ''} AVAILABLE
                         </p>
@@ -245,45 +248,56 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      </div>
                   )}
 
-                  {/* Status Control Buttons - [REQUESTED BY USER] */}
-                  <div className="grid grid-cols-3 gap-3 mb-6 relative z-10">
-                     <button
-                        onClick={() => {
-                           if (!rideState.activeRide?.rideId) return;
-                           socket.emit("update-ride-status", { rideId: rideState.activeRide.rideId, status: "ARRIVED", driverId: user.id });
-                           rideState.setActiveRide((prev: any) => ({ ...prev, status: "ARRIVED" }));
-                           toast.success("Marked as Arrived!");
-                        }}
-                        disabled={!rideState.activeRide || (rideState.activeRide?.status && rideState.activeRide?.status !== "OPEN" && rideState.activeRide?.status !== "ACCEPTED")}
-                        className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${rideState.activeRide?.status === "ARRIVED" ? "bg-[#FFD700] text-[#0A192F]" : "bg-white/10 text-white hover:bg-white/20 disabled:hidden"}`}
-                     >
-                        Arrived
-                     </button>
-                     <button
-                        onClick={() => {
-                           if (!rideState.activeRide?.rideId) return;
-                           socket.emit("update-ride-status", { rideId: rideState.activeRide.rideId, status: "STARTED", driverId: user.id });
-                           rideState.setActiveRide((prev: any) => ({ ...prev, status: "STARTED" }));
-                           toast.success("Trip Started!");
-                        }}
-                        disabled={rideState.activeRide?.status !== "ARRIVED"}
-                        className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${rideState.activeRide?.status === "STARTED" ? "bg-green-500 text-white" : "bg-white/10 text-white hover:bg-white/20 disabled:hidden"}`}
-                     >
-                        Start
-                     </button>
-                     <button
-                        onClick={() => {
-                           if (!rideState.activeRide?.rideId) return;
-                           socket.emit("update-ride-status", { rideId: rideState.activeRide.rideId, status: "COMPLETED", driverId: user.id });
-                           rideState.resetRideState();
-                           setIsDriverTripActive(false);
-                           toast.success("Trip Completed!");
-                        }}
-                        disabled={rideState.activeRide?.status !== "STARTED"}
-                        className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all bg-white/10 text-white hover:bg-white/20 disabled:hidden`}
-                     >
-                        End
-                     </button>
+                  {/* Status Control Buttons - Optimized Visibility */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 mb-2 relative z-10 font-sans">
+                     {(!rideState.activeRide?.status || ["OPEN", "ACCEPTED", "CONFIRMED", "MATCHED"].includes(rideState.activeRide.status)) && (
+                        <button
+                           onClick={() => {
+                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
+                              if (!rideId) return toast.error("No active ride found");
+                              socket.emit("update-ride-status", { rideId, status: "ARRIVED", driverId: user.id });
+                              rideState.setActiveRide((prev: any) => ({ ...prev, status: "ARRIVED" }));
+                              toast.success("Updated: Arrived at Pickup!");
+                           }}
+                           className="py-3.5 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg shadow-[#FFD700]/10 flex items-center justify-center gap-2"
+                        >
+                           <MapPin className="w-4 h-4" />
+                           Arrived
+                        </button>
+                     )}
+
+                     {rideState.activeRide?.status === "ARRIVED" && (
+                        <button
+                           onClick={() => {
+                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
+                              if (!rideId) return toast.error("No active ride found");
+                              socket.emit("update-ride-status", { rideId, status: "STARTED", driverId: user.id });
+                              rideState.setActiveRide((prev: any) => ({ ...prev, status: "STARTED" }));
+                              toast.success("Trip officially started!");
+                           }}
+                           className="py-3.5 bg-emerald-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                        >
+                           <Zap className="w-4 h-4" />
+                           Start Trip
+                        </button>
+                     )}
+
+                     {rideState.activeRide?.status === "STARTED" && (
+                        <button
+                           onClick={() => {
+                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
+                              if (!rideId) return toast.error("No active ride found");
+                              socket.emit("update-ride-status", { rideId, status: "COMPLETED", driverId: user.id });
+                              rideState.resetRideState();
+                              setIsDriverTripActive(false);
+                              toast.success("Ride completed successfully!");
+                           }}
+                           className="py-3.5 bg-white text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2"
+                        >
+                           <ShieldCheck className="w-4 h-4" />
+                           End Trip
+                        </button>
+                     )}
                   </div>
 
                   <button onClick={() => { setIsDriverTripActive(false); rideState.resetRideState(); }} className="w-full mt-6 py-5 relative z-10 bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 text-rose-500 hover:text-white rounded-[20px] font-black text-[13px] uppercase tracking-[0.2em] transition-all">Cancel Trip</button>

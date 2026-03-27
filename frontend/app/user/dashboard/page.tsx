@@ -131,7 +131,7 @@ export default function UserDashboard() {
         )}
 
         {activeTab === "history" && (
-          <HistoryTab ridesHistory={dashboardData.ridesHistory} setActiveTab={setActiveTab} />
+          <HistoryTab ridesHistory={dashboardData.ridesHistory} setActiveTab={setActiveTab} user={user} />
         )}
 
         {activeTab === "earnings" && (

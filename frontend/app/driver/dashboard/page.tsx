@@ -101,7 +101,7 @@ export default function DriverDashboard() {
 
         const fetchVehicle = async () => {
             try {
-                const { data } = await api.get("/vehicle/me");
+                const { data } = await api.get("/vehicles/me");
                 setVehicle(data);
                 setVehicleData({
                     numberPlate: data.numberPlate || "",
@@ -343,7 +343,7 @@ export default function DriverDashboard() {
                 formData.append("vehiclePhotos", vehiclePic);
             }
 
-            const response = await api.put("/vehicle", formData, {
+            const response = await api.put("/vehicles", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
             setVehicle(response.data.vehicle);

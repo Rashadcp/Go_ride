@@ -404,7 +404,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
         {/* Active Ride Panel */}
         {activeRide && (
-          <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.4)] p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-hidden">
+          <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.4)] p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-y-auto max-h-full custom-scrollbar">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/10 rounded-full blur-3xl -mr-10 -mt-20" />
             <h3 className="text-[11px] font-black text-[#FFD700] uppercase tracking-[0.3em] mb-2">
               {activeRide.status === "SEARCHING" ? "Finding you a driver" :
