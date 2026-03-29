@@ -1,4 +1,4 @@
-import { User as UserProfile, Camera, MapPin, Home, Briefcase, Trash2, Lock } from 'lucide-react';
+import { User as UserProfile, Camera, MapPin, Home, Briefcase, Trash2, Lock, Phone } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -8,8 +8,8 @@ interface SettingsTabProps {
   user: any;
   handleUpdateImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isUpdatingProfile: boolean;
-  profileData: { firstName: string; lastName: string };
-  setProfileData: (v: { firstName: string; lastName: string }) => void;
+  profileData: { firstName: string; lastName: string; phone: string };
+  setProfileData: (v: { firstName: string; lastName: string; phone: string }) => void;
   handleUpdateProfile: () => void;
   isAddingAddress: boolean;
   setIsAddingAddress: (v: boolean) => void;
@@ -72,13 +72,23 @@ export function SettingsTab(props: SettingsTabProps) {
             </div>
           </div>
           
-          <div className="p-10 space-y-10">
-            <div className="grid grid-cols-2 gap-8">
-              <Input label="First Name" value={profileData.firstName} onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })} />
-              <Input label="Last Name" value={profileData.lastName} onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })} />
-            </div>
-            <div className="flex justify-end pt-2">
-              <Button variant="secondary" onClick={handleUpdateProfile} loading={isUpdatingProfile}>Save Name Changes</Button>
+            <div className="p-10 space-y-10 group">
+              <div className="grid grid-cols-2 gap-8">
+                <Input label="First Name" value={profileData.firstName} onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })} />
+                <Input label="Last Name" value={profileData.lastName} onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-1 gap-8">
+                <Input 
+                  label="Phone Number" 
+                  placeholder="+91 98765 43210" 
+                  leftIcon={<Phone className="w-4 h-4" />}
+                  value={profileData.phone} 
+                  onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })} 
+                />
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button variant="secondary" onClick={handleUpdateProfile} loading={isUpdatingProfile}>Save Personal Details</Button>
+              </div>
             </div>
             
             <div className="space-y-6">
@@ -141,7 +151,6 @@ export function SettingsTab(props: SettingsTabProps) {
                 </Button>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>

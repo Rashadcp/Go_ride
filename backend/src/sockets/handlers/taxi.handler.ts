@@ -215,6 +215,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (!updatedRide) return;
 
+            // ✅ Notify the accepted user
             io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
                 driverId: finalDriverId,
@@ -229,6 +230,33 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (finalDriverId) {
                 await updateDriverStatus(finalDriverId.toString(), "busy");
+
+                // ✅ FIX: Broadcast updated driver list to ALL users so car icons
+                // disappear from every user's map when this driver goes busy
+                const updatedDriverList = await getAvailableDrivers();
+                io.emit("active-drivers", updatedDriverList);
+            }
+
+            // ✅ FIX: Find other SEARCHING rides (other users who requested same driver)
+            // and cancel them so they don't get stuck waiting forever
+            const otherStuckRides = await Ride.find({
+                rideId: { $ne: rideId },
+                status: 'SEARCHING',
+                requestedVehicleType: updatedRide.requestedVehicleType,
+                type: updatedRide.type,
+                createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // within last 5 min
+            });
+
+            for (const stuckRide of otherStuckRides) {
+                await Ride.findByIdAndUpdate(stuckRide._id, {
+                    status: 'NO_DRIVER',
+                    cancelledAt: new Date()
+                });
+                // Tell that user: driver was taken, please search again
+                // Their handleRideRequestFailed will call resetRideState() which clears visibleNearbyDrivers
+                io.to(`user:${stuckRide.createdBy}`).emit("ride-request-failed", {
+                    reason: "The driver was taken by another passenger. Please search again."
+                });
             }
 
             socket.join(`ride:${rideId}`);

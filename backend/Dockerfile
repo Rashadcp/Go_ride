@@ -1,13 +1,18 @@
-# Build Stage
-FROM node:20-alpine AS builder
-
+# Base Stage
+FROM node:20-alpine AS base
 WORKDIR /app
-
-# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy source and build
+# Dev Stage (for instant reflection)
+FROM base AS dev
+COPY . .
+ENV NODE_ENV=development
+EXPOSE 5001
+CMD ["npm", "run", "dev"]
+
+# Build Stage (for production)
+FROM base AS builder
 COPY . .
 RUN npm run build
 

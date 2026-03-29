@@ -41,7 +41,7 @@ export const useDashboardData = () => {
 
   // Mutations
   const updateProfileMutation = useMutation({
-    mutationFn: async (payload: { name: string }) => {
+    mutationFn: async (payload: { name: string; phone?: string }) => {
       await api.put('/auth/me', payload);
     },
     onSuccess: () => {

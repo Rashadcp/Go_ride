@@ -11,7 +11,12 @@ import {
     getDiscounts,
     createDiscount,
     deleteDiscount,
-    getAllTransactions
+    getAllTransactions,
+    toggleBlockUser,
+    toggleFlagSuspicious,
+    softDeleteUser,
+    getUserRideHistory,
+    updateUser
 } from "../controllers/admin.controller";
 import { protect, adminProtect } from "../middleware/auth.middleware";
 
@@ -31,5 +36,12 @@ router.get("/discounts", protect, adminProtect, getDiscounts);
 router.post("/discounts", protect, adminProtect, createDiscount);
 router.delete("/discounts/:id", protect, adminProtect, deleteDiscount);
 router.get("/transactions", protect, adminProtect, getAllTransactions);
+
+// User Management Actions
+router.put("/users/block/:id", protect, adminProtect, toggleBlockUser);
+router.put("/users/flag/:id", protect, adminProtect, toggleFlagSuspicious);
+router.put("/users/:id", protect, adminProtect, updateUser);
+router.delete("/users/:id", protect, adminProtect, softDeleteUser);
+router.get("/users/ride-history/:id", protect, adminProtect, getUserRideHistory);
 
 export default router;

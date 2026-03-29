@@ -26,6 +26,8 @@ interface DashboardStats {
     totalRevenue: number;
     walletBalance: number;
     emergencyAlerts: number;
+    blockedUsers: number;
+    suspiciousUsers: number;
 }
 
 export default function AdminDashboardPage() {
@@ -138,6 +140,25 @@ export default function AdminDashboardPage() {
                     icon={AlertTriangle}
                     color="text-rose-400"
                     subtext="Urgent"
+                />
+            </div>
+
+            {/* Security Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <StatCard
+                    title="Blocked Accounts"
+                    value={stats?.blockedUsers}
+                    icon={XCircle}
+                    color="text-rose-500"
+                    subtext="Access Revoked"
+                />
+                <StatCard
+                    title="Suspicious Users"
+                    value={stats?.suspiciousUsers}
+                    icon={AlertTriangle}
+                    color="text-orange-400"
+                    trend={0}
+                    subtext="Under Review"
                 />
             </div>
 

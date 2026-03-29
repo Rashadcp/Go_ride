@@ -15,8 +15,19 @@ import {
     Loader2,
     ChevronRight,
     Calendar,
-    Clock
+    Clock,
+    Edit2,
+    Ban,
+    Unlock,
+    AlertTriangle,
+    History,
+    X,
+    Navigation,
+    Circle,
+    UserCircle
 } from "lucide-react";
+import UserRideHistoryModal from "@/components/admin/UserRideHistoryModal";
+import EditUserModal from "@/components/admin/EditUserModal";
 
 interface UserProfile {
     _id: string;
@@ -26,6 +37,8 @@ interface UserProfile {
     profilePhoto?: string;
     phone?: string;
     addresses?: Array<{ label: string, address: string }>;
+    isBlocked?: boolean;
+    isSuspicious?: boolean;
     createdAt: string;
 }
 
@@ -50,15 +63,53 @@ export default function AdminUsersPage() {
         fetchUsers();
     }, []);
 
-    const handleDeleteUser = async (id: string) => {
-        if (!window.confirm("Are you sure you want to delete this user?")) return;
+    const toggleBlockUser = async (id: string, currentlyBlocked: boolean) => {
+        const action = currentlyBlocked ? "unblock" : "block";
+        if (!window.confirm(`Are you sure you want to ${action} this user?`)) return;
         try {
-            await api.delete(`/admin/driver/${id}`); // Assuming deleteDriver works for users too since they are in User model
-            toast.success("User deleted successfully");
+            await api.put(`/admin/users/block/${id}`);
+            toast.success(`User ${action}ed successfully`);
+            fetchUsers();
+        } catch (error: any) {
+            toast.error(`Failed to ${action} user`);
+        }
+    };
+
+    const toggleFlagUser = async (id: string, currentlyFlagged: boolean) => {
+        const action = currentlyFlagged ? "unflag" : "flag";
+        try {
+            await api.put(`/admin/users/flag/${id}`);
+            toast.success(`User ${action}ged successfully`);
+            fetchUsers();
+        } catch (error: any) {
+            toast.error(`Failed to ${action} user`);
+        }
+    };
+
+    const handleSoftDeleteUser = async (id: string) => {
+        if (!window.confirm("Are you sure you want to delete this user account? This is a soft delete and the data will be retained for archival purposes.")) return;
+        try {
+            await api.delete(`/admin/users/${id}`);
+            toast.success("User account deleted successfully");
             fetchUsers();
         } catch (error: any) {
             toast.error("Failed to delete user");
         }
+    };
+
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+
+    const viewRideHistory = (id: string) => {
+        setSelectedUserId(id);
+        setIsHistoryModalOpen(true);
+    };
+
+    const handleEditUser = (user: UserProfile) => {
+        setEditingUser(user);
+        setIsEditModalOpen(true);
     };
 
     const filteredUsers = users.filter(u =>
@@ -156,12 +207,43 @@ export default function AdminUsersPage() {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6 text-right">
-                                        <button
-                                            onClick={() => handleDeleteUser(user._id)}
-                                            className="p-3 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleEditUser(user)}
+                                                className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all"
+                                                title="Edit User"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => viewRideHistory(user._id)}
+                                                className="p-2.5 text-slate-400 hover:text-[#FFD700] hover:bg-[#FFD700]/10 rounded-xl transition-all"
+                                                title="Ride History"
+                                            >
+                                                <History className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => toggleFlagUser(user._id, !!user.isSuspicious)}
+                                                className={`p-2.5 rounded-xl transition-all ${user.isSuspicious ? 'text-orange-500 bg-orange-500/10' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-500/10'}`}
+                                                title={user.isSuspicious ? "Unflag Suspicious" : "Flag Suspicious"}
+                                            >
+                                                <AlertTriangle className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => toggleBlockUser(user._id, !!user.isBlocked)}
+                                                className={`p-2.5 rounded-xl transition-all ${user.isBlocked ? 'text-rose-500 bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`}
+                                                title={user.isBlocked ? "Unblock User" : "Block User"}
+                                            >
+                                                {user.isBlocked ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                onClick={() => handleSoftDeleteUser(user._id)}
+                                                className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-600/10 rounded-xl transition-all"
+                                                title="Soft Delete Account"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -169,6 +251,19 @@ export default function AdminUsersPage() {
                     </table>
                 </div>
             </div>
+
+            <UserRideHistoryModal
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                userId={selectedUserId || ""}
+            />
+
+            <EditUserModal 
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                user={editingUser}
+                onUpdate={fetchUsers}
+            />
         </div>
     );
 }

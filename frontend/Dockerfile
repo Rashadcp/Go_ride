@@ -1,8 +1,19 @@
-# Build Stage
-FROM node:20-alpine AS builder
-
+# Base Stage
+FROM node:20-alpine AS base
 WORKDIR /app
+COPY package*.json ./
+RUN npm install
 
+# Dev Stage (for instant UI reflection)
+FROM base AS dev
+COPY . .
+ENV NODE_ENV=development
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+# Build Stage (for production)
+FROM base AS builder
+COPY . .
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_RAZORPAY_KEY_ID
 ARG NEXT_PUBLIC_AWS_BUCKET_NAME
@@ -15,17 +26,7 @@ ENV NEXT_PUBLIC_AWS_BUCKET_NAME=$NEXT_PUBLIC_AWS_BUCKET_NAME
 ENV NEXT_PUBLIC_AWS_REGION=$NEXT_PUBLIC_AWS_REGION
 ENV NEXT_PUBLIC_S3_HOSTNAME=$NEXT_PUBLIC_S3_HOSTNAME
 
-# Install build-time dependencies
-# (Need for some canvas or other special native modules)
-# RUN apk add --no-cache libc6-compat
-
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install
-
-# Copy source and build
-COPY . .
-# We disable linting during build to avoid failures from dev-only lints
+# Disallow linting during build to skip dev-only lints
 RUN npm run build
 
 # Production Stage

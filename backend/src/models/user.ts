@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
       default: "USER",
     },
     profilePhoto: String,
+    phone: String,
     address: String,
     addresses: [
       {
@@ -24,6 +25,11 @@ const userSchema = new mongoose.Schema(
     walletBalance: { type: Number, default: 0 },
     rating: { type: Number, default: 5.0 },
     totalRides: { type: Number, default: 0 },
+
+    // Admin Control Fields
+    isBlocked: { type: Boolean, default: false },
+    isSuspicious: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false },
 
     // General status for drivers (linked to vehicle approval)
     status: {

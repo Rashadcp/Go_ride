@@ -32,7 +32,7 @@ export default function UserDashboard() {
   const { clearAuth } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  const [profileData, setProfileData] = useState({ firstName: "", lastName: "" });
+  const [profileData, setProfileData] = useState({ firstName: "", lastName: "", phone: "" });
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [addressFormData, setAddressFormData] = useState({ label: "Home", address: "" });
   const [securityData, setSecurityData] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
@@ -66,7 +66,8 @@ export default function UserDashboard() {
     if (user) {
       setProfileData({
         firstName: user.firstName || user.name?.split(" ")[0] || "",
-        lastName: user.lastName || user.name?.split(" ").slice(1).join(" ") || ""
+        lastName: user.lastName || user.name?.split(" ").slice(1).join(" ") || "",
+        phone: (user as any).phone || ""
       });
     }
   }, [user]);
@@ -101,7 +102,10 @@ export default function UserDashboard() {
       return;
     }
     try {
-      await dashboardData.updateProfileMutation.mutateAsync({ name: fullName });
+      await dashboardData.updateProfileMutation.mutateAsync({ 
+        name: fullName,
+        phone: profileData.phone
+      });
       toast.success("Profile updated.");
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Failed to update profile.");

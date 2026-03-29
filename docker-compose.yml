@@ -22,14 +22,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: dev
     container_name: goride-backend
+    volumes:
+      - ./backend:/app
+      - backend_modules:/app/node_modules
     ports:
       - "5001:5001"
     env_file:
       - ./backend/.env
     environment:
-      # Overriding MONGO_URI to use the local container name instead of the cloud URI
-      # - MONGO_URI=mongodb://mongodb:27017/goride
       - REDIS_URL=redis://redis:6379
       - FRONTEND_URL=http://localhost:3001
     depends_on:
@@ -41,6 +43,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
       args:
         NEXT_PUBLIC_API_URL: http://localhost:5001/api
         NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_SENj7Gukg5vBSe
@@ -48,8 +51,14 @@ services:
         NEXT_PUBLIC_AWS_REGION: ap-south-1
         NEXT_PUBLIC_S3_HOSTNAME: go-ride.s3.ap-south-1.amazonaws.com
     container_name: goride-frontend
+    volumes:
+      - ./frontend:/app
+      - frontend_modules:/app/node_modules
+      - frontend_next:/app/.next
     ports:
       - "3001:3000"
+    environment:
+      - WATCHPACK_POLLING=true
     depends_on:
       - backend
     restart: always
@@ -57,3 +66,6 @@ services:
 volumes:
   mongodb_data:
   redis_data:
+  backend_modules:
+  frontend_modules:
+  frontend_next:

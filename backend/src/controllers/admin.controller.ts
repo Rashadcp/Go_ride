@@ -64,7 +64,7 @@ export const deleteDriver = async (req: Request, res: Response) => {
 
 export const getAllDrivers = async (req: Request, res: Response) => {
     try {
-        const drivers = await User.find({ role: "DRIVER" }).select("-password");
+        const drivers = await User.find({ role: "DRIVER", isDeleted: { $ne: true } }).select("-password");
         const vehicles = await Vehicle.find().populate("ownerId", "name email");
 
         // Map vehicles to drivers for a unified view
@@ -85,9 +85,11 @@ export const getAllDrivers = async (req: Request, res: Response) => {
 
 export const getDashboardStats = async (req: Request, res: Response) => {
     try {
-        const totalUsers = await User.countDocuments({ role: "USER" });
-        const totalDrivers = await User.countDocuments({ role: "DRIVER" });
+        const totalUsers = await User.countDocuments({ role: "USER", isDeleted: { $ne: true } });
+        const totalDrivers = await User.countDocuments({ role: "DRIVER", isDeleted: { $ne: true } });
         const pendingApprovals = await Vehicle.countDocuments({ status: "PENDING" });
+        const blockedUsers = await User.countDocuments({ isBlocked: true, isDeleted: { $ne: true } });
+        const suspiciousUsers = await User.countDocuments({ isSuspicious: true, isDeleted: { $ne: true } });
 
         // Calculate Total Revenue (Credits only)
         const revenueData = await Transaction.aggregate([
@@ -194,7 +196,9 @@ export const getDashboardStats = async (req: Request, res: Response) => {
                 monthlyCredits,
                 monthlyDebits,
                 avgTripValue,
-                activePromotions
+                activePromotions,
+                blockedUsers,
+                suspiciousUsers
             },
             monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue : [
                 { month: "Jan", amount: 0 },
@@ -221,16 +225,109 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
-        const users = await User.find({ role: "USER" }).select("-password");
+        const users = await User.find({ role: "USER", isDeleted: { $ne: true } }).select("-password");
         res.json(users);
     } catch (err) {
         res.status(500).json({ message: "Error fetching users" });
     }
 };
 
+export const toggleBlockUser = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.isBlocked = !user.isBlocked;
+        await user.save();
+
+        res.json({ message: `User ${user.isBlocked ? 'blocked' : 'unblocked'} successfully`, isBlocked: user.isBlocked });
+    } catch (err) {
+        res.status(500).json({ message: "Error toggling user block status" });
+    }
+};
+
+export const toggleFlagSuspicious = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.isSuspicious = !user.isSuspicious;
+        await user.save();
+
+        res.json({ message: `User ${user.isSuspicious ? 'flagged' : 'unflagged'} successfully`, isSuspicious: user.isSuspicious });
+    } catch (err) {
+        res.status(500).json({ message: "Error toggling user suspicious status" });
+    }
+};
+
+export const softDeleteUser = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        user.isDeleted = true;
+        // Optionally anonymize data or set status to INACTIVE
+        user.status = "INACTIVE";
+        await user.save();
+
+        res.json({ message: "User account deleted successfully (soft delete)" });
+    } catch (err) {
+        res.status(500).json({ message: "Error deleting user" });
+    }
+};
+
+export const getUserRideHistory = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        // Search for rides where user is either the passenger or the driver
+        const rides = await Ride.find({
+            $or: [
+                { userId: id },
+                { driverId: id }
+            ]
+        })
+        .populate("userId", "name email profilePhoto")
+        .populate("driverId", "name email profilePhoto")
+        .sort({ createdAt: -1 });
+
+        res.json(rides);
+    } catch (err) {
+        res.status(500).json({ message: "Error fetching user ride history" });
+    }
+};
+
+export const updateUser = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const updates = req.body;
+
+        const user = await User.findById(id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Update fields if they are provided
+        if (updates.name) user.name = updates.name;
+        if (updates.email) user.email = updates.email;
+        if (updates.phone) (user as any).phone = updates.phone; // phone is often in User model but check schema
+        if (updates.role) user.role = updates.role;
+        if (updates.status) user.status = updates.status;
+
+        await user.save();
+        res.json({ message: "User updated successfully", user });
+    } catch (err) {
+        console.error("Error updating user:", err);
+        res.status(500).json({ message: "Error updating user" });
+    }
+};
+
 export const getEmergencyReports = async (req: Request, res: Response) => {
     try {
-        const reports = await EmergencyReport.find().populate("reporterId", "name email");
+        const reports = await EmergencyReport.find()
+            .populate("reporterId", "name email phone")
+            .populate("rideId", "rideId driverId")
+            .sort({ createdAt: -1 }); // Newest first
         res.json(reports);
     } catch (err) {
         res.status(500).json({ message: "Error fetching emergency reports" });
@@ -241,7 +338,19 @@ export const resolveEmergencyReport = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
         const { status, resolutionNotes } = req.body;
-        const report = await EmergencyReport.findByIdAndUpdate(id, { status, resolutionNotes }, { new: true });
+
+        if (!["PENDING", "INVESTIGATING", "RESOLVED"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+
+        const report = await EmergencyReport.findByIdAndUpdate(
+            id,
+            { status, resolutionNotes, updatedAt: new Date() },
+            { new: true }
+        ).populate("reporterId", "name email");
+        
+        if (!report) return res.status(404).json({ message: "Report not found" });
+        
         res.json(report);
     } catch (err) {
         res.status(500).json({ message: "Error resolving report" });

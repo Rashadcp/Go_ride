@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "@/lib/axios";
 import {
   Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus,
-  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike, ShieldCheck, Banknote, CreditCard, QrCode, Phone, MessageSquare
+  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike, ShieldCheck, Banknote, CreditCard, QrCode, Phone, MessageSquare, AlertTriangle, CheckCircle2
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -46,6 +46,40 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const [isPaymentDone, setIsPaymentDone] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const lastAutoOpenedChatRef = useRef<string | null>(null);
+
+  // Emergency Report State
+  const [isReportOpen, setIsReportOpen] = useState(false);
+  const [reportType, setReportType] = useState<"ACCIDENT" | "HARASSMENT" | "THEFT" | "OTHER">("OTHER");
+  const [reportDesc, setReportDesc] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+
+  const handleSubmitReport = async () => {
+    if (!reportDesc.trim()) { toast.error("Please describe the incident"); return; }
+    setIsSubmittingReport(true);
+    try {
+      socket.emit("ride:emergency", {
+        rideId: activeRide?.rideId || activeRide?._id || "",
+        userId: user?.id || user?._id,
+        type: reportType,
+        message: reportDesc,
+        driverName: activeRide?.driverInfo?.name || activeRide?.driverName,
+        driverId: activeRide?.driverId?._id || activeRide?.driverId,
+        location: userLoc ? { latitude: userLoc[0], longitude: userLoc[1] } : null,
+      });
+      setReportSubmitted(true);
+      setTimeout(() => {
+        setIsReportOpen(false);
+        setReportSubmitted(false);
+        setReportDesc("");
+        setReportType("OTHER");
+      }, 2500);
+    } catch (e) {
+      toast.error("Failed to send report");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -821,6 +855,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                              return null;
                            })()}
                          </button>
+                         {/* 🚨 Report button — compact, inline with Call/Chat */}
+                         {(activeRide.status === "ACCEPTED" || activeRide.status === "ARRIVED" || activeRide.status === "STARTED") && (
+                           <button
+                             onClick={() => setIsReportOpen(true)}
+                             className="w-10 h-9 flex items-center justify-center bg-amber-50 text-amber-600 rounded-xl border border-amber-200 hover:bg-amber-100 transition-all shrink-0"
+                             title="Report an issue"
+                           >
+                             <AlertTriangle className="w-4 h-4" />
+                           </button>
+                         )}
                       </div>
                     </div>
 
@@ -882,7 +926,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
               </div>
 
               {/* Action Area */}
-              <div className="mt-8 flex flex-col gap-4">
+              <div className="mt-8 flex flex-col gap-3">
                 {activeRide.status !== "COMPLETED" && activeRide.status !== "STARTED" && (
                   <button 
                     onClick={handleCancelRide} 
@@ -1095,6 +1139,115 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
         receiverName={activeRide?.driverInfo?.name || "Driver"}
         senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Passenger")}
       />
+
+      {/* 🚨 Emergency Report Modal */}
+      {isReportOpen && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 pointer-events-auto">
+          <div className="absolute inset-0 bg-[#0A192F]/80 backdrop-blur-2xl" onClick={() => !isSubmittingReport && setIsReportOpen(false)} />
+          
+          <div className="relative w-full max-w-[400px] bg-white rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            
+            {reportSubmitted ? (
+              /* Success State */
+              <div className="p-10 flex flex-col items-center justify-center text-center gap-5">
+                <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center border-4 border-emerald-100 animate-in zoom-in duration-500">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-[#0A192F] tracking-tight">Report Sent</h3>
+                  <p className="text-slate-500 font-medium text-sm mt-1">Our safety team has been alerted and will respond shortly.</p>
+                </div>
+                <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full animate-[grow_2.5s_ease-in-out_forwards]" style={{width:'100%', transformOrigin:'left', animation:'grow 2.5s ease-in-out forwards'}} />
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="bg-rose-500 p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-xl font-black text-white tracking-tight">Report an Issue</h2>
+                    <p className="text-rose-200 font-medium text-xs mt-0.5">Your safety is our top priority</p>
+                  </div>
+                  <button onClick={() => setIsReportOpen(false)} className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-all">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  {/* Report Type */}
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Type of Incident</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { id: "HARASSMENT", label: "Harassment", emoji: "😡" },
+                        { id: "ACCIDENT",   label: "Accident",   emoji: "⚠️" },
+                        { id: "THEFT",      label: "Theft",      emoji: "🚨" },
+                        { id: "OTHER",      label: "Other",      emoji: "📋" },
+                      ] as const).map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setReportType(opt.id)}
+                          className={`py-3 px-4 rounded-2xl border-2 font-black text-[12px] transition-all flex items-center gap-2 ${
+                            reportType === opt.id
+                              ? "border-rose-500 bg-rose-50 text-rose-600 shadow-md"
+                              : "border-slate-100 text-slate-500 hover:border-slate-200 bg-slate-50"
+                          }`}
+                        >
+                          <span>{opt.emoji}</span>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Describe the Incident</p>
+                    <textarea
+                      value={reportDesc}
+                      onChange={e => setReportDesc(e.target.value)}
+                      placeholder="Please describe what happened in detail..."
+                      rows={4}
+                      className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm font-medium text-[#0A192F] outline-none focus:border-rose-300 resize-none transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+
+                  {/* Driver Info Badge */}
+                  {(activeRide?.driverInfo?.name || activeRide?.driverName) && (
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="w-9 h-9 bg-[#0A192F] rounded-xl flex items-center justify-center">
+                        <Car className="w-4 h-4 text-[#FFD700]" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reporting about driver</p>
+                        <p className="text-sm font-black text-[#0A192F]">{activeRide?.driverInfo?.name || activeRide?.driverName}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submit */}
+                  <button
+                    onClick={handleSubmitReport}
+                    disabled={isSubmittingReport || !reportDesc.trim()}
+                    className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[20px] font-black text-[13px] uppercase tracking-[0.2em] transition-all shadow-xl shadow-rose-500/30 disabled:opacity-40 flex items-center justify-center gap-3"
+                  >
+                    {isSubmittingReport ? <Loader2 className="w-5 h-5 animate-spin" /> : <AlertTriangle className="w-5 h-5" />}
+                    {isSubmittingReport ? "Sending Report..." : "Submit Report"}
+                  </button>
+
+                  <p className="text-center text-[10px] font-bold text-slate-400 leading-relaxed">
+                    This report is confidential and will be reviewed by our safety team immediately.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

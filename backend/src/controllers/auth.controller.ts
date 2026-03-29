@@ -238,6 +238,9 @@ export const updateProfile = async (req: any, res: Response) => {
     if (req.body?.name) {
       user.name = req.body.name;
     }
+    if (req.body?.phone) {
+      user.phone = req.body.phone;
+    }
     if (req.body?.address) {
       user.address = req.body.address;
     }

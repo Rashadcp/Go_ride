@@ -21,8 +21,18 @@ import {
     X,
     Check,
     ExternalLink,
-    Trash2
+    Trash2,
+    Ban,
+    Unlock,
+    AlertTriangle,
+    History,
+    Navigation,
+    Circle,
+    UserCircle,
+    Edit2
 } from "lucide-react";
+import UserRideHistoryModal from "@/components/admin/UserRideHistoryModal";
+import EditUserModal from "@/components/admin/EditUserModal";
 
 interface Driver {
     _id: string;
@@ -33,6 +43,8 @@ interface Driver {
     profilePhoto?: string;
     license?: string;
     aadhaar?: string;
+    isBlocked?: boolean;
+    isSuspicious?: boolean;
     vehicle?: {
         _id: string;
         numberPlate: string;
@@ -81,17 +93,60 @@ export default function DriverVerificationPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!window.confirm("Are you sure you want to completely delete this driver? This action cannot be undone.")) return;
-
+    const toggleBlockUser = async (id: string, currentlyBlocked: boolean) => {
+        const action = currentlyBlocked ? "unblock" : "block";
+        if (!currentlyBlocked && !window.confirm(`Are you sure you want to block this driver? They won't be able to log in or take rides.`)) return;
         try {
-            await api.delete(`/admin/driver/${id}`);
-            toast.success("Driver deleted successfully");
+            await api.put(`/admin/users/block/${id}`);
+            toast.success(`Driver ${action}ed successfully`);
+            fetchDrivers();
+            if (selectedDriver?._id === id) {
+                setSelectedDriver(prev => prev ? { ...prev, isBlocked: !currentlyBlocked } : null);
+            }
+        } catch (error: any) {
+            toast.error(`Failed to ${action} driver`);
+        }
+    };
+
+    const toggleFlagUser = async (id: string, currentlyFlagged: boolean) => {
+        const action = currentlyFlagged ? "unflag" : "flag";
+        try {
+            await api.put(`/admin/users/flag/${id}`);
+            toast.success(`Driver ${action}ged successfully`);
+            fetchDrivers();
+            if (selectedDriver?._id === id) {
+                setSelectedDriver(prev => prev ? { ...prev, isSuspicious: !currentlyFlagged } : null);
+            }
+        } catch (error: any) {
+            toast.error(`Failed to ${action} driver`);
+        }
+    };
+
+    const handleSoftDelete = async (id: string) => {
+        if (!window.confirm("Are you sure you want to delete this driver account? This is a soft delete and the data will be retained for archival purposes.")) return;
+        try {
+            await api.delete(`/admin/users/${id}`);
+            toast.success("Driver account deleted successfully");
             fetchDrivers();
             setSelectedDriver(null);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to delete driver");
+            toast.error("Failed to delete driver");
         }
+    };
+
+    const [selectedUserIdForHistory, setSelectedUserIdForHistory] = useState<string | null>(null);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<any>(null);
+
+    const viewRideHistory = (id: string) => {
+        setSelectedUserIdForHistory(id);
+        setIsHistoryModalOpen(true);
+    };
+
+    const handleEditDriver = (driver: any) => {
+        setEditingUser(driver);
+        setIsEditModalOpen(true);
     };
 
     const filteredDrivers = drivers.filter(d => {
@@ -188,7 +243,11 @@ export default function DriverVerificationPage() {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-white group-hover:text-[#FFD700] transition-colors">{driver.name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-white group-hover:text-[#FFD700] transition-colors">{driver.name}</p>
+                                                        {driver.isBlocked && <Ban className="w-3 h-3 text-rose-500" />}
+                                                        {driver.isSuspicious && <AlertTriangle className="w-3 h-3 text-orange-500" />}
+                                                    </div>
                                                     <p className="text-xs text-slate-400 font-medium">{driver.email}</p>
                                                 </div>
                                             </div>
@@ -217,16 +276,46 @@ export default function DriverVerificationPage() {
                                                 {driver.status.replace("_", " ")}
                                             </span>
                                         </td>
-                                        <td className="px-8 py-6">
-                                            <div className="flex items-center justify-end gap-3">
-                                                {/* Delete Button (Permanent removal) */}
+                                         <td className="px-8 py-6">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* Management Buttons */}
                                                 <button
-                                                    onClick={() => handleDelete(driver._id)}
-                                                    title="Completely delete this driver"
-                                                    className="p-2.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all mr-2"
+                                                    onClick={() => handleEditDriver(driver)}
+                                                    className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all"
+                                                    title="Edit Driver Details"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => viewRideHistory(driver._id)}
+                                                    className="p-2.5 text-slate-400 hover:text-[#FFD700] hover:bg-[#FFD700]/10 rounded-xl transition-all"
+                                                    title="Ride History"
+                                                >
+                                                    <History className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleFlagUser(driver._id, !!driver.isSuspicious)}
+                                                    className={`p-2.5 rounded-xl transition-all ${driver.isSuspicious ? 'text-orange-500 bg-orange-500/10' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-500/10'}`}
+                                                    title={driver.isSuspicious ? "Unflag Suspicious" : "Flag Suspicious"}
+                                                >
+                                                    <AlertTriangle className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleBlockUser(driver._id, !!driver.isBlocked)}
+                                                    className={`p-2.5 rounded-xl transition-all ${driver.isBlocked ? 'text-rose-500 bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`}
+                                                    title={driver.isBlocked ? "Unblock Driver" : "Block Driver"}
+                                                >
+                                                    {driver.isBlocked ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSoftDelete(driver._id)}
+                                                    className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-600/10 rounded-xl transition-all mr-2"
+                                                    title="Soft Delete Account"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
+
+                                                <div className="w-px h-6 bg-white/10 mx-1" />
 
                                                 {/* Action Buttons for Pending/Rejected */}
                                                 {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL' || driver.status === 'REJECTED') && (
@@ -454,6 +543,19 @@ export default function DriverVerificationPage() {
                     </div>
                 </div>
             )}
+
+            <UserRideHistoryModal
+                isOpen={isHistoryModalOpen}
+                onClose={() => setIsHistoryModalOpen(false)}
+                userId={selectedUserIdForHistory || ""}
+            />
+
+            <EditUserModal 
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                user={editingUser}
+                onUpdate={fetchDrivers}
+            />
         </div>
     );
 }
