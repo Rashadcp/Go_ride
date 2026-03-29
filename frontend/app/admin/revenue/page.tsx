@@ -100,16 +100,16 @@ export default function AdminRevenuePage() {
 
                 <div className="bg-white/5 p-8 rounded-[40px] shadow-sm border border-white/5 group">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Average Trip Value</p>
-                    <h3 className="text-4xl font-black text-white tracking-tighter mb-2">₹482</h3>
-                    <div className="flex items-center gap-2 text-rose-400 font-bold text-[10px] uppercase">
-                        <ArrowDownRight className="w-4 h-4" />
-                        -2.1% slow down
+                    <h3 className="text-4xl font-black text-white tracking-tighter mb-2">₹{stats?.avgTripValue?.toLocaleString() || 0}</h3>
+                    <div className="flex items-center gap-2 text-[#FFD700] font-bold text-[10px] uppercase">
+                        <Activity className="w-4 h-4" />
+                        Live Average
                     </div>
                 </div>
 
                 <div className="bg-white/5 p-8 rounded-[40px] shadow-sm border border-white/5 group">
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Active Promotions</p>
-                    <h3 className="text-4xl font-black text-white tracking-tighter mb-2">12</h3>
+                    <h3 className="text-4xl font-black text-white tracking-tighter mb-2">{stats?.activePromotions || 0}</h3>
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Discount Codes</span>
                 </div>
             </div>

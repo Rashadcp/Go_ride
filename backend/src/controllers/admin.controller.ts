@@ -4,6 +4,7 @@ import Vehicle from "../models/vehicle";
 import Transaction from "../models/transaction";
 import EmergencyReport from "../models/emergencyReport";
 import Discount from "../models/discount";
+import Ride from "../models/ride";
 
 export const getPendingDrivers = async (req: Request, res: Response) => {
     try {
@@ -106,27 +107,111 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         ]);
         const walletBalance = (creditData[0]?.total || 0) - (debitData[0]?.total || 0);
 
-        // Initialize actual monthly revenue slots (can be expanded later with real aggregation)
-        const monthlyRevenue = [
-            { month: "Jun", amount: 0 },
-            { month: "Jul", amount: 0 },
-            { month: "Aug", amount: 0 },
-            { month: "Sep", amount: 0 },
-            { month: "Oct", amount: 0 }
-        ];
+        const activeRides = await Ride.countDocuments({ status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "SEARCHING", "OPEN"] } });
+        const cancelledRides = await Ride.countDocuments({ status: "CANCELLED" });
+        const emergencyAlerts = await EmergencyReport.countDocuments({ status: "PENDING" });
+
+        // Calculate Monthly Revenue (Real aggregation)
+        const fiveMonthsAgo = new Date();
+        fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
+
+        const monthlyRevenueData = await Transaction.aggregate([
+            { $match: { status: "SUCCESS", type: "CREDIT", createdAt: { $gte: fiveMonthsAgo } } },
+            {
+                $group: {
+                    _id: {
+                        month: { $month: "$createdAt" },
+                        year: { $year: "$createdAt" }
+                    },
+                    total: { $sum: "$amount" }
+                }
+            },
+            { $sort: { "_id.year": 1, "_id.month": 1 } }
+        ]);
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthlyRevenue = monthlyRevenueData.map(item => ({
+            month: monthNames[item._id.month - 1],
+            amount: item.total
+        }));
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const dailyRidesData = await Ride.aggregate([
+            { $match: { createdAt: { $gte: sevenDaysAgo } } },
+            {
+                $group: {
+                    _id: {
+                        day: { $dayOfMonth: "$createdAt" },
+                        month: { $month: "$createdAt" },
+                        dayOfWeek: { $dayOfWeek: "$createdAt" }
+                    },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { "_id.month": 1, "_id.day": 1 } }
+        ]);
+
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dailyRides = dailyRidesData.map(item => ({
+            day: dayNames[item._id.dayOfWeek - 1],
+            count: item.count
+        }));
+
+        const firstDayOfMonth = new Date();
+        firstDayOfMonth.setDate(1);
+        firstDayOfMonth.setHours(0, 0, 0, 0);
+
+        const monthlyCreditsData = await Transaction.aggregate([
+            { $match: { type: "CREDIT", status: "SUCCESS", createdAt: { $gte: firstDayOfMonth } } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ]);
+        const monthlyCredits = monthlyCreditsData[0]?.total || 0;
+
+        const monthlyDebitsData = await Transaction.aggregate([
+            { $match: { type: "DEBIT", status: "SUCCESS", createdAt: { $gte: firstDayOfMonth } } },
+            { $group: { _id: null, total: { $sum: "$amount" } } }
+        ]);
+        const monthlyDebits = monthlyDebitsData[0]?.total || 0;
+
+        const activePromotions = await Discount.countDocuments();
+        
+        const successTxCount = await Transaction.countDocuments({ status: "SUCCESS" });
+        const avgTripValue = successTxCount > 0 ? Math.round(totalRevenue / successTxCount) : 0;
 
         res.json({
             stats: {
                 totalUsers,
                 totalDrivers,
                 pendingApprovals,
-                activeRides: 0, // Placeholder for future feature
-                cancelledRides: 0,
+                activeRides,
+                cancelledRides,
                 totalRevenue,
                 walletBalance,
-                emergencyAlerts: 0
+                emergencyAlerts,
+                monthlyCredits,
+                monthlyDebits,
+                avgTripValue,
+                activePromotions
             },
-            monthlyRevenue
+            monthlyRevenue: monthlyRevenue.length > 0 ? monthlyRevenue : [
+                { month: "Jan", amount: 0 },
+                { month: "Feb", amount: 0 },
+                { month: "Mar", amount: 0 },
+                { month: "Apr", amount: 0 },
+                { month: "May", amount: 0 }
+            ],
+            dailyRides: dailyRides.length > 0 ? dailyRides : [
+                { day: "Mon", count: 0 },
+                { day: "Tue", count: 0 },
+                { day: "Wed", count: 0 },
+                { day: "Thu", count: 0 },
+                { day: "Fri", count: 0 },
+                { day: "Sat", count: 0 },
+                { day: "Sun", count: 0 }
+            ]
         });
     } catch (err) {
         console.error("Error fetching dashboard stats:", err);

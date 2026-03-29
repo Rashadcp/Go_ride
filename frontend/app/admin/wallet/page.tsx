@@ -83,7 +83,7 @@ export default function AdminWalletPage() {
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Monthly Credits</p>
                                 <div className="flex items-center gap-2 text-emerald-400 font-black text-xl">
                                     <ArrowUpRight className="w-5 h-5" />
-                                    ₹42,850
+                                    ₹{stats?.monthlyCredits?.toLocaleString()}
                                 </div>
                             </div>
                             <div className="w-px h-12 bg-white/10"></div>
@@ -91,7 +91,7 @@ export default function AdminWalletPage() {
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Monthly Debits</p>
                                 <div className="flex items-center gap-2 text-rose-400 font-black text-xl">
                                     <ArrowDownLeft className="w-5 h-5" />
-                                    ₹12,400
+                                    ₹{stats?.monthlyDebits?.toLocaleString()}
                                 </div>
                             </div>
                         </div>
@@ -104,7 +104,7 @@ export default function AdminWalletPage() {
                             <CreditCard className="w-7 h-7" />
                         </div>
                         <h3 className="text-xl font-black text-white mb-2 tracking-tight">Active Accounts</h3>
-                        <p className="text-xs font-bold text-slate-400 leading-relaxed">System is currently managing 856 active user wallets across the network.</p>
+                        <p className="text-xs font-bold text-slate-400 leading-relaxed">System is currently managing {stats?.totalUsers + stats?.totalDrivers} active user wallets across the network.</p>
                     </div>
                     <button className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-[#FFD700]/10 hover:-translate-y-1 transition-all mt-8">
                         View Account Heatmap

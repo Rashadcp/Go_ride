@@ -30,6 +30,8 @@ interface DashboardStats {
 
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [revenueData, setRevenueData] = useState<{ month: string, amount: number }[]>([]);
+    const [dailyRides, setDailyRides] = useState<{ day: string, count: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
@@ -37,6 +39,8 @@ export default function AdminDashboardPage() {
         try {
             const response = await api.get("/admin/stats");
             setStats(response.data.stats);
+            setRevenueData(response.data.monthlyRevenue || []);
+            setDailyRides(response.data.dailyRides || []);
         } catch (error) {
             toast.error("Failed to load dashboard data");
         } finally {
@@ -157,20 +161,23 @@ export default function AdminDashboardPage() {
                         </div>
                     </div>
 
-                    <div className="h-[280px] w-full bg-white/5 rounded-[28px] flex items-center justify-center relative group overflow-hidden border border-white/5">
-                        <div className="absolute inset-0 flex items-end">
-                            <div className="w-full h-1 bg-white/5"></div>
-                        </div>
+                    <div className="h-[280px] w-full bg-white/5 rounded-[28px] flex items-end justify-between px-6 pb-4 relative group overflow-hidden border border-white/5 gap-2">
+                        {dailyRides.map((d, i) => {
+                            const maxRides = Math.max(...dailyRides.map(r => r.count), 1);
+                            const height = (d.count / maxRides) * 100;
+                            return (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar">
+                                    <div className="w-full bg-[#FFD700]/10 rounded-t-lg relative overflow-hidden transition-all duration-500 hover:bg-[#FFD700]/20" style={{ height: `${height}%` }}>
+                                        <div className="absolute top-0 left-0 right-0 h-1 bg-[#FFD700] opacity-50"></div>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">{d.day}</span>
+                                </div>
+                            );
+                        })}
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                            <div className="bg-[#0A192F] text-[#FFD700] px-4 py-2 rounded-xl text-xs font-black shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">{stats?.activeRides || 0} Rides Today</div>
+                            <div className="bg-[#0A192F] text-[#FFD700] px-4 py-2 rounded-xl text-xs font-black shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">{stats?.activeRides || 0} Total Rides</div>
                             <TrendingUp className="w-8 h-8 text-[#FFD700] mx-auto mt-4 opacity-20" />
                         </div>
-                    </div>
-
-                    <div className="flex justify-between mt-8 px-6">
-                        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-                            <span key={day} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{day}</span>
-                        ))}
                     </div>
                 </div>
 
@@ -179,29 +186,27 @@ export default function AdminDashboardPage() {
                     <p className="text-xs text-slate-400 font-medium tracking-wide mt-1">Monthly earnings comparison</p>
 
                     <div className="flex-1 flex items-end justify-between gap-3 px-2 mt-10">
-                        {[
-                            { month: "Jun", h: "0%", gold: false },
-                            { month: "Jul", h: "0%", gold: false },
-                            { month: "Aug", h: "0%", gold: false },
-                            { month: "Sep", h: "0%", gold: false },
-                            { month: "Oct", h: "0%", gold: true }
-                        ].map((m) => (
-                            <div key={m.month} className="flex-1 flex flex-col items-center gap-4">
-                                <div className="w-full bg-white/5 rounded-xl relative overflow-hidden h-[180px]">
-                                    <div
-                                        className={`absolute bottom-0 left-0 right-0 ${m.gold ? 'bg-[#FFD700]' : 'bg-[#FFD700]/30'} rounded-xl transition-all duration-700 delay-500`}
-                                        style={{ height: m.h }}
-                                    ></div>
+                        {revenueData.map((m, idx) => {
+                            const maxAmount = Math.max(...revenueData.map(r => r.amount), 1);
+                            const height = (m.amount / maxAmount) * 100;
+                            return (
+                                <div key={m.month} className="flex-1 flex flex-col items-center gap-4">
+                                    <div className="w-full bg-white/5 rounded-xl relative overflow-hidden h-[180px]">
+                                        <div
+                                            className={`absolute bottom-0 left-0 right-0 ${idx === revenueData.length - 1 ? 'bg-[#FFD700]' : 'bg-[#FFD700]/30'} rounded-xl transition-all duration-700 delay-500`}
+                                            style={{ height: `${height}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.month}</span>
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.month}</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <div className="mt-10 p-5 bg-white/5 rounded-2xl flex items-center justify-between border border-white/5">
                         <div>
-                            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Target Achievement</p>
-                            <p className="text-xl font-black text-white tracking-tight">₹0 <span className="text-xs text-[#FFD700] ml-1 font-black">0%</span></p>
+                            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mb-1">Total Revenue Recorded</p>
+                            <p className="text-xl font-black text-white tracking-tight">₹{stats?.totalRevenue.toLocaleString()} <span className="text-xs text-[#FFD700] ml-1 font-black">LIVE</span></p>
                         </div>
                         <ArrowUpRight className="w-6 h-6 text-[#FFD700]" />
                     </div>
