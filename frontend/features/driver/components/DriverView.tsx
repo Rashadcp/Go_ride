@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus, Zap, Users, User as UserProfile, Clock, Star, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus, Zap, Users, User as UserProfile, Clock, Star, ShieldCheck, MessageCircle } from "lucide-react";
+import { ChatModal } from "@/features/chat/components/ChatModal";
 import dynamic from "next/dynamic";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import { useMapLogic } from "@/features/map/hooks/useMapLogic";
@@ -23,8 +24,12 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       bookedCount,
       setSeatsAvailable,
       setIsDriverTripActive,
-      incomingCarpoolRequests
+      incomingCarpoolRequests,
+      unreadChatMessages
    } = rideState;
+
+   const [isChatOpen, setIsChatOpen] = useState(false);
+   const [chatReceiver, setChatReceiver] = useState<any>(null);
 
    useEffect(() => {
       if (!user) return;
@@ -87,7 +92,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
             distance,
             duration: rideState.routeInfo?.duration || 10,
             availableSeats: seatsAvailable,
-            departureTime: new Date(Date.now() + 15 * 60000).toISOString()
+            departureTime: new Date(Date.now() + 15 * 60000).toISOString(),
+            vehicleType: rideState.vehicleType || "go"
          });
 
          rideState.setActiveRide(response.data);
@@ -208,8 +214,21 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                         {rideState.activeRide?.passengers?.map((p: any, idx: number) => (
                            <div key={`p-${idx}`} className="bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-[24px] p-5 flex items-center justify-between group transition-all">
                               <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-[#FFD700] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-                                    <UserProfile className="w-6 h-6 text-[#0A192F]" />
+                                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#0A192F]/10 shadow-sm">
+                                    {(() => {
+                                       const rawPhoto = p.photo || p.profilePhoto;
+                                       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                                       let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+                                       
+                                       if (rawPhoto) {
+                                          if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
+                                             finalSrc = rawPhoto;
+                                          } else {
+                                             finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                          }
+                                       }
+                                       return <img src={finalSrc} alt="P" className="w-full h-full object-cover" />;
+                                    })()}
                                  </div>
                                  <div className="text-left">
                                     <p className="font-black text-white text-base leading-tight">{p.name || "Confirmed Passenger"}</p>
@@ -218,8 +237,29 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                     </div>
                                  </div>
                               </div>
-                              <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
-                                 <ShieldCheck className="w-4 h-4" />
+                              <div className="flex items-center gap-2">
+                                 <button 
+                                   onClick={() => {
+                                     setChatReceiver({ id: p.userId, name: p.name });
+                                     setIsChatOpen(true);
+                                   }}
+                                   className="w-10 h-10 bg-[#FFD700] text-[#0A192F] rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 relative"
+                                 >
+                                   <MessageCircle className="w-5 h-5" />
+                                   {(() => {
+                                      const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(p.userId)].sort().join("_")}`;
+                                      const unreadCount = unreadChatMessages[chatKey] || 0;
+                                      if (unreadCount > 0) return (
+                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">
+                                          {unreadCount}
+                                        </span>
+                                      );
+                                      return null;
+                                   })()}
+                                 </button>
+                                 <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
+                                    <ShieldCheck className="w-4 h-4" />
+                                 </div>
                               </div>
                            </div>
                         ))}
@@ -229,13 +269,22 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            <div key={`req-${idx}`} className="bg-white/5 border border-white/10 rounded-[24px] p-5 flex flex-col gap-4 group transition-all hover:bg-white/10 active:scale-[0.98]">
                               <div className="flex items-center justify-between">
                                  <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-[#FFD700] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-                                       {(req.passengerPhoto || req.photo) ? (
-                                          <img src={req.passengerPhoto || req.photo} className="w-full h-full object-cover" />
-                                       ) : (
-                                          <UserProfile className="w-6 h-6 text-[#0A192F]" />
-                                       )}
-                                    </div>
+                                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#FFD700]/30 shadow-lg">
+                                    {(() => {
+                                       const rawPhoto = req.passengerPhoto || req.photo || req.profilePhoto;
+                                       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                                       let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+                                       
+                                       if (rawPhoto) {
+                                          if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
+                                             finalSrc = rawPhoto;
+                                          } else {
+                                             finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                          }
+                                       }
+                                       return <img src={finalSrc} alt="Req" className="w-full h-full object-cover" />;
+                                    })()}
+                                 </div>
                                     <div className="text-left">
                                        <p className="font-black text-white text-base leading-tight">{req.name || "New Passenger"}</p>
                                        <div className="flex items-center gap-1.5 mt-1">
@@ -256,8 +305,10 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                           rideId: rideState.activeRide?.rideId || req.rideId,
                                           userId: req.userId,
                                           name: req.name,
+                                          photo: req.photo || req.passengerPhoto, // Include photo
                                           seats: req.seats,
-                                          passengerSocketId: req.passengerSocketId
+                                          passengerSocketId: req.passengerSocketId,
+                                          paymentMethod: req.paymentMethod
                                        });
                                        rideState.setIncomingCarpoolRequests((prev: any[]) => prev.filter((r) => r.userId !== req.userId));
                                     }}
@@ -353,6 +404,17 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                </div>
             </div>
          )}
+       {isChatOpen && chatReceiver && (
+         <ChatModal 
+           isOpen={isChatOpen}
+           onClose={() => setIsChatOpen(false)}
+           rideId={rideState.activeRide?.rideId || rideState.activeRide?._id || ""}
+           userId={user?.id || user?._id || ""}
+           receiverId={chatReceiver.id}
+           receiverName={chatReceiver.name}
+           senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Driver")}
+         />
+       )}
       </>
    );
 }

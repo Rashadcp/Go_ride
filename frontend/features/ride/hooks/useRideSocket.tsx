@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import { MessageCircle } from "lucide-react";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import api from "@/lib/axios";
 
-export const useRideSocket = (user: any, enableListeners = true) => {
+export function useRideSocket(user: any, enableListeners = true): { handleCancelRide: () => void } {
   const {
     setActiveRide,
     setPendingRideId,
@@ -17,8 +18,14 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     setIncomingCarpoolRequests,
     setDashboardStep,
     setAvailableCarpools,
+    availableCarpools,
+    isSharedRide,
+    stops,
     resetRideState,
-    isDriverMode
+    isDriverMode,
+    userLoc,
+    addChatMessage,
+    incrementUnreadCount
   } = useRideStore();
 
   const queryClient = useQueryClient();
@@ -77,7 +84,9 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     };
 
     const handleActiveDrivers = (drivers: any[]) => {
-      setVisibleNearbyDrivers(drivers);
+      const currentId = user?.id || user?._id;
+      const filtered = drivers.filter(d => String(d.driverId) !== String(currentId));
+      setVisibleNearbyDrivers(filtered);
       setLoadingDrivers(false);
     };
 
@@ -151,7 +160,12 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     socket.on("driver-location-update", handleDriverLocationUpdate);
     socket.on("wallet-update", handleWalletUpdate);
     socket.on("available-carpools", (pools: any[]) => {
-      setAvailableCarpools(pools);
+      const currentId = user?.id || user?._id;
+      const filtered = pools.filter(p => {
+        const dId = p.driverId?._id || p.driverId || p.createdBy?._id || p.createdBy;
+        return String(dId) !== String(currentId);
+      });
+      setAvailableCarpools(filtered);
       setLoadingDrivers(false);
     });
 
@@ -176,6 +190,42 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     socket.on("carpool:join:rejected", (data: any) => {
       toast.error(data.reason || "Carpool join request declined.");
     });
+    
+    socket.on("chat:new_message", (data: any) => {
+      const { rideId, senderId, receiverId, message, senderName } = data;
+      // Only handle if message is for this user
+      if (String(receiverId) === String(user.id || user._id)) {
+        const conversationKey = `${rideId}_${[String(senderId), String(receiverId)].sort().join("_")}`;
+        addChatMessage(conversationKey, { ...data, isSelf: false });
+        incrementUnreadCount(conversationKey);
+        
+        toast.custom((t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-2xl rounded-[28px] pointer-events-auto flex ring-1 ring-black/5 overflow-hidden border border-slate-100`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                  <div className="h-12 w-12 rounded-2xl bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
+                    <MessageCircle className="w-6 h-6" />
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs font-black text-[#0A192F] uppercase tracking-widest italic">Message from {senderName}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500 line-clamp-2 leading-relaxed">"{message}"</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-slate-100">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-xs font-black text-rose-500 uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ), { duration: 5000, id: `chat-${conversationKey}` });
+      }
+    });
 
     if (socket.connected) {
       handleSocketConnect();
@@ -186,10 +236,14 @@ export const useRideSocket = (user: any, enableListeners = true) => {
       if (!stateId) {
         socket.emit("get-active-drivers");
         if (useRideStore.getState().isSharedRide) {
-           const pickup = useRideStore.getState().stops.find(s => s.id === 'pickup' && s.coords);
-           const dest = useRideStore.getState().stops.find(s => s.id !== 'pickup' && s.coords);
+           const state = useRideStore.getState();
+           const pickup = state.stops.find(s => s.id === 'pickup' && s.coords);
+           const dest = state.stops.find(s => s.id !== 'pickup' && s.coords);
+           const pCoords = pickup?.coords || state.userLoc;
+           
            socket.emit("get-available-carpools", { 
-               pickup: pickup?.coords ? { lat: pickup.coords[0], lng: pickup.coords[1] } : null,
+               userId: user?.id || user?._id,
+               pickup: pCoords ? { lat: pCoords[0], lng: pCoords[1] } : null,
                destination: dest?.coords ? { lat: dest.coords[0], lng: dest.coords[1] } : null 
            });
         }
@@ -210,10 +264,33 @@ export const useRideSocket = (user: any, enableListeners = true) => {
       socket.off("carpool:join:new_request");
       socket.off("carpool:join:accepted");
       socket.off("carpool:join:rejected");
+      socket.off("chat:new_message");
       disconnectSocket();
       clearInterval(pollInterval);
     };
   }, [user, enableListeners, isDriverMode]);
+
+  // Handle immediate carpool search when mode changes or route changes
+  useEffect(() => {
+    if (!enableListeners || !user || !isSharedRide) return;
+    
+    const fetchPools = () => {
+      const state = useRideStore.getState();
+      if (!state.activeRide) {
+        const pickup = stops.find(s => s.id === 'pickup' && s.coords);
+        const dest = stops.find(s => s.id !== 'pickup' && s.coords);
+        const pCoords = pickup?.coords || userLoc;
+
+        socket.emit("get-available-carpools", { 
+          userId: user?.id || user?._id,
+          pickup: pCoords ? { lat: pCoords[0], lng: pCoords[1] } : null,
+          destination: dest?.coords ? { lat: dest.coords[0], lng: dest.coords[1] } : null 
+        });
+      }
+    };
+
+    fetchPools();
+  }, [isSharedRide, stops, userLoc, enableListeners, user]);
 
   const handleCancelRide = () => {
     const { activeRide, pendingRideId } = useRideStore.getState();
@@ -230,4 +307,4 @@ export const useRideSocket = (user: any, enableListeners = true) => {
   };
 
   return { handleCancelRide };
-};
+}

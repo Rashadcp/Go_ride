@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
 import { activeDrivers } from "../state";
 import Ride from "../../models/ride";
@@ -32,7 +33,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 duration: parseFloat(data.duration) || 0,
                 status: 'SEARCHING',
                 requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType,
-                paymentMethod: data.paymentMethod || 'WALLET'
+                paymentMethod: data.paymentMethod || 'WALLET',
+                isSharedRide: isSharedRide || false
             });
 
             // Find nearby drivers
@@ -147,10 +149,18 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
             const query: any = {
                 type: 'CARPOOL',
-                status: { $in: ['SEARCHING', 'OPEN', 'REQUESTED'] },
+                status: 'OPEN', // Only show active driver-hosted pools
                 availableSeats: { $gt: 0 },
                 createdAt: { $gte: fourHoursAgo }
             };
+
+            // Exclude the current user's own carpool if they are the one searching
+            // Proper ObjectId comparison is necessary for Mongoose $ne queries
+            if (data.userId && mongoose.Types.ObjectId.isValid(data.userId)) {
+                const hostId = new mongoose.Types.ObjectId(data.userId);
+                query.driverId = { $ne: hostId };
+                query.createdBy = { $ne: hostId };
+            }
 
             query["pickup.location"] = {
                 $near: {
@@ -162,13 +172,14 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             const pools = await Ride.find(query)
                 .populate('driverId', 'name profilePhoto rating')
                 .populate('createdBy', 'name profilePhoto rating')
-                .limit(1);
+                .limit(10); // Show more than 1 pool!
 
             let filteredPools = pools;
             if (destination?.lat && destination?.lng) {
                 filteredPools = pools.filter(p => {
                     const dLoc = p.drop?.location?.coordinates || [p.drop?.lng || 0, p.drop?.lat || 0];
                     if (!dLoc || dLoc[0] === 0) return true;
+                    // Properly check destination distance (0.1 degree limit)
                     const dist = Math.sqrt(Math.pow(dLoc[0] - destination.lng, 2) + Math.pow(dLoc[1] - destination.lat, 2));
                     return dist < 0.25;
                 });
@@ -178,9 +189,10 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const driver = p.driverId || p.createdBy;
                 return {
                     ...p.toObject(),
-                    driverName: (driver as any)?.name || "Driver",
+                    driverName: (driver as any)?.name || "Available Driver",
                     driverPhoto: (driver as any)?.profilePhoto,
-                    driverRating: (driver as any)?.rating || 4.8
+                    driverRating: (driver as any)?.rating || 4.8,
+                    vehicleType: p.requestedVehicleType || 'car' // Ensure vehicleType is present
                 };
             });
 
@@ -237,7 +249,9 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (updatedRide.passengers && updatedRide.passengers.length > 0) {
                 updatedRide.passengers.forEach((p: any) => {
-                    io.to(`user:${p.userId}`).emit("ride-status-update", payload);
+                    if (p.userId) {
+                        io.to(`user:${p.userId}`).emit("ride-status-update", payload);
+                    }
                 });
             }
 
@@ -309,7 +323,9 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 if (isCarpool) {
                     if (updatedRide.passengers && updatedRide.passengers.length > 0) {
                         for (const p of updatedRide.passengers) {
-                            await processPayment(p.userId.toString(), updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length));
+                            if (p.userId) {
+                                await processPayment(p.userId.toString(), updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length));
+                            }
                         }
                     }
                 } else {

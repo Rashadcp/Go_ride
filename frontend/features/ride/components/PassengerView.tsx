@@ -11,6 +11,8 @@ import { useMapLogic } from "@/features/map/hooks/useMapLogic";
 import { useRideSocket } from "@/features/ride/hooks/useRideSocket";
 import { socket } from "@/lib/socket";
 import toast from "react-hot-toast";
+import { ChatModal } from "@/features/chat/components/ChatModal";
+import { MessageCircle } from "lucide-react";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
   ssr: false,
@@ -33,11 +35,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     userLoc, stops, routeInfo, activeRide,
     isSearchOpen, isRouteSearched, searchStarted,
     visibleNearbyDrivers, availableCarpools,
-    loadingDrivers, isRequestingRide, dashboardStep,
-    isSharedRide, vehicleType, paymentMethod, setPaymentMethod
+    loadingDrivers, isRequestingRide, setIsRequestingRide, dashboardStep,
+    isSharedRide, vehicleType, paymentMethod, setPaymentMethod,
+    unreadChatMessages
   } = rideState;
 
+  const [selectedCarpoolId, setSelectedCarpoolId] = useState<string | null>(null);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isPaymentDone, setIsPaymentDone] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -60,7 +67,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     }
     return () => clearInterval(interval);
   }, [isRequestingRide, activeRide]);
-
   const CAR_STYLES = [
     { id: 'bike', name: 'Bike', baseFare: 20, ratePerKm: 6, icon: Bike, desc: 'Fast & Affordable', time: '2 min', person: 1 },
     { id: 'auto', name: 'Auto Riksha', baseFare: 40, ratePerKm: 10, icon: Users, desc: 'Quick rides, no bargaining', time: '3 min', person: 3 },
@@ -78,14 +84,102 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
   const estimatedRideFare = calculateFare(vehicleType);
 
-  const handleRequestRide = () => {
+  const processPayment = async (amount: number, rideId?: string, driverId?: string): Promise<boolean> => {
+    setIsProcessingPayment(true);
+    try {
+      const { data } = await api.post("/payment/create", {
+        amount,
+        method: "RAZORPAY"
+      });
+
+      const { order, key_id } = data;
+
+      return new Promise((resolve) => {
+        const options = {
+          key: key_id,
+          amount: order.amount,
+          currency: order.currency,
+          name: "Go Ride Mobility",
+          description: rideId ? `Trip settlement for Ride ${rideId}` : "Wallet Credit Addition",
+          order_id: order.id,
+          handler: async function (response: any) {
+             try {
+               await api.post("/payment/verify", {
+                 razorpay_order_id: response.razorpay_order_id,
+                 razorpay_payment_id: response.razorpay_payment_id,
+                 razorpay_signature: response.razorpay_signature,
+                 amount,
+                 rideId,
+                 driverId
+               });
+               toast.success(rideId ? "Trip settled successfully!" : "Payment successful!");
+               resolve(true);
+             } catch (err) {
+               toast.error("Payment verification failed.");
+               resolve(false);
+             }
+          },
+          prefill: {
+            name: user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || ''),
+            email: user.email,
+          },
+          theme: { color: "#0A192F" },
+          modal: { ondismiss: () => resolve(false) }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      });
+    } catch (err) {
+      toast.error("Initialization failed.");
+      return false;
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleCreateRequest = () => {
+    if (isSharedRide && selectedCarpoolId) {
+       const pool = availableCarpools.find(p => p.rideId === selectedCarpoolId);
+       if (pool) {
+          const isBike = pool.requestedVehicleType === 'bike';
+          const sharedFare = isBike ? 40 : 100;
+          
+          if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
+             toast.error(`Insufficient balance (Rs ${sharedFare} min)`);
+             return;
+          }
+
+          const dropLoc = stops.find((s: any) => s.id !== 'pickup') || stops[stops.length-1];
+          socket.emit("carpool:join:request", {
+            rideId: pool.rideId,
+            userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
+            name: user?.name,
+            photo: user?.profilePhoto, // Include photo
+            seats: 1,
+            pickup: userLoc,
+            drop: dropLoc?.coords,
+            paymentMethod
+          });
+          toast.success(`Joining ${pool.driverName}'s ride...`);
+          rideState.setIsRequestingRide(true);
+          return;
+       }
+    }
+    
+    handleRequestRideExtended(paymentMethod);
+  };
+
+  const handleRequestRideExtended = (methodOverride?: string) => {
     if (!user) {
       toast.error("User not found");
       return;
     }
 
     const currentFare = isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare;
-    if (paymentMethod === "WALLET" && (user.walletBalance || 0) < currentFare) {
+    const activeMethod = methodOverride || paymentMethod;
+
+    if (activeMethod === "WALLET" && (user.walletBalance || 0) < currentFare) {
       toast.error(`Insufficient wallet balance. You need at least Rs ${currentFare} to book this ride.`);
       return;
     }
@@ -101,7 +195,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     if (isRequestingRide) return;
 
     rideState.setIsRequestingRide(true);
-
     const isBike = vehicleType === 'bike';
     const sharedFare = isBike ? 40 : 100;
 
@@ -118,34 +211,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       fare: isSharedRide ? sharedFare : estimatedRideFare,
       distance: routeInfo?.distance || 0,
       duration: routeInfo?.duration || 0,
-      paymentMethod
+      paymentMethod: activeMethod
     };
 
     socket.emit("ride-request", payload);
     toast.success("Searching for nearby drivers...");
   };
 
-  const handleJoinCarpool = (rideId: string) => {
-    const isBike = availableCarpools.find(p => p.rideId === rideId)?.vehicleType === 'bike';
-    const sharedFare = isBike ? 40 : 100;
-
-    if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
-      toast.error(`Not enough wallet balance to join this pool. (Minimum Rs ${sharedFare} required)`);
-      return;
-    }
-
-    const dropLoc = stops.find((s: any) => s.id !== 'pickup') || stops[stops.length - 1];
-    socket.emit("carpool:join:request", {
-      rideId,
-      userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
-      name: user?.name || (user?.firstName ? `${user.firstName} ${user.lastName}` : "Passenger"),
-      seats: 1,
-      pickup: userLoc,
-      drop: dropLoc?.coords
-    });
-    toast.success("Requested to join carpool");
+  const handleJoinCarpool = (poolId: string) => {
+    setSelectedCarpoolId(prev => prev === poolId ? null : poolId); // Toggle selection
   };
-
   const pickup = stops.find((s: any) => s.id === 'pickup') || { id: 'pickup', query: '', coords: null, suggestions: [], showSuggestions: false };
   const dropoff = stops.find((s: any) => s.id === 'dropoff') || stops.find((s: any) => s.id === '1') || { id: 'dropoff', query: '', coords: null, suggestions: [], showSuggestions: false };
   const middleStops = stops.filter((s: any) => s.id !== 'pickup' && s.id !== 'dropoff' && s.id !== '1');
@@ -315,56 +390,106 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
             <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto px-2 custom-scrollbar">
               {isSharedRide ? (
-                <>
+                <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto px-2 custom-scrollbar">
                   {availableCarpools.length > 0 ? (
-                    availableCarpools.map((pool) => (
-                      <button
-                        key={pool.rideId}
-                        onClick={() => handleJoinCarpool(pool.rideId)}
-                        className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50 transition-all group shrink-0"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-14 h-14 bg-white rounded-xl overflow-hidden flex items-center justify-center shadow-md shrink-0 border border-slate-100">
-                            {pool.driverPhoto ? (
-                              <img src={pool.driverPhoto} alt="Driver" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full bg-[#FFD700] flex items-center justify-center">
-                                {pool.vehicleType === 'bike' ? (
-                                  <Bike className="w-7 h-7 text-[#0A192F]" />
-                                ) : (
-                                  <Car className="w-7 h-7 text-[#0A192F]" />
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-left flex flex-col">
-                            <p className="font-extrabold text-[#0A192F] text-[16px]">{pool.driverName || "Driver"}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div className="flex items-center gap-1 text-[10px] font-black text-amber-500">
-                                <Star className="w-2.5 h-2.5 fill-amber-500" />
-                                <span>{pool.driverRating || 4.8}</span>
-                              </div>
-                              <span className="text-[10px] font-black bg-blue-100 text-blue-600 px-2 py-0.5 rounded-md uppercase tracking-tighter">{pool.vehicleType === 'bike' ? 'Bike Pool' : 'Car Pool'}</span>
-                              <span className="text-[10px] font-bold text-slate-500">{pool.availableSeats} seats left</span>
+                    availableCarpools.map((pool) => {
+                      const isSelected = selectedCarpoolId === pool.rideId;
+                      return (
+                        <button
+                          key={pool.rideId}
+                          onClick={() => handleJoinCarpool(pool.rideId)}
+                          className={`w-full flex items-center gap-2.5 p-2 rounded-2xl border-2 transition-all group shrink-0 relative overflow-hidden bg-white ${
+                            isSelected 
+                              ? 'border-[#0A192F] shadow-md ring-1 ring-[#0A192F] bg-slate-50/50' 
+                              : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50 shadow-sm'
+                          }`}
+                        >
+                          {/* Driver Profile Image with Normalization */}
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 bg-slate-100 rounded-xl overflow-hidden border-2 border-white shadow-sm transition-transform group-hover:scale-105">
+                              {(() => {
+                                const rawPhoto = pool.driverPhoto;
+                                if (false && !rawPhoto) return (
+                                  <div className="w-full h-full bg-[#FFD700] flex items-center justify-center">
+                                    {pool.requestedVehicleType === 'bike' ? (
+                                      <Bike className="w-5 h-5 text-[#0A192F]" />
+                                    ) : (
+                                      <Car className="w-5 h-5 text-[#0A192F]" />
+                                    )}
+                                  </div>
+                                );
+
+                                const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                                 const driverName = pool.driverName || "Driver";
+                                 let finalSrc = rawPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(driverName)}&background=0A192F&color=FFD700&bold=true`;
+                                if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
+                                  const filename = rawPhoto.split('/').pop();
+                                  finalSrc = `${baseUrl}/api/auth/profile-photo/${filename}`;
+                                } else if (!rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
+                                  finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                }
+
+                                return (
+                                  <img 
+                                    src={finalSrc} 
+                                    alt="Driver" 
+                                    className="w-full h-full object-cover shadow-inner"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.onerror = null;
+                                      target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pool.driverName || "Driver")}&background=0A192F&color=FFD700&bold=true`;
+                                    }}
+                                  />
+                                );
+                              })()}
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#0A192F] border-2 border-white rounded-full flex items-center justify-center shadow-sm">
+                               {(pool.requestedVehicleType === 'bike') ? (
+                                 <Bike className="w-2 h-2 text-[#FFD700]" />
+                               ) : (
+                                 <Car className="w-2 h-2 text-[#FFD700]" />
+                               )}
                             </div>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-[18px] text-[#0A192F]">Rs {pool.pricePerSeat || (pool.vehicleType === 'bike' ? 40 : 100)}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Join Now</p>
-                        </div>
-                      </button>
-                    ))
+
+                          {/* Driver & Trip Info */}
+                          <div className="flex-1 text-left min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                               <p className="font-black text-[#0A192F] text-[13px] truncate tracking-tight uppercase leading-none">{pool.driverName || "Driver"}</p>
+                               <p className="font-black text-[14px] text-[#0A192F] shrink-0">₹{pool.pricePerSeat}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                               <div className="flex items-center gap-0.5 text-[8px] font-black text-amber-600 bg-amber-50 px-1 py-0.5 rounded-md">
+                                 <Star className="w-2 h-2 fill-amber-600" />
+                                 <span>{pool.driverRating || 4.8}</span>
+                               </div>
+                               <span className="text-[10px] font-black text-slate-400">•</span>
+                               <span className="text-[8px] font-black text-slate-500 tracking-wider uppercase">{pool.requestedVehicleType === 'bike' ? 'BIKE' : 'SEDAN'}</span>
+                               <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md border border-blue-100 ml-auto">
+                                  <Users className="w-2 h-2" />
+                                  <span className="text-[8px] font-black uppercase whitespace-nowrap">{pool.availableSeats} LEFT</span>
+                               </div>
+                            </div>
+                          </div>
+                          
+                          {isSelected && (
+                             <div className="absolute right-0 top-0 bottom-0 w-1 bg-[#0A192F]" />
+                          )}
+                        </button>
+                      );
+                    })
                   ) : (
-                    <div className="py-12 flex flex-col items-center justify-center text-center px-6">
-                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                        <Users className="text-slate-300 w-8 h-8" />
+                    <div className="py-14 flex flex-col items-center justify-center text-center px-8 bg-slate-50/50 rounded-[32px] border-2 border-dashed border-slate-100 mt-4">
+                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-5 shadow-sm">
+                        <Users className="text-slate-200 w-10 h-10" />
                       </div>
-                      <p className="text-slate-500 font-bold text-[14px]">No active carpools currently match your route.</p>
-                      <p className="text-slate-400 text-[11px] mt-1 italic">Click 'Request' below to start a new shared session.</p>
+                      <h4 className="text-[#0A192F] font-black text-[18px] mb-2 tracking-tight">No active carpools matched.</h4>
+                      <p className="text-slate-500 font-medium text-[13px] leading-relaxed">
+                        Don't see a ride that fits? Start a new shared session and let others join you for <span className="text-emerald-600 font-bold">40% less</span>.
+                      </p>
                     </div>
                   )}
-                </>
+                </div>
               ) : (
                 CAR_STYLES.map(style => {
                   const isSelected = vehicleType === style.id;
@@ -402,8 +527,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
             </div>
 
             {/* Payment Selection Section */}
-            {!isSharedRide && (
-              <div className="mt-4 px-2 space-y-3 shrink-0">
+            <div className="mt-4 px-2 space-y-3 shrink-0">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-2">Payment Method</p>
                 <div className="flex gap-2 p-1 bg-slate-100 rounded-[22px]">
                    <button 
@@ -416,16 +540,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                         <span className="text-[8px] font-bold opacity-60">Rs {user?.walletBalance || 0}</span>
                      </div>
                    </button>
-                   <button 
-                    onClick={() => setPaymentMethod("UPI")}
-                    className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "UPI" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
-                   >
-                     <QrCode className="w-4 h-4" />
-                     <div className="flex flex-col items-start leading-none gap-1">
-                        <span className="text-[10px] font-black uppercase">UPI</span>
-                        <span className="text-[8px] font-bold opacity-60">Razorpay</span>
-                     </div>
-                   </button>
+                    <button 
+                     onClick={() => setPaymentMethod("UPI")}
+                     className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "UPI" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
+                    >
+                      <QrCode className="w-4 h-4" />
+                      <div className="flex flex-col items-start leading-none gap-1">
+                         <span className="text-[10px] font-black uppercase">UPI</span>
+                         <span className="text-[8px] font-bold opacity-60">Settlement</span>
+                      </div>
+                    </button>
                    <button 
                     onClick={() => setPaymentMethod("CASH")}
                     className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "CASH" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
@@ -438,19 +562,18 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                    </button>
                 </div>
               </div>
-            )}
 
             <div className="px-2 mt-4 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
-                onClick={handleRequestRide}
-                disabled={isRequestingRide || loadingDrivers}
-                className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex flex-col items-center justify-center gap-1 shrink-0"
+                onClick={handleCreateRequest}
+                disabled={isRequestingRide || loadingDrivers || isProcessingPayment}
+                className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex flex-col items-center justify-center gap-1 shrink-0 px-4"
               >
-                {isRequestingRide ? (
+                {isRequestingRide || isProcessingPayment ? (
                   <>
                     <div className="flex items-center gap-3">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Searching Drivers</span>
+                      <span>{isProcessingPayment ? "Processing Payment" : (isSharedRide && selectedCarpoolId ? "Joining Pool" : "Searching Drivers")}</span>
                     </div>
                     {searchCountdown !== null && (
                       <span className="text-[11px] opacity-70 tracking-widest font-bold">
@@ -459,7 +582,13 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                     )}
                   </>
                 ) : (
-                  <span>{isSharedRide ? "Request Shared Ride" : `Request ${CAR_STYLES.find(s => s.id === vehicleType)?.name || "Ride"}`}</span>
+                  <span>
+                    {isSharedRide 
+                      ? (selectedCarpoolId 
+                        ? `Join ${availableCarpools.find(p => p.rideId === selectedCarpoolId)?.driverName || 'Pool'}` 
+                        : "Request Shared Ride") 
+                      : `Request ${CAR_STYLES.find(s => s.id === vehicleType)?.name || "Ride"}`}
+                  </span>
                 )}
               </button>
 
@@ -592,12 +721,22 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                            <span className="text-[10px] font-black uppercase tracking-widest">Call</span>
                          </a>
                          <button 
-                           onClick={() => toast.success("Chat feature coming soon!")}
-                           className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 text-[#0A192F] rounded-xl border border-slate-200 hover:bg-slate-200 transition-all font-black text-[10px] uppercase tracking-widest"
+                           onClick={() => setIsChatOpen(true)}
+                           className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 text-[#0A192F] rounded-xl border border-slate-200 hover:bg-slate-200 transition-all font-black text-[10px] uppercase tracking-widest relative"
                            title="Chat with Driver"
                          >
                            <MessageSquare className="w-4 h-4" />
                            Chat
+                           {(() => {
+                             const chatKey = `${activeRide?.rideId || activeRide?._id || ""}_${[String(user?.id || user?._id), String(activeRide?.driverId?._id || activeRide?.driverId)].sort().join("_")}`;
+                             const unreadCount = unreadChatMessages[chatKey] || 0;
+                             if (unreadCount > 0) return (
+                               <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-lg animate-bounce">
+                                 {unreadCount}
+                               </span>
+                             );
+                             return null;
+                           })()}
                          </button>
                       </div>
                     </div>
@@ -729,35 +868,63 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
                     {ratingStep === 1 ? (
                       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="space-y-2">
-                          <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
-                            Rate <span className="text-[#FFD700]">Experience</span>
-                          </h1>
-                          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
-                            How was your trip?
-                          </p>
-                        </div>
-
-                        <div className="flex justify-center gap-3 py-2">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              onClick={() => setRating(star)}
-                              className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
-                            >
-                              <div className="w-10 h-10 flex items-center justify-center">
-                                <Star
-                                  className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
-                                  strokeWidth={2}
-                                />
+                        {activeRide.paymentMethod === 'UPI' && !isPaymentDone ? (
+                           <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-100 flex flex-col items-center gap-4">
+                              <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg">
+                                 <IndianRupee className="w-8 h-8" />
                               </div>
-                            </button>
-                          ))}
-                        </div>
+                              <div className="text-center">
+                                 <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic">Trip Settlement</h4>
+                                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Outstanding Balance: ₹{activeRide.price || (isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare)}</p>
+                              </div>
+                              <button 
+                                onClick={async () => {
+                                  const fare = activeRide.price || (isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare);
+                                  const rId = activeRide.rideId || activeRide._id;
+                                  const dId = activeRide.driverId?._id || activeRide.driverId;
+                                  const success = await processPayment(fare, rId, dId);
+                                  if (success) setIsPaymentDone(true);
+                                }}
+                                disabled={isProcessingPayment}
+                                className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:bg-black"
+                              >
+                                {isProcessingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
+                                {isProcessingPayment ? "Initializing..." : "Pay with UPI"}
+                              </button>
+                           </div>
+                        ) : (
+                          <>
+                            <div className="space-y-2">
+                              <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
+                                Rate <span className="text-[#FFD700]">Experience</span>
+                              </h1>
+                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
+                                How was your trip?
+                              </p>
+                            </div>
+
+                            <div className="flex justify-center gap-3 py-2">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  key={star}
+                                  onClick={() => setRating(star)}
+                                  className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
+                                >
+                                  <div className="w-10 h-10 flex items-center justify-center">
+                                    <Star
+                                      className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
+                                      strokeWidth={2}
+                                    />
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
 
                         <button
                           onClick={() => setRatingStep(2)}
-                          disabled={rating === 0}
+                          disabled={rating === 0 || (activeRide.paymentMethod === 'UPI' && !isPaymentDone)}
                           className="w-full py-5 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[13px] uppercase tracking-[0.3em] shadow-xl hover:bg-black hover:scale-[1.01] transition-all disabled:opacity-20"
                         >
                           Next Step
@@ -805,6 +972,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 setRating(0);
                                 setFeedback("");
                                 setRatingStep(1);
+                                setIsPaymentDone(false);
                                 toast.success("Feedback submitted!");
                               } catch (err) {
                                 toast.error("Failed to submit rating");
@@ -824,6 +992,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           </div>
         )}
       </div>
+
+      <ChatModal 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        rideId={activeRide?.rideId || activeRide?._id || ""}
+        userId={user?.id || user?._id || ""}
+        receiverId={activeRide?.driverId?._id || activeRide?.driverId || ""}
+        receiverName={activeRide?.driverInfo?.name || "Driver"}
+        senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Passenger")}
+      />
     </>
   );
 }

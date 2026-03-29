@@ -66,44 +66,46 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between ml-1">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Official Email</label>
-                                <Mail className="w-3.5 h-3.5 text-slate-300" />
-                            </div>
-                            <input
-                                type="email"
-                                required
-                                className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
-                                placeholder="name@example.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between ml-1">
-                                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Secure Password</label>
-                                <a href="/forgot-password" className="text-[#B8860B] hover:text-[#FFD700] text-[10px] font-black uppercase tracking-widest transition-colors">Recover?</a>
-                            </div>
-                            <div className="relative">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    required
-                                    className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#1A1A1A] transition-colors"
-                                >
-                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                                </button>
-                            </div>
-                        </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between ml-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Official Email</label>
+                        <Mail className="w-3.5 h-3.5 text-slate-300" />
+                    </div>
+                    <input
+                        type="email"
+                        required
+                        autoComplete="email"
+                        className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
+                        placeholder="name@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between ml-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Secure Password</label>
+                        <a href="/forgot-password" className="text-[#B8860B] hover:text-[#FFD700] text-[10px] font-black uppercase tracking-widest transition-colors">Recover?</a>
+                    </div>
+                    <div className="relative">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            autoComplete="current-password"
+                            className="w-full px-5 py-4 bg-[#F9F9F7] border border-[#E5E5E0] rounded-2xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-[#1A1A1A] transition-colors"
+                        >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                    </div>
+                </div>
 
                         <Button
                             type="submit"

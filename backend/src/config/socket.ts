@@ -4,6 +4,7 @@ import { registerTaxiHandlers } from "../sockets/handlers/taxi.handler";
 import { registerCarpoolHandlers } from "../sockets/handlers/carpool.handler";
 import { registerTrackingHandlers } from "../sockets/handlers/tracking.handler";
 import { registerEmergencyHandlers } from "../sockets/handlers/emergency.handler";
+import { registerChatHandlers } from "../sockets/handlers/chat.handler";
 
 import { activeDrivers, socketToDriver } from "../sockets/state";
 
@@ -30,6 +31,7 @@ export const initSocket = (server: HttpServer) => {
         registerCarpoolHandlers(io, socket);
         registerTrackingHandlers(io, socket);
         registerEmergencyHandlers(io, socket);
+        registerChatHandlers(io, socket);
 
         // Global Handlers
         socket.on("join", (data: { userId: string; role: string }) => {
@@ -44,17 +46,7 @@ export const initSocket = (server: HttpServer) => {
             if (data.role === "DRIVER") {
                 socket.join(`driver:${data.userId}`);
                 socket.join("drivers-pool");
-                // [FIX] Automatically mark connected drivers as active/available if they haven't sent driver-online yet
-                if (!activeDrivers.has(data.userId)) {
-                    activeDrivers.set(data.userId, { 
-                        driverId: data.userId, 
-                        socketId: socket.id, 
-                        lastSeen: Date.now(), 
-                        status: "available",
-                        isAutoJoined: true // Mark as auto-joined to distinguish
-                    });
-                    socketToDriver.set(socket.id, data.userId);
-                }
+                // Don't auto-add to activeDrivers anymore. Only via driver-online event.
             }
         });
 

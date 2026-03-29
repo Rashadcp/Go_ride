@@ -23,6 +23,7 @@ import { SettingsTab } from "@/features/dashboard/components/SettingsTab";
 import { PassengerView } from "@/features/ride/components/PassengerView";
 import { DriverView } from "@/features/driver/components/DriverView";
 import { TopUpModal } from "@/features/dashboard/components/TopUpModal";
+import { NotificationsPopover } from "@/features/dashboard/components/NotificationsPopover";
 
 export default function UserDashboard() {
   const router = useRouter();
@@ -118,6 +119,10 @@ export default function UserDashboard() {
                   <Bell className="w-5 h-5 relative" />
                   <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
                 </button>
+                <NotificationsPopover 
+                  isOpen={isNotificationsOpen} 
+                  onClose={() => setIsNotificationsOpen(false)} 
+                />
                 <button className="w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-white">
                   <HelpCircle className="w-5 h-5" />
                 </button>

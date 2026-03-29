@@ -179,6 +179,7 @@ export default function RegisterPage() {
                                     type="text"
                                     name="firstName"
                                     required
+                                    autoComplete="given-name"
                                     className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                     placeholder="Jane"
                                     onChange={handleChange}
@@ -190,6 +191,7 @@ export default function RegisterPage() {
                                     type="text"
                                     name="lastName"
                                     required
+                                    autoComplete="family-name"
                                     className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                     placeholder="Smith"
                                     onChange={handleChange}
@@ -203,6 +205,7 @@ export default function RegisterPage() {
                                 type="email"
                                 name="email"
                                 required
+                                autoComplete="email"
                                 className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
                                 placeholder="name@example.com"
                                 onChange={handleChange}
@@ -217,6 +220,7 @@ export default function RegisterPage() {
                                         type={showPassword ? "text" : "password"}
                                         name="password"
                                         required
+                                        autoComplete="new-password"
                                         className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                         placeholder="••••••••"
                                         onChange={handleChange}
@@ -237,6 +241,7 @@ export default function RegisterPage() {
                                         type={showConfirmPassword ? "text" : "password"}
                                         name="confirmPassword"
                                         required
+                                        autoComplete="new-password"
                                         className="w-full px-5 py-3.5 bg-[#F9F9F7] border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] focus:bg-white focus:ring-4 focus:ring-[#FFD700]/5 transition-all shadow-sm"
                                         placeholder="••••••••"
                                         onChange={handleChange}

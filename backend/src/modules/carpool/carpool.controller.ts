@@ -3,8 +3,15 @@ import Ride from "../../models/ride";
 
 export const createCarpool = async (req: any, res: Response) => {
     try {
-        const { rideId, pickup, drop, price, pricePerSeat, distance, duration, departureTime, availableSeats } = req.body;
+        const { rideId, pickup, drop, price, pricePerSeat, distance, duration, departureTime, availableSeats, vehicleType } = req.body;
         
+        // Cancel any existing active carpools for this driver 
+        // to prevent duplicate listings
+        await Ride.updateMany(
+            { driverId: req.user.id, type: "CARPOOL", status: "OPEN" },
+            { status: "CANCELLED" }
+        );
+
         if (!pickup?.lat || !pickup?.lng || !drop?.lat || !drop?.lng) {
             console.error("❌ Missing coordinates in carpool request:", { pickup, drop });
             return res.status(400).json({ message: "Pickup and destination coordinates are required." });
@@ -29,7 +36,8 @@ export const createCarpool = async (req: any, res: Response) => {
             distance,
             duration,
             departureTime,
-            availableSeats
+            availableSeats,
+            requestedVehicleType: vehicleType || "go"
         });
 
         await newRide.save();

@@ -4,6 +4,7 @@ import User from "../../models/user";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import dotenv from "dotenv";
+import { createNotification } from "../../controllers/notification.controller";
 
 dotenv.config();
 
@@ -56,24 +57,65 @@ export const verifyPayment = async (req: any, res: Response) => {
             .digest("hex");
 
         if (expectedSignature === razorpay_signature) {
-            // Update user balance
+            const { rideId, driverId } = req.body;
+
+            // 1. If it's a ride settlement
+            if (rideId && driverId) {
+                const driver = await User.findById(driverId);
+                const passenger = await User.findById(req.user.id);
+
+                if (driver && passenger) {
+                    const finalEarned = Math.round(Number(amount) * 0.85); // 15% platform fee
+                    driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+                    await driver.save();
+
+                    // Create Transaction for Driver
+                    await new Transaction({
+                        userId: driverId,
+                        rideId: rideId,
+                        type: 'CREDIT',
+                        amount: finalEarned,
+                        description: `Trip settlement (UPI) for Ride ${rideId}`,
+                        status: 'SUCCESS',
+                        method: 'ONLINE'
+                    }).save();
+                    
+                    await createNotification(driverId, "Payment Received", `You earned ₹${finalEarned} from ride settlement`, "PAYMENT");
+                    await createNotification(req.user.id, "Ride Completed", `₹${amount} paid for ride settlement`, "RIDE_UPDATE");
+
+                    // Create Transaction for Passenger (as a debit of the paid amount)
+                    await new Transaction({
+                        userId: req.user.id,
+                        rideId: rideId,
+                        type: 'DEBIT',
+                        amount: Number(amount),
+                        description: `Payment for Ride ${rideId} (UPI)`,
+                        status: 'SUCCESS',
+                        method: 'ONLINE'
+                    }).save();
+
+                    return res.json({ message: "Trip settled successfully", type: 'RIDE_SETTLEMENT' });
+                }
+            }
+
+            // 2. Default: Wallet top-up
             const user = await User.findById(req.user.id);
             if (user) {
                 user.walletBalance = Number(user.walletBalance || 0) + Number(amount);
                 await user.save();
 
-                // Create Success Transaction
-                const transaction = new Transaction({
+                await new Transaction({
                     userId: req.user.id,
                     amount,
                     type: 'CREDIT',
                     description: `Wallet top-up via Razorpay`,
                     status: 'SUCCESS',
                     method: 'ONLINE'
-                });
-                await transaction.save();
+                }).save();
+                
+                await createNotification(req.user.id, "Wallet Topped Up", `₹${amount} added successfully to your wallet!`, "PAYMENT");
 
-                return res.json({ message: "Payment verified successfully", walletBalance: user.walletBalance });
+                return res.json({ message: "Payment verified successfully", walletBalance: user.walletBalance, type: 'TOPUP' });
             }
         }
         

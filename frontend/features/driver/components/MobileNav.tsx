@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { TrendingUp, History, Star, Settings } from "lucide-react";
+import { TrendingUp, History, Star, Settings, Bell } from "lucide-react";
 
 interface MobileNavProps {
     activeTab: string;
@@ -13,6 +13,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeTab, setActiveTab })
         { id: 'dashboard', icon: TrendingUp, label: 'Live' },
         { id: 'history', icon: History, label: 'Trips' },
         { id: 'reviews', icon: Star, label: 'Reviews' },
+        { id: 'notifications', icon: Bell, label: 'Inbox' },
         { id: 'profile', icon: Settings, label: 'Me' },
     ];
 

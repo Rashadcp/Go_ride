@@ -1,7 +1,9 @@
 "use client";
 
-import React from "react";
-import { Star, Power, User, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { Star, Power, User, Loader2, MessageSquare } from "lucide-react";
+import { ChatModal } from "@/features/chat/components/ChatModal";
+import { useRideStore } from "@/features/ride/store/useRideStore";
 import dynamic from "next/dynamic";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), { ssr: false });
@@ -39,6 +41,8 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
     setActiveTab,
     setIsOnline
 }) => {
+    const { unreadChatMessages } = useRideStore();
+    const [isChatOpen, setIsChatOpen] = useState(false);
     return (
         <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
             {/* Map Section */}
@@ -104,7 +108,27 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                         activeTrip ? (
                             <div className="bg-[#FFD700] rounded-[32px] p-6 shadow-2xl shadow-[#FFD700]/10 border border-[#FFD700]/30">
                                 <div className="flex items-center justify-between mb-6">
-                                    <span className="px-3 py-1 bg-[#0A192F] text-white text-[8px] font-black rounded-full uppercase tracking-widest">Active Engagement</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-3 py-1 bg-[#0A192F] text-white text-[8px] font-black rounded-full uppercase tracking-widest">Active Engagement</span>
+                                        <button 
+                                            onClick={() => setIsChatOpen(true)}
+                                            className="w-8 h-8 bg-[#0A192F] text-[#FFD700] rounded-full flex items-center justify-center border border-white/10 shadow-lg transition-all hover:bg-black hover:scale-110 active:scale-90 relative"
+                                            title="Chat with Passenger"
+                                        >
+                                            <MessageSquare className="w-4 h-4" />
+                                            {(() => {
+                                               const receiverId = activeTrip.passengerId?._id || activeTrip.passengerId || activeTrip.createdBy || "";
+                                               const chatKey = `${activeTrip.rideId || activeTrip._id || ""}_${[String(user?.id || user?._id), String(receiverId)].sort().join("_")}`;
+                                               const unreadCount = unreadChatMessages[chatKey] || 0;
+                                               if (unreadCount > 0) return (
+                                                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] text-white shadow-lg animate-bounce border border-white/20">
+                                                   {unreadCount}
+                                                 </span>
+                                               );
+                                               return null;
+                                            })()}
+                                        </button>
+                                    </div>
                                     <div className="w-2 h-2 rounded-full bg-[#0A192F] shadow-sm animate-pulse"></div>
                                 </div>
                                 <div className="text-center mb-6">
@@ -128,15 +152,24 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                                     <div key={req.rideId} className="bg-[#0A192F]/80 backdrop-blur-2xl border border-white/10 rounded-[28px] lg:rounded-[30px] p-4 lg:p-5 transition-all hover:scale-[1.02] hover:border-[#FFD700]/30 shadow-2xl">
                                         <div className="flex items-start justify-between mb-4 lg:mb-6">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#FFD700]/5 rounded-xl lg:rounded-2xl flex items-center justify-center overflow-hidden border border-[#FFD700]/10">
-                                                    {req.passengerPhoto ? (
-                                                        <img src={req.passengerPhoto.startsWith('http') ? req.passengerPhoto : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/${req.passengerPhoto}`} className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <User className="text-[#FFD700] w-5 h-5 lg:w-6 lg:h-6" />
-                                                    )}
+                                                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-white rounded-xl lg:rounded-2xl flex items-center justify-center overflow-hidden border border-[#FFD700]/30 shadow-lg">
+                                                    {(() => {
+                                                       const rawPhoto = req.passengerPhoto || req.photo || req.profilePhoto;
+                                                       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                                                       let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.passengerName || req.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+                                                       
+                                                       if (rawPhoto) {
+                                                          if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
+                                                             finalSrc = rawPhoto;
+                                                          } else {
+                                                             finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                                          }
+                                                       }
+                                                       return <img src={finalSrc} alt="P" className="w-full h-full object-cover" />;
+                                                    })()}
                                                 </div>
                                                 <div>
-                                                    <p className="font-black text-white text-sm lg:text-base leading-tight">{req.passengerName || "New Passenger"}</p>
+                                                    <p className="font-black text-white text-sm lg:text-base leading-tight">{req.passengerName || req.name || "New Passenger"}</p>
                                                     <div className="flex items-center gap-1 mt-1"><Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" /><span className="text-[9px] lg:text-[10px] font-black text-slate-400">{req.passengerRating || "4.9"}</span></div>
                                                 </div>
                                             </div>
@@ -167,6 +200,18 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                     )}
                 </div>
             </div>
+
+            {isChatOpen && activeTrip && (
+              <ChatModal 
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
+                rideId={activeTrip.rideId || activeTrip._id || ""}
+                userId={user?.id || user?._id || ""}
+                receiverId={activeTrip.passengerId?._id || activeTrip.passengerId || activeTrip.createdBy || ""}
+                receiverName={activeTrip.passengerName || "Passenger"}
+                senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Driver")}
+              />
+            )}
         </div>
     );
 };

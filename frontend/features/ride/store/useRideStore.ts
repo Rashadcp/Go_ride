@@ -42,6 +42,8 @@ interface RideState {
   pendingRideId: string | null;
   incomingCarpoolRequests: any[];
   paymentMethod: "WALLET" | "CASH" | "UPI";
+  chatHistory: Record<string, any[]>;
+  unreadChatMessages: Record<string, number>;
 
   // Actions
   setDashboardStep: (step: "SEARCH" | "CHOICE" | "ACTIVE") => void;
@@ -73,6 +75,10 @@ interface RideState {
   setPendingRideId: (v: string | null) => void;
   setIncomingCarpoolRequests: (v: any[] | ((prev: any[]) => any[])) => void;
   setPaymentMethod: (v: "WALLET" | "CASH" | "UPI") => void;
+  addChatMessage: (key: string, message: any) => void;
+  clearChatHistory: (key: string) => void;
+  incrementUnreadCount: (key: string) => void;
+  clearUnreadCount: (key: string) => void;
   resetRideState: () => void;
 }
 
@@ -111,6 +117,8 @@ export const useRideStore = create<RideState>()(
       pendingRideId: null,
       incomingCarpoolRequests: [],
       paymentMethod: "WALLET",
+      chatHistory: {},
+      unreadChatMessages: {},
 
       // Actions
       setDashboardStep: (step) => set({ dashboardStep: step }),
@@ -140,8 +148,34 @@ export const useRideStore = create<RideState>()(
       setIsRequestingRide: (isRequestingRide) => set({ isRequestingRide }),
       setActiveRide: (v) => set((state) => ({ activeRide: typeof v === 'function' ? v(state.activeRide) : v })),
       setPendingRideId: (pendingRideId) => set({ pendingRideId }),
-      setIncomingCarpoolRequests: (v) => set((state) => ({ incomingCarpoolRequests: typeof v === 'function' ? v(state.incomingCarpoolRequests) : v })),
-      setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
+      setIncomingCarpoolRequests: (v: any) => set((state) => ({ incomingCarpoolRequests: typeof v === 'function' ? v(state.incomingCarpoolRequests) : v })),
+      setPaymentMethod: (paymentMethod: any) => set({ paymentMethod }),
+      
+      addChatMessage: (key: string, message: any) => set((state) => ({
+        chatHistory: {
+          ...state.chatHistory,
+          [key]: [...(state.chatHistory[key] || []), message]
+        }
+      })),
+      
+      clearChatHistory: (key: string) => set((state) => {
+        const newHistory = { ...state.chatHistory };
+        delete newHistory[key];
+        return { chatHistory: newHistory };
+      }),
+      
+      incrementUnreadCount: (key: string) => set((state) => ({
+        unreadChatMessages: {
+          ...state.unreadChatMessages,
+          [key]: (state.unreadChatMessages[key] || 0) + 1
+        }
+      })),
+      
+      clearUnreadCount: (key: string) => set((state) => {
+        const newUnread = { ...state.unreadChatMessages };
+        delete newUnread[key];
+        return { unreadChatMessages: newUnread };
+      }),
       resetRideState: () => set({
         activeRide: null,
         pendingRideId: null,
@@ -155,6 +189,8 @@ export const useRideStore = create<RideState>()(
         ],
         routeInfo: { distance: 0, duration: 0 },
         visibleNearbyDrivers: [],
+        chatHistory: {}, // Clear all chats on reset
+        unreadChatMessages: {}, // Clear all unreads
       }),
     }),
     {

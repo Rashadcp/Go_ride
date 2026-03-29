@@ -22,7 +22,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     });
 
     // Carpool Join Accept (Driver -> Server -> Passenger)
-    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string }) => {
+    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL" || ride.availableSeats < data.seats) return;
@@ -31,16 +31,23 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             ride.passengers.push({ 
                 userId: data.userId as any, 
                 name: data.name, 
-                seats: data.seats 
+                photo: data.photo || data.passengerPhoto, // Store photo from request
+                seats: data.seats,
+                paymentMethod: data.paymentMethod || "CASH"
             });
             ride.availableSeats -= data.seats;
             if (ride.availableSeats === 0) ride.status = "FULL";
             await ride.save();
 
+            // Populate driver info so passenger gets it immediately
+            const populatedRide = await Ride.findById(ride._id)
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto');
+
             // Notify passenger using their persistent user room
             io.to(`user:${data.userId}`).emit("carpool:join:accepted", { 
                 rideId: data.rideId, 
-                ride 
+                ride: populatedRide 
             });
 
             // [FIX] Clean up any other "SEARCHING" taxi requests for this passenger 
@@ -49,18 +56,65 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 { createdBy: data.userId, status: "SEARCHING", type: "CARPOOL" },
                 { status: "CANCELLED", cancelledAt: new Date() }
             );
-            console.log(`🧹 Cleaned up searching requests for joined passenger ${data.userId}`);
             
             // Re-broadcast updated ride to the specific ride room and everyone
-            io.to(`ride:${data.rideId}`).emit("ride:update", ride);
-            io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride });
+            io.to(`ride:${data.rideId}`).emit("ride:update", populatedRide);
+            io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride: populatedRide });
             
             // Still broadcast globally for list updates if needed
-            io.emit("ride:update", ride);
+            io.emit("ride:update", populatedRide);
             
             console.log(`✅ Carpool join approved for ride ${data.rideId}, user ${data.userId} joined`);
         } catch (error) {
             console.error("Carpool join accept error:", error);
+        }
+    });
+
+    // Driver Starts a New Shared Trip (Driver -> Server)
+    socket.on("driver:trip:start", async (data: any) => {
+        try {
+            const { driverId, vehicleType, seats, pickup, drop, distance, duration, price } = data;
+            
+            const rideId = `POOL-${Date.now()}`;
+            const newRide = await Ride.create({
+                rideId,
+                createdBy: driverId,
+                driverId: driverId,
+                type: 'CARPOOL',
+                status: 'OPEN',
+                pickup: {
+                    lat: pickup.lat,
+                    lng: pickup.lng,
+                    label: pickup.label || "Pickup",
+                    location: { type: "Point", coordinates: [pickup.lng, pickup.lat] }
+                },
+                drop: {
+                    lat: drop.lat,
+                    lng: drop.lng,
+                    label: drop.label || "Destination",
+                    location: { type: "Point", coordinates: [drop.lng, drop.lat] }
+                },
+                requestedVehicleType: vehicleType || 'car',
+                availableSeats: seats || 1,
+                price: price || (vehicleType === 'bike' ? 40 : 100),
+                pricePerSeat: price || (vehicleType === 'bike' ? 40 : 100),
+                distance: parseFloat(distance) || 0,
+                duration: parseFloat(duration) || 0,
+                isSharedRide: true
+            });
+
+            socket.join(`ride:${rideId}`);
+            socket.join(`driver:${driverId}`);
+            
+            // Notify the driver that the trip is live
+            socket.emit("driver:trip:started", { rideId, ride: newRide });
+            
+            // Broadcast the new ride to everyone so it appears in passenger lists
+            io.emit("ride:update", newRide);
+            console.log(`🚀 New Carpool created by driver ${driverId}: ${rideId}`);
+        } catch (error) {
+            console.error("Driver trip start error:", error);
+            socket.emit("ride-request-failed", { reason: "Failed to start carpool trip." });
         }
     });
 

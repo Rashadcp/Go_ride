@@ -14,6 +14,7 @@ import carpoolRoutes from "./modules/carpool/carpool.routes";
 import paymentRoutes from "./modules/payment/payment.routes";
 import emergencyRoutes from "./modules/emergency/emergency.routes";
 import ratingRoutes from "./modules/rating/rating.routes";
+import notificationRoutes from "./routes/notification.routes";
 
 import passport from "./config/passport";
 
@@ -47,7 +48,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
@@ -76,6 +77,7 @@ app.use("/api/carpool", carpoolRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/emergency", emergencyRoutes);
 app.use("/api/rating", ratingRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 

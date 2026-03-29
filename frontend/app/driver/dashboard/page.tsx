@@ -15,13 +15,16 @@ import { TripHistory } from "@/features/driver/components/TripHistory";
 import { ReviewsList } from "@/features/driver/components/ReviewsList";
 import { ProfileTab } from "@/features/driver/components/ProfileTab";
 import { EarningsTab } from "@/features/driver/components/EarningsTab";
-import { Loader2 } from "lucide-react";
+import { NotificationsTab } from "@/features/driver/components/NotificationsTab";
+import { Loader2, MessageCircle } from "lucide-react";
+import { useRideStore } from "@/features/ride/store/useRideStore";
 
 export default function DriverDashboard() {
     const router = useRouter();
     const { user, clearAuth } = useAuthStore();
     const [isOnline, setIsOnline] = useState(false);
     const [activeTab, setActiveTab] = useState("dashboard");
+    const { addChatMessage, incrementUnreadCount } = useRideStore();
     const [loading, setLoading] = useState(false);
     const [profilePic, setProfilePic] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -188,11 +191,48 @@ export default function DriverDashboard() {
         socket.on("ride-cancelled", handleCancelled);
         socket.on("ride-status-update", handleStatusUpdate);
 
+        socket.on("chat:new_message", (data: any) => {
+            const { rideId, senderId, receiverId, message, senderName } = data;
+            // Only handle if message is for this user
+            if (String(receiverId) === String(user.id || user._id)) {
+                const conversationKey = `${rideId}_${[String(senderId), String(receiverId)].sort().join("_")}`;
+                addChatMessage(conversationKey, { ...data, isSelf: false });
+                incrementUnreadCount(conversationKey);
+                
+                toast.custom((t) => (
+                    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-[#0A192F] shadow-2xl rounded-[28px] pointer-events-auto flex ring-1 ring-white/10 overflow-hidden border border-white/5`}>
+                        <div className="flex-1 w-0 p-4">
+                            <div className="flex items-start">
+                                <div className="flex-shrink-0 pt-0.5">
+                                    <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-[#FFD700]">
+                                        <MessageCircle className="w-6 h-6" />
+                                    </div>
+                                </div>
+                                <div className="ml-4 flex-1">
+                                    <p className="text-xs font-black text-white uppercase tracking-widest italic">New Message from {senderName}</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-400 line-clamp-2 leading-relaxed">"{message}"</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex border-l border-white/5">
+                            <button
+                                onClick={() => toast.dismiss(t.id)}
+                                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-xs font-black text-rose-500 uppercase tracking-widest hover:bg-white/5 active:scale-95 transition-all"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                ), { duration: 5000, id: `chat-${conversationKey}` });
+            }
+        });
+
         return () => {
             socket.off("new-ride-request", handleIncoming);
             socket.off("ride-request", handleIncoming);
             socket.off("ride-cancelled", handleCancelled);
             socket.off("ride-status-update", handleStatusUpdate);
+            socket.off("chat:new_message");
             disconnectSocket();
         };
     }, [isOnline, user, userLoc]);
@@ -376,6 +416,8 @@ export default function DriverDashboard() {
                     <ReviewsList reviews={reviews} user={user} onRefresh={() => {}} />
                 ) : activeTab === "earnings" ? (
                     <EarningsTab trips={trips} />
+                ) : activeTab === "notifications" ? (
+                    <NotificationsTab />
                 ) : activeTab === "profile" ? (
                     <ProfileTab 
                         user={user} profileName={profileName} setProfileName={setProfileName}

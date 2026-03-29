@@ -55,6 +55,7 @@ const rideSchema = new mongoose.Schema(
         passengers: [{
             userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
             name: String,
+            photo: String,
             seats: Number,
             joinedAt: { type: Date, default: Date.now }
         }],
@@ -92,6 +93,7 @@ const rideSchema = new mongoose.Schema(
             rejectedAt: Date,
         }],
         acceptedAt: Date,
+        arrivedAt: Date,
         startedAt: Date,
         completedAt: Date,
         cancelledAt: Date,
@@ -106,6 +108,10 @@ const rideSchema = new mongoose.Schema(
             type: String,
             enum: ["WALLET", "CASH", "UPI"],
             default: "WALLET",
+        },
+        isSharedRide: {
+            type: Boolean,
+            default: false,
         },
     },
     { timestamps: true }

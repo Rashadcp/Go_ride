@@ -6,6 +6,7 @@ import Vehicle from "../models/vehicle";
 import Transaction from "../models/transaction";
 import { sendOTP } from "../config/mail";
 import { generateAccessToken, generateRefreshToken } from "../utils/token";
+import { createNotification } from "./notification.controller";
 
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from "../config/s3";
@@ -76,6 +77,8 @@ export const register = async (req: Request, res: Response) => {
 
     newUser.refreshToken = refreshTokenValue;
     await newUser.save();
+    
+    await createNotification(newUser._id.toString(), "Welcome to Go Ride!", "We're glad to have you with us. Explore our services and book your first ride today!", "SYSTEM");
 
     res.status(201).json({
       message: "User registered successfully",
@@ -467,6 +470,8 @@ export const completeDriverOnboarding = async (req: any, res: Response) => {
     console.log("💾 Saving user status...");
     await user.save();
     console.log("✅ User status updated.");
+    
+    await createNotification(user._id.toString(), "Onboarding Submitted", "Your driver documents have been submitted for review. We will notify you once you're approved!", "SYSTEM");
 
     res.json({
       message: "Onboarding documents submitted successfully. Pending approval.",

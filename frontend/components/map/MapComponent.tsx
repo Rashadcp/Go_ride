@@ -30,30 +30,75 @@ const DestIcon = L.icon({
     iconAnchor: [12, 41],
 });
 
-const DriverMarkerIcon = L.divIcon({
-    html: `
-        <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
-            <svg width="34" height="34" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Shadow -->
-                <ellipse cx="50" cy="55" rx="35" ry="40" fill="black" fill-opacity="0.2"/>
-                <!-- Car Body -->
-                <path d="M30 25C30 15 35 10 50 10C65 10 70 15 70 25L75 45V80C75 85.5228 70.5228 90 65 90H35C29.4772 90 25 85.5228 25 80V45L30 25Z" fill="#0A192F"/>
-                <!-- Windows -->
-                <path d="M35 30L65 30L68 45H32L35 30Z" fill="#FFD700" fill-opacity="0.6"/>
-                <rect x="30" y="50" width="40" height="25" rx="2" fill="#FFD700" fill-opacity="0.4"/>
-                <!-- Headlights -->
-                <rect x="32" y="15" width="8" height="4" rx="1" fill="white" fill-opacity="0.9"/>
-                <rect x="60" y="15" width="8" height="4" rx="1" fill="white" fill-opacity="0.9"/>
-                <!-- Tail Lights -->
-                <rect x="28" y="85" width="10" height="3" rx="1" fill="#FF4444"/>
-                <rect x="62" y="85" width="10" height="3" rx="1" fill="#FF4444"/>
-            </svg>
-        </div>
-    `,
-    className: "",
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-});
+const getMarkerIcon = (type?: string) => {
+    const color = "#0A192F";
+    const highlight = "#FFD700";
+
+    // Bike SVG (Rapido Style)
+    if (type === 'bike') {
+        return L.divIcon({
+            html: `
+                <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+                    <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Shadow -->
+                        <ellipse cx="50" cy="85" rx="30" ry="10" fill="black" fill-opacity="0.2"/>
+                        <!-- Motorbike Body (Side View) -->
+                        <path d="M20 70H80V60C80 50 70 45 60 45H40C30 45 20 50 20 60V70Z" fill="#FFD700"/>
+                        <path d="M35 45L45 25H55L65 45" stroke="#FFD700" stroke-width="8" stroke-linecap="round"/>
+                        <!-- Wheels -->
+                        <circle cx="25" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
+                        <circle cx="75" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
+                        <!-- Seat/Handlebar -->
+                        <rect x="40" y="40" width="20" height="8" rx="2" fill="#0A192F"/>
+                        <path d="M55 25L65 20" stroke="#0A192F" stroke-width="4" stroke-linecap="round"/>
+                    </svg>
+                </div>
+            `,
+            className: "",
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+        });
+    }
+
+    // Auto SVG
+    if (type === 'auto') {
+        return L.divIcon({
+            html: `
+                <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+                    <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="25" y="20" width="50" height="60" rx="10" fill="${color}"/>
+                        <rect x="30" y="30" width="40" height="25" rx="5" fill="${highlight}" fill-opacity="0.7"/>
+                        <circle cx="50" cy="85" r="8" fill="black"/>
+                        <rect x="30" y="20" width="40" height="5" rx="2" fill="${highlight}"/>
+                    </svg>
+                </div>
+            `,
+            className: "",
+            iconSize: [38, 38],
+            iconAnchor: [19, 19],
+        });
+    }
+
+    // Default Car (Go/Premium) SVG
+    return L.divIcon({
+        html: `
+            <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+                <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Main Body (Clean Pill Shape) -->
+                    <rect x="25" y="10" width="50" height="80" rx="15" fill="${color}"/>
+                    <!-- Front Window -->
+                    <rect x="30" y="25" width="40" height="15" rx="4" fill="${highlight}" fill-opacity="0.6"/>
+                    <!-- Headlights (Simple Dots) -->
+                    <circle cx="35" cy="18" r="4" fill="white" fill-opacity="0.9"/>
+                    <circle cx="65" cy="18" r="4" fill="white" fill-opacity="0.9"/>
+                </svg>
+            </div>
+        `,
+        className: "",
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
+};
 
 const UserMarkerIcon = L.divIcon({
     html: `
@@ -110,6 +155,7 @@ interface MapProps {
         name?: string;
         photo?: string;
         rating?: number;
+        vehicleType?: string;
     }[];
     rideStatus?: "ACCEPTED" | "ARRIVED" | "STARTED" | "COMPLETED" | null;
     passengerLoc?: [number, number] | null;
@@ -209,7 +255,7 @@ export default function MapComponent({
                     const route = data.routes[0];
                     const coords = route.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
                     setRouteData(coords);
-                    
+
                     const distanceKm = route.distance / 1000;
                     const durationMins = route.duration / 60;
                     onRouteInfo?.(distanceKm, durationMins);
@@ -267,7 +313,7 @@ export default function MapComponent({
                         <Popup className="font-bold">Your Location</Popup>
                     </Marker>
                 )}
-                
+
                 {/* Passenger Pick-up Marker (Visible when heading to pickup) */}
                 {passengerLoc && (rideStatus === "ACCEPTED" || rideStatus === "ARRIVED") && (
                     <Marker position={passengerLoc} icon={StopIcon}>
@@ -280,7 +326,7 @@ export default function MapComponent({
                     if (idx === 0 && userLoc && stop[0] === userLoc[0] && stop[1] === userLoc[1]) {
                         return null; // Avoid rendering a redundant 'Pick-up' pin explicitly over the active 'Your Location' pulse pin
                     }
-                    
+
                     return (
                         <Marker
                             key={`stop-${idx}-${stop.join('-')}`}
@@ -299,7 +345,7 @@ export default function MapComponent({
                     <Marker
                         key={`driver-${driver.driverId || idx}-${driver.location.lat}-${driver.location.lng}`}
                         position={[driver.location.lat, driver.location.lng]}
-                        icon={DriverMarkerIcon}
+                        icon={getMarkerIcon(driver.vehicleType)}
                     >
                         <Popup className="font-bold">
                             <div className="flex flex-col items-center gap-1">

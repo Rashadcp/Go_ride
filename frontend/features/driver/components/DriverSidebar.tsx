@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Navigation, TrendingUp, History, Star, Wallet, Settings, LogOut } from "lucide-react";
+import { Navigation, TrendingUp, History, Star, Wallet, Settings, LogOut, Bell } from "lucide-react";
 
 interface DriverSidebarProps {
     activeTab: string;
@@ -15,6 +15,7 @@ export const DriverSidebar: React.FC<DriverSidebarProps> = ({ activeTab, setActi
         { id: 'history', icon: History, label: 'Trips' },
         { id: 'reviews', icon: Star, label: 'Reviews' },
         { id: 'earnings', icon: Wallet, label: 'Payouts' },
+        { id: 'notifications', icon: Bell, label: 'Inbox' },
         { id: 'profile', icon: Settings, label: 'Profile' },
     ];
 
