@@ -289,7 +289,7 @@ export const getTransactions = async (req: any, res: Response) => {
 
 export const getDashboardStats = async (req: any, res: Response) => {
   try {
-    const availableCars = await User.countDocuments({ role: "DRIVER", driverStatus: "APPROVED" });
+    const availableCars = await User.countDocuments({ role: "DRIVER", status: "APPROVED" });
     const user = await User.findById(req.user.id);
 
     res.json({

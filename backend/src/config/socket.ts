@@ -56,6 +56,16 @@ export const initSocket = async (server: HttpServer) => {
             }
         });
 
+        // ✅ FIX: Respond to individual user requesting the current driver list
+        socket.on("get-active-drivers", () => {
+            void (async () => {
+                const availableDrivers = await getAvailableDrivers();
+                socket.emit("active-drivers", availableDrivers);
+            })().catch((error) => {
+                console.error("get-active-drivers error:", error);
+            });
+        });
+
         socket.on("driver-online", (data: any) => {
             void (async () => {
                 await setActiveDriver(data.driverId, {

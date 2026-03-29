@@ -24,13 +24,12 @@ services:
       dockerfile: Dockerfile
     container_name: goride-backend
     ports:
-      - "5002:5001"
+      - "5001:5001"
     env_file:
       - ./backend/.env
     environment:
       # Overriding MONGO_URI to use the local container name instead of the cloud URI
-      # If you want to use the cloud DB instead, comment out the line below
-      - MONGO_URI=mongodb://mongodb:27017/goride
+      # - MONGO_URI=mongodb://mongodb:27017/goride
       - REDIS_URL=redis://redis:6379
       - FRONTEND_URL=http://localhost:3001
     depends_on:
@@ -43,7 +42,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:5002/api
+        NEXT_PUBLIC_API_URL: http://localhost:5001/api
         NEXT_PUBLIC_RAZORPAY_KEY_ID: rzp_test_SENj7Gukg5vBSe
         NEXT_PUBLIC_AWS_BUCKET_NAME: go-ride
         NEXT_PUBLIC_AWS_REGION: ap-south-1
