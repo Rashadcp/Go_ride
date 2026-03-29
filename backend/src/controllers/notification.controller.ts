@@ -61,3 +61,16 @@ export const createNotification = async (userId: string, title: string, message:
         console.error("Failed to create notification:", error);
     }
 };
+export const bulkCreateNotifications = async (userIds: string[], title: string, message: string, type: "INFO" | "RIDE_UPDATE" | "PAYMENT" | "SYSTEM" = "INFO") => {
+    try {
+        const notifications = userIds.map(userId => ({
+            userId,
+            title,
+            message,
+            type
+        }));
+        await Notification.insertMany(notifications);
+    } catch (error) {
+        console.error("Failed to bulk create notifications:", error);
+    }
+};

@@ -21,7 +21,7 @@ interface Report {
     createdAt: string;
     resolutionNotes?: string;
     driverName?: string;
-    driverId?: string;
+    driverId?: { _id: string; name: string; email: string; profilePhoto?: string } | string;
 }
 
 const TYPE_CONFIG = {
@@ -205,6 +205,7 @@ export default function EmergencyReportsPage() {
                             const statusCfg = STATUS_CONFIG[report.status] || STATUS_CONFIG.PENDING;
                             const reporterName = typeof report.reporterId === "object" ? report.reporterId?.name : "Unknown User";
                             const reporterEmail = typeof report.reporterId === "object" ? report.reporterId?.email : "";
+                            const dName = typeof report.driverId === "object" ? report.driverId?.name : (report.driverName || "");
 
                             return (
                                 <div
@@ -244,10 +245,10 @@ export default function EmergencyReportsPage() {
                                                 <Clock className="w-3 h-3 text-slate-600" />
                                                 {new Date(report.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
                                             </div>
-                                            {report.driverName && (
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg">
+                                            {dName && (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-[#FFD700]/10">
                                                     <Car className="w-3 h-3 text-[#FFD700]" />
-                                                    <span className="text-slate-400">{report.driverName}</span>
+                                                    <span className="text-slate-400 font-bold ml-1">{dName}</span>
                                                 </div>
                                             )}
                                             {report.location?.address && (
@@ -322,10 +323,15 @@ export default function EmergencyReportsPage() {
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                                         {TYPE_CONFIG[selectedReport.type]?.label} — {typeof selectedReport.reporterId === "object" ? selectedReport.reporterId?.name : "User"}
                                     </p>
-                                    {selectedReport.driverName && (
-                                        <p className="text-[11px] text-[#FFD700] font-bold">
-                                            Driver: {selectedReport.driverName}
-                                        </p>
+                                    { (typeof selectedReport.driverId === "object" ? selectedReport.driverId?.name : selectedReport.driverName) && (
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                            {typeof selectedReport.driverId === "object" && selectedReport.driverId?.profilePhoto && (
+                                                <img src={selectedReport.driverId.profilePhoto} alt="" className="w-4 h-4 rounded-full border border-[#FFD700]/20" />
+                                            )}
+                                            <p className="text-[11px] text-[#FFD700] font-bold">
+                                                Driver: {typeof selectedReport.driverId === "object" ? selectedReport.driverId?.name : (selectedReport.driverName || "Unknown")}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </div>

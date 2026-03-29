@@ -15,8 +15,10 @@ import {
     setSocketDriver
 } from "../sockets/state";
 
+let io: Server;
+
 export const initSocket = async (server: HttpServer) => {
-    const io = new Server(server, {
+    io = new Server(server, {
         cors: {
             origin: [
                 process.env.FRONTEND_URL || "http://localhost:3000",
@@ -113,3 +115,5 @@ export const initSocket = async (server: HttpServer) => {
 
     return io;
 };
+
+export { io };

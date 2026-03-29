@@ -29,15 +29,22 @@ export default function AdminWalletPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<any>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalTransactions, setTotalTransactions] = useState(0);
+    const txLimit = 10;
 
-    const fetchData = async () => {
+    const fetchData = async (page = 1) => {
         setLoading(true);
         try {
             const [txRes, statsRes] = await Promise.all([
-                api.get("/admin/transactions"),
+                api.get(`/admin/transactions?page=${page}&limit=${txLimit}`),
                 api.get("/admin/stats")
             ]);
-            setTransactions(txRes.data);
+            setTransactions(txRes.data.transactions);
+            setTotalPages(txRes.data.totalPages);
+            setTotalTransactions(txRes.data.totalTransactions);
+            setCurrentPage(txRes.data.currentPage);
             setStats(statsRes.data.stats);
         } catch (error: any) {
             toast.error("Failed to load wallet data");
@@ -47,8 +54,8 @@ export default function AdminWalletPage() {
     };
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        fetchData(currentPage);
+    }, [currentPage]);
 
     if (loading) {
         return (
@@ -60,7 +67,7 @@ export default function AdminWalletPage() {
     }
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col bg-[#0A192F] min-h-screen">
+        <div className="p-8 max-w-[1600px] mx-auto flex flex-col bg-[#0A192F] min-h-screen">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                 <div>
                     <h1 className="text-3xl font-black text-white tracking-tight italic uppercase">Platform <span className="text-[#FFD700]">Wallet</span></h1>
@@ -112,7 +119,7 @@ export default function AdminWalletPage() {
                 </div>
             </div>
 
-            <div className="bg-white/5 rounded-[40px] border border-white/5 shadow-sm overflow-hidden flex flex-col flex-1">
+            <div className="bg-white/5 rounded-[40px] border border-white/5 shadow-sm overflow-hidden flex flex-col flex-1 min-h-[600px] mb-8">
                 <div className="p-8 border-b border-white/5 flex items-center justify-between">
                     <h3 className="font-black text-white text-[11px] uppercase tracking-[0.2em] flex items-center gap-3">
                         <History className="w-4 h-4 text-[#FFD700]" />
@@ -128,30 +135,72 @@ export default function AdminWalletPage() {
                     </div>
                 </div>
                 
-                <div className="divide-y divide-white/5 overflow-y-auto max-h-[500px] custom-scrollbar">
-                    {transactions.map(tx => (
-                        <div key={tx._id} className="p-6 hover:bg-white/5 transition-all flex items-center justify-between">
-                            <div className="flex items-center gap-6">
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tx.type === 'CREDIT' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-white/5 text-[#FFD700] border border-white/5'}`}>
-                                    {tx.type === 'CREDIT' ? <Plus className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
-                                </div>
-                                <div>
-                                    <p className="font-black text-sm text-white mb-0.5">{tx.userId?.name || "System Process"}</p>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[9px] font-black uppercase tracking-widest text-[#FFD700] bg-white/5 border border-[#FFD700]/20 px-2 py-0.5 rounded-md">#{tx._id.slice(-6)}</span>
-                                        <span className="text-[10px] font-bold text-slate-500">{new Date(tx.createdAt).toLocaleString()}</span>
+                <div className="divide-y divide-white/5 overflow-y-auto flex-1 custom-scrollbar">
+                    {transactions.length > 0 ? (
+                        transactions.map(tx => (
+                            <div key={tx._id} className="p-6 hover:bg-white/5 transition-all flex items-center justify-between">
+                                <div className="flex items-center gap-6">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tx.type === 'CREDIT' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-white/5 text-[#FFD700] border border-white/5'}`}>
+                                        {tx.type === 'CREDIT' ? <Plus className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-sm text-white mb-0.5">{tx.userId?.name || "System Process"}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-[#FFD700] bg-white/5 border border-[#FFD700]/20 px-2 py-0.5 rounded-md">#{tx._id.slice(-6)}</span>
+                                            <span className="text-[10px] font-bold text-slate-500">{new Date(tx.createdAt).toLocaleString()}</span>
+                                        </div>
                                     </div>
                                 </div>
+                                <div className="text-right">
+                                    <p className={`text-xl font-black mb-1 ${tx.type === 'CREDIT' ? 'text-emerald-400' : 'text-white'}`}>
+                                        {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
+                                    </p>
+                                    <span className="text-[9px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/10">{tx.status}</span>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className={`text-xl font-black mb-1 ${tx.type === 'CREDIT' ? 'text-emerald-400' : 'text-white'}`}>
-                                    {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount.toLocaleString()}
-                                </p>
-                                <span className="text-[9px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/10">{tx.status}</span>
-                            </div>
+                        ))
+                    ) : (
+                        <div className="p-20 text-center">
+                            <p className="text-slate-500 font-bold italic">No transactions found matching your records.</p>
                         </div>
-                    ))}
+                    )}
                 </div>
+
+                {/* Modern Pagination Bar */}
+                {totalPages > 1 && (
+                    <div className="p-6 bg-[#0B1E2D]/50 border-t border-white/5 flex items-center justify-between shrink-0">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                            Showing <span className="text-white">{(currentPage - 1) * txLimit + 1}</span> to <span className="text-white">{Math.min(currentPage * txLimit, totalTransactions)}</span> of <span className="text-white">{totalTransactions}</span> txs
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-20 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all border border-white/5"
+                            >
+                                Prev
+                            </button>
+                            <div className="flex items-center gap-1.5 mx-2">
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i + 1}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === i + 1 ? 'bg-[#FFD700] text-[#0A192F] shadow-lg shadow-[#FFD700]/10' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-20 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all border border-white/5"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

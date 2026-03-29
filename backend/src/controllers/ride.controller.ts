@@ -2,6 +2,7 @@ import { Response } from "express";
 import Ride from "../models/ride";
 import User from "../models/user";
 import Rating from "../models/rating";
+import Discount from "../models/discount";
 
 // Get user's ride history
 export const getUserRides = async (req: any, res: Response) => {
@@ -188,3 +189,91 @@ export const rateRide = async (req: any, res: Response) => {
         res.status(500).json({ message: "Error saving rating" });
     }
 };
+
+// Get active and public discounts for all users
+export const getActiveDiscounts = async (req: any, res: Response) => {
+    try {
+        const discounts = await Discount.find({ 
+            active: true, 
+            isPublic: true,
+            expiryDate: { $gt: new Date() }
+        }).sort({ createdAt: -1 });
+        
+        res.json(discounts);
+    } catch (err: any) {
+        console.error("Get discounts error:", err);
+        res.status(500).json({ message: "Error fetching promotions" });
+    }
+};
+
+// Validate specific promo code (pre-ride)
+export const validatePromoCode = async (req: any, res: Response) => {
+    try {
+        const { code } = req.params;
+        const discount = await Discount.findOne({ 
+            code: { $regex: new RegExp(`^${code}$`, 'i') }, 
+            active: true, 
+            expiryDate: { $gt: new Date() } 
+        });
+        
+        if (!discount) return res.status(404).json({ message: "Invalid or expired promo code" });
+        if (discount.currentUsage >= discount.maxUsage) return res.status(400).json({ message: "Promo limit reached" });
+        
+        res.json(discount);
+    } catch (err: any) {
+        console.error("Validate promo error:", err);
+        res.status(500).json({ message: "Error validating promo code" });
+    }
+};
+
+// Apply promo code to an existing ride (at paying time)
+export const applyPromoCode = async (req: any, res: Response) => {
+    try {
+        const { rideId, code } = req.body;
+        const ride = await Ride.findOne({ rideId });
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
+        if (ride.promoCode) return res.status(400).json({ message: "A promo code is already applied to this ride" });
+
+        const discount = await Discount.findOne({ 
+            code: { $regex: new RegExp(`^${code}$`, 'i') }, 
+            active: true, 
+            expiryDate: { $gt: new Date() } 
+        });
+        
+        if (!discount) {
+            return res.status(400).json({ message: "Invalid or expired promo code" });
+        }
+        
+        if (discount.currentUsage >= discount.maxUsage) {
+            return res.status(400).json({ message: "Promo code limit reached" });
+        }
+
+        // Apply discount to price
+        let newPrice = ride.price;
+        if (discount.type === "PERCENTAGE") {
+            newPrice = ride.price * (1 - discount.value / 100);
+        } else if (discount.type === "FLAT") {
+            newPrice = Math.max(0, ride.price - discount.value);
+        }
+
+        ride.price = Math.round(newPrice);
+        ride.promoCode = discount.code;
+        ride.discountId = discount._id;
+        await ride.save();
+
+        // Increment usage in background
+        Discount.findByIdAndUpdate(discount._id, { $inc: { currentUsage: 1 } }).catch(console.error);
+
+        res.json({ 
+            message: "Promo code applied successfully", 
+            price: ride.price,
+            discountValue: discount.value,
+            discountType: discount.type
+        });
+        
+    } catch (err: any) {
+        console.error("Apply promo error:", err);
+        res.status(500).json({ message: "Error applying promo code" });
+    }
+};
+

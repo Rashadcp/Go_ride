@@ -45,6 +45,7 @@ interface Driver {
     aadhaar?: string;
     isBlocked?: boolean;
     isSuspicious?: boolean;
+    reportCount?: number;
     vehicle?: {
         _id: string;
         numberPlate: string;
@@ -249,6 +250,12 @@ export default function DriverVerificationPage() {
                                                         {driver.isSuspicious && <AlertTriangle className="w-3 h-3 text-orange-500" />}
                                                     </div>
                                                     <p className="text-xs text-slate-400 font-medium">{driver.email}</p>
+                                                    {driver.reportCount && driver.reportCount > 0 ? (
+                                                        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-md w-fit">
+                                                            <AlertCircle className="w-3 h-3 text-rose-500" />
+                                                            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">{driver.reportCount} Safety Reports</span>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             </div>
                                         </td>
@@ -317,8 +324,8 @@ export default function DriverVerificationPage() {
 
                                                 <div className="w-px h-6 bg-white/10 mx-1" />
 
-                                                {/* Action Buttons for Pending/Rejected */}
-                                                {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL' || driver.status === 'REJECTED') && (
+                                                {/* Action Buttons for Pending/Rejected/Approved */}
+                                                {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL' || driver.status === 'REJECTED' || driver.status === 'APPROVED') && (
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "REJECTED")}
@@ -333,9 +340,9 @@ export default function DriverVerificationPage() {
                                                         </button>
                                                         <button
                                                             onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "APPROVED")}
-                                                            disabled={!driver.vehicle}
-                                                            title={!driver.vehicle ? "Vehicle information required for approval" : "Approve this driver"}
-                                                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest shadow-lg ${!driver.vehicle
+                                                            disabled={driver.status === 'APPROVED' || !driver.vehicle}
+                                                            title={!driver.vehicle ? "Vehicle information required for approval" : driver.status === 'APPROVED' ? "Driver is already approved" : "Approve this driver"}
+                                                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest shadow-lg ${driver.status === 'APPROVED' || !driver.vehicle
                                                                 ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                                                                 : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20"
                                                                 }`}

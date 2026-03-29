@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
 import EmergencyReport from "../../models/emergencyReport";
+import Ride from "../../models/ride";
 
 export const registerEmergencyHandlers = (io: Server, socket: Socket) => {
     // Ride Emergency (Alert User -> Server -> Admin/Authorities)
@@ -15,9 +17,21 @@ export const registerEmergencyHandlers = (io: Server, socket: Socket) => {
         try {
             console.log("🚨 EMERGENCY ALERT TRIGGERED:", data);
             
+            let resolvedRideId = null;
+            if (data.rideId) {
+                if (mongoose.isValidObjectId(data.rideId)) {
+                    resolvedRideId = data.rideId;
+                } else {
+                    // It's a custom rideId string like RIDE-123, find the DB _id
+                    const ride = await Ride.findOne({ rideId: data.rideId });
+                    if (ride) resolvedRideId = ride._id;
+                }
+            }
+
             const report = new EmergencyReport({
                 reporterId: data.userId,
-                rideId: data.rideId || undefined,
+                rideId: resolvedRideId || undefined,
+                driverId: data.driverId || undefined,
                 type: data.type || "OTHER",
                 description: data.message,
                 location: data.location,

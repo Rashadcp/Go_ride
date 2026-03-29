@@ -28,10 +28,12 @@ function DashboardRedirectContent() {
 
                     if (user.role === "DRIVER" && user.status === "PENDING") {
                         router.push("/driver/onboarding");
+                    } else if (user.role === "ADMIN") {
+                        router.push("/admin/dashboard");
                     } else if (user.role === "USER") {
                         router.push("/user/dashboard");
                     } else {
-                        // For approved drivers or generic users
+                        // For approved drivers or other roles
                         router.push("/user/dashboard");
                     }
                 } catch (error) {
@@ -47,7 +49,21 @@ function DashboardRedirectContent() {
             if (!token) {
                 router.push("/login");
             } else {
-                router.push("/user/dashboard");
+                // If already has token, we also check role
+                const checkRole = async () => {
+                   try {
+                     const response = await api.get("/auth/me");
+                     const user = response.data;
+                     if (user.role === "ADMIN") {
+                        router.push("/admin/dashboard");
+                     } else {
+                        router.push("/user/dashboard");
+                     }
+                   } catch (e) {
+                      router.push("/login");
+                   }
+                }
+                checkRole();
             }
         }
     }, [searchParams, router]);

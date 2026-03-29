@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import api from "@/lib/axios";
 import {
   Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus,
-  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike, ShieldCheck, Banknote, CreditCard, QrCode, Phone, MessageSquare, AlertTriangle, CheckCircle2
+  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike, ShieldCheck, Banknote, CreditCard, QrCode, Phone, MessageSquare, AlertTriangle, CheckCircle2,
+  Tag
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -47,6 +48,41 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const [isChatOpen, setIsChatOpen] = useState(false);
   const lastAutoOpenedChatRef = useRef<string | null>(null);
 
+  // Promotion State
+  const [promotions, setPromotions] = useState<any[]>([]);
+  const [selectedPromo, setSelectedPromo] = useState<any | null>(null);
+  const [promoCodeInput, setPromoCodeInput] = useState("");
+  const [manualPromoCode, setManualPromoCode] = useState("");
+  const [isVerifyingPromo, setIsVerifyingPromo] = useState(false);
+
+  const fetchPromotions = async () => {
+    try {
+      const { data } = await api.get("/rides/promotions");
+      setPromotions(data);
+    } catch (e) {
+      console.error("Failed to fetch promos");
+    }
+  };
+
+  const handleVerifyManualPromo = async () => {
+    if (!manualPromoCode.trim()) return;
+    setIsVerifyingPromo(true);
+    try {
+      const { data } = await api.get(`/rides/promotions/validate/${manualPromoCode}`);
+      setSelectedPromo(data);
+      toast.success(`Code ${data.code} applied!`);
+      setManualPromoCode("");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Invalid promo code");
+    } finally {
+      setIsVerifyingPromo(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPromotions();
+  }, []);
+
   // Emergency Report State
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportType, setReportType] = useState<"ACCIDENT" | "HARASSMENT" | "THEFT" | "OTHER">("OTHER");
@@ -59,7 +95,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     setIsSubmittingReport(true);
     try {
       socket.emit("ride:emergency", {
-        rideId: activeRide?.rideId || activeRide?._id || "",
+        rideId: activeRide?._id || activeRide?.rideId || "",
         userId: user?.id || user?._id,
         type: reportType,
         message: reportDesc,
@@ -113,7 +149,24 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const calculateFare = (vType: string) => {
     const style = CAR_STYLES.find(s => s.id === vType) || CAR_STYLES[2];
     const distance = routeInfo?.distance || 0;
-    const finalFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
+    
+    // Initial fare based on car type and distance
+    let finalFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
+    
+    // Apply shared ride discount (e.g. 40% off) if in shared mode
+    if (isSharedRide) {
+       finalFare = finalFare * 0.6;
+    }
+
+    // Apply specific promotion if selected
+    if (selectedPromo) {
+      if (selectedPromo.type === "PERCENTAGE") {
+        finalFare = finalFare * (1 - selectedPromo.value / 100);
+      } else if (selectedPromo.type === "FLAT") {
+        finalFare = Math.max(0, finalFare - selectedPromo.value);
+      }
+    }
+    
     return Math.round(finalFare);
   };
 
@@ -303,7 +356,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       destination: { lat: dropLoc.coords[0], lng: dropLoc.coords[1], label: dropLoc.query },
       requestedVehicleType: isSharedRide ? "carpool" : vehicleType,
       isSharedRide,
-      fare: isSharedRide ? sharedFare : estimatedRideFare,
+      fare: estimatedRideFare,
+      promoCode: selectedPromo?.code || null,
       distance: routeInfo?.distance || 0,
       duration: routeInfo?.duration || 0,
       paymentMethod: activeMethod
@@ -476,11 +530,11 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
         {/* Ride Choices Panel */}
         {isRouteSearched && !activeRide && (
-          <div className="bg-white/95 backdrop-blur-3xl rounded-[32px] shadow-[0_30px_70px_rgba(0,0,0,0.3)] p-6 pb-6 border border-white/50 pointer-events-auto flex flex-col h-full overflow-hidden">
-            <h3 className="text-2xl font-black text-[#0A192F] mb-6 tracking-tight text-center shrink-0">Choose a ride</h3>
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6 shadow-inner mx-2 shrink-0">
-              <button onClick={() => { rideState.setIsSharedRide(false); rideState.setVehicleType('go'); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${!isSharedRide ? 'bg-white shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Private</button>
-              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Shared (-40%)</button>
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[32px] shadow-[0_30px_70px_rgba(0,0,0,0.3)] p-5 pb-5 border border-white/50 pointer-events-auto flex flex-col h-fit max-h-[92vh] overflow-hidden w-[400px]">
+            <h3 className="text-xl font-black text-[#0A192F] mb-3 tracking-tight text-center shrink-0 uppercase">Choose a ride</h3>
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-3 shadow-inner mx-2 shrink-0">
+              <button onClick={() => { rideState.setIsSharedRide(false); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${!isSharedRide ? 'bg-white shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Private</button>
+              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Shared (-40%)</button>
             </div>
 
             <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto px-2 custom-scrollbar">
@@ -586,44 +640,46 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   )}
                 </div>
               ) : (
-                CAR_STYLES.map(style => {
-                  const isSelected = vehicleType === style.id;
-                  const carFare = calculateFare(style.id);
-                  return (
-                    <button 
-                      key={style.id} 
-                      onClick={() => rideState.setVehicleType(style.id as any)} 
-                      className={`w-full flex items-center justify-between p-4 rounded-3xl border-2 transition-all group shrink-0 relative overflow-hidden ${isSelected ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-xl' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}
-                    >
-                      {isSelected && <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />}
-                      <div className="flex items-center gap-4 relative z-10">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-[#0A192F] text-[#FFD700] shadow-2xl scale-110' : 'bg-white text-slate-300 shadow-sm border border-slate-100'}`}>
-                          <style.icon className="w-8 h-8" />
-                        </div>
-                        <div className="text-left flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2">
-                            <p className={`font-black tracking-tight transition-colors ${isSelected ? 'text-[#0A192F] text-[20px]' : 'text-slate-700 text-[18px]'}`}>{style.name}</p>
-                            <div className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full ${isSelected ? 'bg-[#0A192F] text-[#FFD700]' : 'bg-slate-100 text-slate-400'}`}>
-                              <Users className="w-3 h-3" />
-                              <span className="text-[10px] font-black">{style.person}</span>
-                            </div>
+                <div className="space-y-3 mt-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1 scroll-smooth">
+                  {CAR_STYLES.map(style => {
+                    const isSelected = vehicleType === style.id;
+                    const carFare = calculateFare(style.id);
+                    return (
+                      <button 
+                        key={style.id} 
+                        onClick={() => rideState.setVehicleType(style.id as any)} 
+                        className={`w-full flex items-center justify-between p-4 rounded-3xl border-2 transition-all group shrink-0 relative overflow-hidden ${isSelected ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-xl' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}
+                      >
+                        {isSelected && <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />}
+                        <div className="flex items-center gap-4 relative z-10">
+                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-[#0A192F] text-[#FFD700] shadow-2xl scale-110' : 'bg-white text-slate-300 shadow-sm border border-slate-100'}`}>
+                            <style.icon className="w-8 h-8" />
                           </div>
-                          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{style.time} • {style.desc}</p>
+                          <div className="text-left flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2">
+                              <p className={`font-black tracking-tight transition-colors ${isSelected ? 'text-[#0A192F] text-[20px]' : 'text-slate-700 text-[18px]'}`}>{style.name}</p>
+                              <div className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full ${isSelected ? 'bg-[#0A192F] text-[#FFD700]' : 'bg-slate-100 text-slate-400'}`}>
+                                <Users className="w-3 h-3" />
+                                <span className="text-[10px] font-black">{style.person}</span>
+                              </div>
+                            </div>
+                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{style.time} • {style.desc}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right relative z-10">
-                        <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
-                        <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Minimum ₹{style.baseFare}</p>
-                      </div>
-                    </button>
-                  );
-                })
+                        <div className="text-right relative z-10">
+                          <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
+                          <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Minimum ₹{style.baseFare}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
             {/* Payment Selection Section */}
-            <div className="mt-4 px-2 space-y-3 shrink-0">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-2">Payment Method</p>
+            <div className="mt-3 px-2 space-y-2 shrink-0 border-t border-slate-100 pt-3">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Payment Method</p>
                 <div className="flex gap-2 p-1 bg-slate-100 rounded-[22px]">
                    <button 
                     onClick={() => setPaymentMethod("WALLET")}
@@ -657,12 +713,61 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                    </button>
                 </div>
               </div>
+            
+            {/* Super Compact Promotions Section */}
+            {promotions.length > 0 && (
+              <div className="mt-2 px-2 bg-slate-50/50 py-2 rounded-[22px] border border-slate-200/50">
+                <div className="flex items-center gap-2">
+                   {/* Compact Manual Input */}
+                   <div className="flex-1 flex items-center gap-1.5 bg-white border border-slate-200 rounded-full pl-3 pr-1 py-1 transition-all focus-within:ring-2 focus-within:ring-[#0A192F]/5 min-w-0">
+                      <Tag className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <input 
+                        type="text" 
+                        placeholder="Apply Secret Code" 
+                        className="bg-transparent border-none outline-none text-[9px] font-black uppercase text-[#0A192F] w-full placeholder:text-slate-400 placeholder:normal-case min-w-0"
+                        value={manualPromoCode}
+                        onChange={(e) => setManualPromoCode(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === 'Enter' && handleVerifyManualPromo()}
+                      />
+                      <button 
+                        onClick={handleVerifyManualPromo}
+                        disabled={isVerifyingPromo || !manualPromoCode.trim()}
+                        className="h-5 px-2 bg-[#0A192F] text-[#FFD700] rounded-full text-[8px] font-black uppercase tracking-tighter disabled:opacity-30 flex items-center justify-center shrink-0"
+                      >
+                        {isVerifyingPromo ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <span>Apply</span>}
+                      </button>
+                   </div>
+                   
+                   {/* Remove Button if active */}
+                   {selectedPromo && (
+                      <button onClick={() => setSelectedPromo(null)} className="shrink-0 p-1.5 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                   )}
+                </div>
 
-            <div className="px-2 mt-4 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
+                <div className="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar scroll-smooth">
+                  {promotions.map((promo) => (
+                    <button 
+                      key={promo._id}
+                      onClick={() => setSelectedPromo(selectedPromo?._id === promo._id ? null : promo)}
+                      className={`shrink-0 py-1.5 px-3 rounded-full transition-all border ${selectedPromo?._id === promo._id ? 'bg-[#0A192F] border-[#0A192F] text-[#FFD700] shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-white'}`}
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-tight">{promo.code}</span>
+                      <span className="text-[8px] font-bold ml-1.5 opacity-80">
+                        {promo.type === 'PERCENTAGE' ? `${promo.value}%` : `₹${promo.value}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="px-2 mt-3 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
                 onClick={handleCreateRequest}
                 disabled={isRequestingRide || loadingDrivers || isProcessingPayment}
-                className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex flex-col items-center justify-center gap-1 shrink-0 px-4"
+                className="w-full py-4 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex flex-col items-center justify-center gap-1 shrink-0 px-4"
               >
                 {isRequestingRide || isProcessingPayment ? (
                   <>
@@ -680,9 +785,9 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   <span>
                     {isSharedRide 
                       ? (selectedCarpoolId 
-                        ? `Join ${availableCarpools.find(p => p.rideId === selectedCarpoolId)?.driverName || 'Pool'}` 
+                        ? `Join ${availableCarpools.find((p: any) => p.rideId === selectedCarpoolId)?.driverName || 'Pool'}` 
                         : "Request Shared Ride") 
-                      : `Request ${CAR_STYLES.find(s => s.id === vehicleType)?.name || "Ride"}`}
+                      : `Request ${CAR_STYLES.find((s: any) => s.id === vehicleType)?.name || "Ride"}`}
                   </span>
                 )}
               </button>
@@ -1001,19 +1106,82 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                  <div className="w-9 h-9 rounded-xl bg-[#0A192F] text-[#FFD700] flex items-center justify-center shrink-0">
                                     <QrCode className="w-4 h-4" />
                                  </div>
-                                 <div>
+                                 <div className="flex-1">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Complete Your UPI Payment Now</p>
-                                    <p className="text-xs font-semibold text-slate-600 mt-1">Your trip is finished, but payment is still pending. Tap below to open Razorpay and finish the fare.</p>
+                                    <p className="text-xs font-semibold text-slate-600 mt-1">Your trip is finished, but payment is still pending. Tap below to complete the fare.</p>
                                  </div>
                               </div>
+                              
                               <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg">
                                  <IndianRupee className="w-8 h-8" />
                               </div>
+                              
                               <div className="text-center">
-                                 <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic">Complete UPI Payment</h4>
-                                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Outstanding Balance: ₹{getRideSettlementAmount(activeRide)}</p>
-                                 <p className="text-slate-500 font-semibold text-xs mt-2">Your driver will be credited as soon as Razorpay confirms the payment.</p>
+                                 <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic leading-none">Complete Payment</h4>
+                                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-2">Outstanding Balance: ₹{getRideSettlementAmount(activeRide)}</p>
                               </div>
+
+                              {/* Apply Offer at Settlement */}
+                              <div className="w-full flex flex-col gap-3 mt-4">
+                                <div className="flex items-center justify-between px-2">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apply Offer</p>
+                                  {activeRide.promoCode && (
+                                    <span className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 uppercase tracking-tighter">Applied: {activeRide.promoCode}</span>
+                                  )}
+                                </div>
+                                
+                                {!activeRide.promoCode && (
+                                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                    {promotions.slice(0, 3).map((p) => (
+                                      <button 
+                                        key={p._id}
+                                        onClick={async () => {
+                                           try {
+                                             const { data } = await api.post("/rides/apply-promo", { rideId: activeRide.rideId || activeRide._id, code: p.code });
+                                             toast.success(data.message);
+                                             const resp = await api.get("/rides/active");
+                                             rideState.setActiveRide(resp.data);
+                                           } catch (err: any) {
+                                             toast.error(err?.response?.data?.message || "Failed");
+                                           }
+                                        }}
+                                        className="shrink-0 flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 hover:border-[#0A192F] hover:bg-slate-50 transition-all min-w-[95px] shadow-sm active:scale-95"
+                                      >
+                                        <Tag className="w-3 h-3 text-[#0A192F] mb-1" />
+                                        <span className="text-[10px] font-black text-[#0A192F] uppercase">{p.code}</span>
+                                        <span className="text-[8px] font-bold text-emerald-600">-{p.type === 'PERCENTAGE' ? `${p.value}%` : `₹${p.value}`}</span>
+                                      </button>
+                                    ))}
+                                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 min-w-[140px] shadow-sm">
+                                      <input 
+                                        type="text" 
+                                        placeholder="Code" 
+                                        className="bg-transparent border-none outline-none text-[10px] font-black uppercase text-[#0A192F] px-1 w-full"
+                                        value={promoCodeInput}
+                                        onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                                      />
+                                      <button 
+                                        onClick={async () => {
+                                          if (!promoCodeInput) return;
+                                          try {
+                                            const { data } = await api.post("/rides/apply-promo", { rideId: activeRide.rideId || activeRide._id, code: promoCodeInput });
+                                            toast.success(data.message);
+                                            const resp = await api.get("/rides/active");
+                                            rideState.setActiveRide(resp.data);
+                                            setPromoCodeInput("");
+                                          } catch (err: any) {
+                                            toast.error(err?.response?.data?.message || "Invalid");
+                                          }
+                                        }}
+                                        className="w-7 h-7 bg-[#0A192F] text-[#FFD700] rounded-xl flex items-center justify-center shrink-0 shadow-md active:scale-90"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
                               <button 
                                 onClick={async () => {
                                   const fare = getRideSettlementAmount(activeRide);
@@ -1023,41 +1191,41 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                   if (success) setIsPaymentDone(true);
                                 }}
                                 disabled={isProcessingPayment}
-                                className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:bg-black"
+                                className="w-full py-4 mt-2 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:bg-black shadow-xl hover:shadow-[#0A192F]/20"
                               >
                                 {isProcessingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                                {isProcessingPayment ? "Opening UPI..." : "Pay Now via UPI"}
+                                {isProcessingPayment ? "Opening UPI..." : `Pay ₹${getRideSettlementAmount(activeRide)} Now`}
                               </button>
                            </div>
-                        ) : (
-                          <>
-                            <div className="space-y-2">
-                              <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
-                                Rate <span className="text-[#FFD700]">Experience</span>
-                              </h1>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
-                                How was your trip?
-                              </p>
-                            </div>
+                         ) : (
+                           <>
+                             <div className="space-y-2">
+                               <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
+                                 Rate <span className="text-[#FFD700]">Experience</span>
+                               </h1>
+                               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
+                                 How was your trip?
+                               </p>
+                             </div>
 
-                            <div className="flex justify-center gap-3 py-2">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  onClick={() => setRating(star)}
-                                  className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
-                                >
-                                  <div className="w-10 h-10 flex items-center justify-center">
-                                    <Star
-                                      className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
-                                      strokeWidth={2}
-                                    />
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
+                             <div className="flex justify-center gap-3 py-2">
+                               {[1, 2, 3, 4, 5].map((star) => (
+                                 <button
+                                   key={star}
+                                   onClick={() => setRating(star)}
+                                   className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
+                                 >
+                                   <div className="w-10 h-10 flex items-center justify-center">
+                                     <Star
+                                       className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
+                                       strokeWidth={2}
+                                     />
+                                   </div>
+                                 </button>
+                               ))}
+                             </div>
+                           </>
+                         )}
 
                         <button
                           onClick={() => setRatingStep(2)}

@@ -4,12 +4,27 @@ import { getActiveDriver, getAvailableDrivers, updateDriverStatus } from "../sta
 import Ride from "../../models/ride";
 import User from "../../models/user";
 import Transaction from "../../models/transaction";
+import Discount from "../../models/discount";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
     socket.on("ride-request", async (data: any) => {
         try {
-            const { pickup, destination, passengerId, requestedVehicleType, fare, rideId, isSharedRide } = data;
+            const { pickup, destination, passengerId, requestedVehicleType, fare, rideId, isSharedRide, promoCode } = data;
+
+            let finalPrice = fare;
+            let appliedDiscountId = null;
+
+            // Optional Server side validation of discount
+            if (promoCode) {
+                const discount = await Discount.findOne({ code: promoCode, active: true, expiryDate: { $gt: new Date() } });
+                if (discount && discount.currentUsage < discount.maxUsage) {
+                    appliedDiscountId = discount._id;
+                    // Note: We trust the client fare for now as it matched the UI, but we could recalculate here
+                    // discount.currentUsage += 1; // Increment usage on dispatch or completion? usually dispatch
+                    await Discount.findByIdAndUpdate(discount._id, { $inc: { currentUsage: 1 } });
+                }
+            }
 
             // Create ride record using 'createdBy' for passengerId
             const newRide = await Ride.create({
@@ -28,13 +43,14 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                     label: destination.label,
                     location: { type: "Point", coordinates: [destination.lng, destination.lat] }
                 },
-                price: fare,
+                price: finalPrice,
                 distance: parseFloat(data.distance) || 0,
                 duration: parseFloat(data.duration) || 0,
                 status: 'SEARCHING',
                 requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType,
                 paymentMethod: data.paymentMethod || 'WALLET',
-                isSharedRide: isSharedRide || false
+                isSharedRide: isSharedRide || false,
+                discountId: appliedDiscountId
             });
 
             // Find nearby drivers
@@ -324,7 +340,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                         if (driverIdFromRide) {
                             const driver = await User.findById(driverIdFromRide);
                             if (driver) {
-                                const finalEarned = Math.round(amount * 0.85); // 15% platform fee
+                                const finalEarned = Math.round(amount * 0.75); // 25% platform fee
                                 driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
                                 await driver.save();
 

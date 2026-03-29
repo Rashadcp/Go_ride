@@ -28,6 +28,7 @@ interface Discount {
     expiryDate: string;
     active: boolean;
     description: string;
+    isPublic: boolean;
 }
 
 export default function AdminDiscountsPage() {
@@ -40,7 +41,8 @@ export default function AdminDiscountsPage() {
         value: 0,
         maxUsage: 100,
         expiryDate: "",
-        description: ""
+        description: "",
+        isPublic: true
     });
 
     const fetchDiscounts = async () => {
@@ -202,6 +204,17 @@ export default function AdminDiscountsPage() {
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Max Uses</label>
                                 <input type="number" required value={formData.maxUsage} onChange={e => setFormData({...formData, maxUsage: Number(e.target.value)})} className="w-full h-14 px-6 bg-white/5 rounded-2xl border-2 border-white/5 font-bold text-sm text-white outline-none" placeholder="500" />
+                            </div>
+                            <div className="space-y-4">
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.isPublic} 
+                                        onChange={e => setFormData({...formData, isPublic: e.target.checked})}
+                                        className="w-5 h-5 rounded-lg border-2 border-white/10 bg-white/5 checked:bg-[#FFD700] transition-all cursor-pointer accent-[#FFD700]" 
+                                    />
+                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest group-hover:text-white transition-colors">Make this offer visible to all users</span>
+                                </label>
                             </div>
                             <button type="submit" className="w-full py-6 bg-[#FFD700] text-[#0A192F] rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-[#FFD700]/10 hover:-translate-y-1 transition-all mt-6">Activate Promotion Code</button>
                         </form>

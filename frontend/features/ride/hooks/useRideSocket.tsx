@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Info } from "lucide-react";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import api from "@/lib/axios";
@@ -30,7 +30,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
 
   const queryClient = useQueryClient();
 
-
   useEffect(() => {
     if (!enableListeners || !user) return;
 
@@ -41,9 +40,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
         const response = await api.get("/rides/active");
         if (response.data) {
           const ride = response.data;
-          // Normalize driver data: if driverId is an object (populated), use it as driverInfo
           if (ride.driverId && typeof ride.driverId === 'object') {
-            // Failsafe: if ride is already completed, clear it and return
             if (ride.status === "COMPLETED" || ride.status === "CANCELLED") {
                setActiveRide(null);
                setPendingRideId(null);
@@ -106,7 +103,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
 
     const handleRideStatusUpdate = (data: any) => {
       const { status, ride } = data;
-      
       if (status === "COMPLETED") {
         toast.success("Destination reached!");
         setActiveRide((prev: any) => ({
@@ -117,7 +113,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
         }));
         return;
       }
-      
       if (ride) {
         setActiveRide((prev: any) => ({
           ...prev,
@@ -128,7 +123,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       } else {
         setActiveRide((prev: any) => ({ ...prev, status }));
       }
-
       if (status === "ARRIVED") toast.success("Driver has arrived at pickup!");
       if (status === "STARTED") toast.success("Trip has started!");
       if (status === "ACCEPTED") toast.success("Ride request accepted!");
@@ -149,11 +143,8 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     };
 
     const handleWalletUpdate = (data: { balance: number }) => {
-      // Invalidate queries to refresh UI with real data
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      // Optional: if user is not in a query but in a store, update store here
-      console.log("💰 Wallet balance updated via socket:", data.balance);
     };
 
     const handleDriverLocationUpdate = (data: any) => {
@@ -208,7 +199,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     
     socket.on("chat:new_message", (data: any) => {
       const { rideId, senderId, receiverId, message, senderName } = data;
-      // Only handle if message is for this user
       if (String(receiverId) === String(user.id || user._id)) {
         const conversationKey = `${rideId}_${[String(senderId), String(receiverId)].sort().join("_")}`;
         addChatMessage(conversationKey, { ...data, isSelf: false });
@@ -241,6 +231,34 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
         ), { duration: 5000, id: `chat-${conversationKey}` });
       }
     });
+
+    socket.on("system:alert", (data: { title: string, message: string, type: string }) => {
+        toast.custom((t) => (
+          <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-[#0A192F] shadow-2xl rounded-[28px] pointer-events-auto flex ring-1 ring-white/10 overflow-hidden`}>
+            <div className="flex-1 w-0 p-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 pt-1">
+                  <div className="h-10 w-10 rounded-xl bg-[#FFD700] flex items-center justify-center text-[#0A192F]">
+                    <Info className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="ml-4 flex-1">
+                  <p className="text-xs font-black text-white uppercase tracking-widest">{data.title}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-300 leading-relaxed">{data.message}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex border-l border-white/10">
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className="w-full border border-transparent rounded-none rounded-r-lg p-4 flex items-center justify-center text-xs font-black text-[#FFD700] uppercase tracking-widest hover:bg-white/5 active:scale-95 transition-all"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+        ), { duration: 8000 });
+      });
 
     if (socket.connected) {
       handleSocketConnect();
@@ -280,22 +298,20 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       socket.off("carpool:join:accepted");
       socket.off("carpool:join:rejected");
       socket.off("chat:new_message");
+      socket.off("system:alert");
       disconnectSocket();
       clearInterval(pollInterval);
     };
   }, [user, enableListeners, isDriverMode]);
 
-  // Handle immediate carpool search when mode changes or route changes
   useEffect(() => {
     if (!enableListeners || !user || !isSharedRide) return;
-    
     const fetchPools = () => {
       const state = useRideStore.getState();
       if (!state.activeRide) {
         const pickup = stops.find(s => s.id === 'pickup' && s.coords);
         const dest = stops.find(s => s.id !== 'pickup' && s.coords);
         const pCoords = pickup?.coords || userLoc;
-
         socket.emit("get-available-carpools", { 
           userId: user?.id || user?._id,
           pickup: pCoords ? { lat: pCoords[0], lng: pCoords[1] } : null,
@@ -303,7 +319,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
         });
       }
     };
-
     fetchPools();
   }, [isSharedRide, stops, userLoc, enableListeners, user]);
 
@@ -311,7 +326,6 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     const { activeRide, pendingRideId } = useRideStore.getState();
     const rideId = activeRide?.rideId || pendingRideId;
     if (!rideId || !user) return;
-
     socket.emit("ride-cancel", {
         rideId,
         passengerId: user.id || user._id || "507f1f77bcf86cd799439011",

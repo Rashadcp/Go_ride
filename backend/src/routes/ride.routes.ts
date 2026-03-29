@@ -6,6 +6,8 @@ import {
     updateRideStatus,
     cancelRide,
     rateRide,
+    getActiveDiscounts,
+    validatePromoCode
 } from "../controllers/ride.controller";
 import { createCarpool } from "../modules/carpool/carpool.controller";
 
@@ -16,6 +18,12 @@ router.use(protect);
 
 // Get user's ride history
 router.get("/history", getUserRides);
+
+// Get active promotions
+router.get("/promotions", getActiveDiscounts);
+
+// Validate promo code
+router.get("/promotions/validate/:code", validatePromoCode);
 
 // Get active ride for user
 router.get("/active", getActiveRide);
@@ -28,5 +36,11 @@ router.post("/create-pool", createCarpool);
 
 // Cancel ride
 router.post("/cancel", cancelRide);
+
+// Apply promo code (at paying time)
+router.post("/apply-promo", (req, res, next) => {
+    const { applyPromoCode } = require("../controllers/ride.controller");
+    applyPromoCode(req, res, next).catch(next);
+});
 
 export default router;

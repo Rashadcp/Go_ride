@@ -8,6 +8,7 @@ const DiscountSchema = new mongoose.Schema({
     currentUsage: { type: Number, default: 0 },
     expiryDate: { type: Date, required: true },
     active: { type: Boolean, default: true },
+    isPublic: { type: Boolean, default: true }, // Whether users can see this in their dashboard
     description: { type: String }
 }, { timestamps: true });
 

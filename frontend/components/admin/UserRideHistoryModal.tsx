@@ -20,7 +20,7 @@ import { format } from "date-fns";
 interface Ride {
     _id: string;
     rideId: string;
-    userId: {
+    createdBy: {
         _id: string;
         name: string;
         email: string;
@@ -33,13 +33,13 @@ interface Ride {
         profilePhoto?: string;
     };
     pickup: {
-        address: string;
+        label: string;
     };
-    destination: {
-        address: string;
+    drop: {
+        label: string;
     };
     status: string;
-    fare: number;
+    price: number;
     createdAt: string;
 }
 
@@ -102,7 +102,7 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                 <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/2">
                     <div>
                         <h2 className="text-2xl font-black text-white italic uppercase tracking-tight">
-                            Ride <span className="text-[#FFD700]">History</span>
+                            Ride <span className="text-[#FACC15]">History</span>
                         </h2>
                         <p className="text-slate-400 text-sm font-medium mt-1">Activity log for user ID: {userId}</p>
                     </div>
@@ -117,7 +117,7 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <Loader2 className="w-10 h-10 text-[#FFD700] animate-spin" />
+                            <Loader2 className="w-10 h-10 text-[#FACC15] animate-spin" />
                             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Retrieving Logs...</p>
                         </div>
                     ) : rides.length === 0 ? (
@@ -128,7 +128,7 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                     ) : (
                         <div className="space-y-6">
                             {rides.map(ride => (
-                                <div key={ride._id} className="bg-white/2 border border-white/5 rounded-3xl p-6 hover:border-[#FFD700]/20 transition-all group">
+                                <div key={ride._id} className="bg-white/2 border border-white/5 rounded-3xl p-6 hover:border-[#FACC15]/20 transition-all group">
                                     <div className="flex flex-col lg:flex-row gap-6">
                                         <div className="flex-1 space-y-4">
                                             <div className="flex items-center justify-between">
@@ -141,8 +141,8 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                                                         ID: {ride.rideId}
                                                     </span>
                                                 </div>
-                                                <div className="text-[#FFD700] font-black text-lg">
-                                                    ₹{ride.fare}
+                                                <div className="text-[#FACC15] font-black text-lg">
+                                                    ₹{ride.price}
                                                 </div>
                                             </div>
 
@@ -153,7 +153,7 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                                                     </div>
                                                     <div className="flex-1">
                                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Pickup</p>
-                                                        <p className="text-sm font-bold text-white leading-snug">{ride.pickup.address}</p>
+                                                        <p className="text-sm font-bold text-white leading-snug">{ride.pickup.label}</p>
                                                     </div>
                                                 </div>
                                                 <div className="ml-1.5 h-6 w-px bg-white/10" />
@@ -163,7 +163,7 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                                                     </div>
                                                     <div className="flex-1">
                                                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Destination</p>
-                                                        <p className="text-sm font-bold text-white leading-snug">{ride.destination.address}</p>
+                                                        <p className="text-sm font-bold text-white leading-snug">{ride.drop.label}</p>
                                                     </div>
                                                 </div>
                                             </div>

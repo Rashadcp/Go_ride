@@ -25,7 +25,7 @@ const rideSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED", "OPEN", "FULL"],
+            enum: ["SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED", "OPEN", "FULL", "NO_DRIVER"],
             default: "SEARCHING",
             uppercase: true,
         },
@@ -118,6 +118,15 @@ const rideSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        promoCode: {
+            type: String,
+            default: null,
+        },
+        discountId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Discount",
+            default: null,
+        },
     },
     { timestamps: true }
 );
@@ -134,7 +143,6 @@ rideSchema.index({ driverId: 1, status: 1 });
 rideSchema.index({ status: 1 });
 rideSchema.index({ "pickup.location": "2dsphere" });
 rideSchema.index({ "drop.location": "2dsphere" });
-// rideSchema.index({ rideId: 1 }); // Duplicate index removed - already defined as unique: true in field definition
 rideSchema.index({ type: 1 });
 
 export default mongoose.model("Ride", rideSchema);

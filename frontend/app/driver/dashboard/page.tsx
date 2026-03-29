@@ -16,7 +16,7 @@ import { ReviewsList } from "@/features/driver/components/ReviewsList";
 import { ProfileTab } from "@/features/driver/components/ProfileTab";
 import { EarningsTab } from "@/features/driver/components/EarningsTab";
 import { NotificationsTab } from "@/features/driver/components/NotificationsTab";
-import { Loader2, MessageCircle } from "lucide-react";
+import { Loader2, MessageCircle, Info } from "lucide-react";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 
 export default function DriverDashboard() {
@@ -67,7 +67,6 @@ export default function DriverDashboard() {
         try {
             const { data } = await api.get("/rating/my-ratings");
             setReviews(data);
-
             const profile = await api.get("/auth/me");
             useAuthStore.getState().setUser(profile.data);
         } catch (err) {
@@ -148,6 +147,39 @@ export default function DriverDashboard() {
         }
     }, [isOnline]);
 
+    const handleLocateLive = async () => {
+        setIsLocating(true);
+        if (!navigator.geolocation) {
+            toast.error("Geolocation is not supported");
+            setIsLocating(false);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            try {
+                const { latitude, longitude } = position.coords;
+                setUserLoc([latitude, longitude]);
+                localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
+                const { data } = await api.get(`/map/reverse-geocode`, {
+                    params: { lat: latitude, lon: longitude }
+                });
+                setLocationName(data.locality || data.city || data.principalSubdivision || "Unknown Location");
+            } catch (err) {
+                setLocationName("Live Location");
+            } finally {
+                setIsLocating(false);
+            }
+        }, () => {
+            toast.error("Location access denied");
+            setIsLocating(false);
+        });
+    };
+
+    const handleLogout = () => {
+        clearAuth();
+        router.push("/login");
+    };
+
     useEffect(() => {
         if (!(isOnline && user && userLoc)) {
             if (isOnline && !userLoc) handleLocateLive();
@@ -201,7 +233,6 @@ export default function DriverDashboard() {
 
         socket.on("chat:new_message", (data: any) => {
             const { rideId, senderId, receiverId, message, senderName } = data;
-            // Only handle if message is for this user
             if (String(receiverId) === String(user.id || user._id)) {
                 const conversationKey = `${rideId}_${[String(senderId), String(receiverId)].sort().join("_")}`;
                 addChatMessage(conversationKey, { ...data, isSelf: false });
@@ -235,12 +266,33 @@ export default function DriverDashboard() {
             }
         });
 
+        socket.on("system:alert", (data: { title: string, message: string, type: string }) => {
+            toast.custom((t) => (
+                <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-rose-600 shadow-2xl rounded-[28px] pointer-events-auto flex ring-1 ring-white/10 overflow-hidden`}>
+                    <div className="flex-1 w-0 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0 pt-1">
+                                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
+                                    <Info className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <div className="ml-4 flex-1">
+                                <p className="text-xs font-black text-white uppercase tracking-widest">{data.title}</p>
+                                <p className="mt-1 text-sm font-bold text-rose-100 leading-relaxed">{data.message}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ), { duration: 8000 });
+        });
+
         return () => {
             socket.off("new-ride-request", handleIncoming);
             socket.off("ride-request", handleIncoming);
             socket.off("ride-cancelled", handleCancelled);
             socket.off("ride-status-update", handleStatusUpdate);
             socket.off("chat:new_message");
+            socket.off("system:alert");
             disconnectSocket();
         };
     }, [isOnline, user, userLoc]);
@@ -253,39 +305,6 @@ export default function DriverDashboard() {
             });
         }
     }, [userLoc, isOnline, user]);
-
-    const handleLocateLive = async () => {
-        setIsLocating(true);
-        if (!navigator.geolocation) {
-            toast.error("Geolocation is not supported");
-            setIsLocating(false);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(async (position) => {
-            try {
-                const { latitude, longitude } = position.coords;
-                setUserLoc([latitude, longitude]);
-                localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
-                const { data } = await api.get(`/map/reverse-geocode`, {
-                    params: { lat: latitude, lon: longitude }
-                });
-                setLocationName(data.locality || data.city || data.principalSubdivision || "Unknown Location");
-            } catch (err) {
-                setLocationName("Live Location");
-            } finally {
-                setIsLocating(false);
-            }
-        }, () => {
-            toast.error("Location access denied");
-            setIsLocating(false);
-        });
-    };
-
-    const handleLogout = () => {
-        clearAuth();
-        router.push("/login");
-    };
 
     const handleDeclineRequest = (id: string, rideId: string) => {
         setIncomingRequests(prev => prev.filter(r => r.rideId !== rideId));

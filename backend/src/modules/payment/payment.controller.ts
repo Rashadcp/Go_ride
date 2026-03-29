@@ -14,7 +14,7 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
 
-const PLATFORM_FEE_RATE = 0.15;
+const PLATFORM_FEE_RATE = 0.25;
 
 const normalizeAmount = (value: unknown) => {
     const parsed = Number(value);
