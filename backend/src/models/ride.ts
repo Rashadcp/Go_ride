@@ -102,6 +102,11 @@ const rideSchema = new mongoose.Schema(
         eta: {
             type: Number,
         },
+        paymentMethod: {
+            type: String,
+            enum: ["WALLET", "CASH", "UPI"],
+            default: "WALLET",
+        },
     },
     { timestamps: true }
 );

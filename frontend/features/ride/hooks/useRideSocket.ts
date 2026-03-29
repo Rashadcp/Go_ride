@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import { useRideStore } from "@/features/ride/store/useRideStore";
@@ -19,6 +20,8 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     resetRideState,
     isDriverMode
   } = useRideStore();
+
+  const queryClient = useQueryClient();
 
 
   useEffect(() => {
@@ -88,7 +91,7 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     };
 
     const handleRideStatusUpdate = (data: any) => {
-      const { status } = data;
+      const { status, ride } = data;
       
       if (status === "COMPLETED") {
         toast.success("Destination reached!");
@@ -96,9 +99,15 @@ export const useRideSocket = (user: any, enableListeners = true) => {
         return;
       }
       
-      setActiveRide((prev: any) => ({ ...prev, status }));
+      if (ride) {
+        setActiveRide(ride);
+      } else {
+        setActiveRide((prev: any) => ({ ...prev, status }));
+      }
+
       if (status === "ARRIVED") toast.success("Driver has arrived at pickup!");
       if (status === "STARTED") toast.success("Trip has started!");
+      if (status === "ACCEPTED") toast.success("Ride request accepted!");
     };
 
     const handleRideRequestFailed = (data: any) => {
@@ -113,6 +122,14 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     const handleRideCancelled = () => {
       resetRideState();
       toast.error("Ride cancelled.");
+    };
+
+    const handleWalletUpdate = (data: { balance: number }) => {
+      // Invalidate queries to refresh UI with real data
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      // Optional: if user is not in a query but in a store, update store here
+      console.log("💰 Wallet balance updated via socket:", data.balance);
     };
 
     const handleDriverLocationUpdate = (data: any) => {
@@ -132,6 +149,7 @@ export const useRideSocket = (user: any, enableListeners = true) => {
     socket.on("eta-update", handleEtaUpdate);
     socket.on("ride-cancelled", handleRideCancelled);
     socket.on("driver-location-update", handleDriverLocationUpdate);
+    socket.on("wallet-update", handleWalletUpdate);
     socket.on("available-carpools", (pools: any[]) => {
       setAvailableCarpools(pools);
       setLoadingDrivers(false);
@@ -187,6 +205,7 @@ export const useRideSocket = (user: any, enableListeners = true) => {
       socket.off("eta-update", handleEtaUpdate);
       socket.off("ride-cancelled", handleRideCancelled);
       socket.off("driver-location-update", handleDriverLocationUpdate);
+      socket.off("wallet-update", handleWalletUpdate);
       
       socket.off("carpool:join:new_request");
       socket.off("carpool:join:accepted");

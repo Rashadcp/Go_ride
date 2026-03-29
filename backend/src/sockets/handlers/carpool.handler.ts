@@ -37,8 +37,8 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             if (ride.availableSeats === 0) ride.status = "FULL";
             await ride.save();
 
-            // Notify passenger
-            io.to(data.passengerSocketId).emit("carpool:join:accepted", { 
+            // Notify passenger using their persistent user room
+            io.to(`user:${data.userId}`).emit("carpool:join:accepted", { 
                 rideId: data.rideId, 
                 ride 
             });
@@ -51,7 +51,11 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             );
             console.log(`🧹 Cleaned up searching requests for joined passenger ${data.userId}`);
             
-            // Re-broadcast updated ride list to everyone
+            // Re-broadcast updated ride to the specific ride room and everyone
+            io.to(`ride:${data.rideId}`).emit("ride:update", ride);
+            io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride });
+            
+            // Still broadcast globally for list updates if needed
             io.emit("ride:update", ride);
             
             console.log(`✅ Carpool join approved for ride ${data.rideId}, user ${data.userId} joined`);
@@ -63,8 +67,8 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Carpool Join Reject
     socket.on("carpool:join:reject", async (data: { rideId: string; userId: string; passengerSocketId: string }) => {
         try {
-            // Notify passenger
-            io.to(data.passengerSocketId).emit("carpool:join:rejected", { 
+            // Notify passenger using persistent room
+            io.to(`user:${data.userId}`).emit("carpool:join:rejected", { 
                 rideId: data.rideId,
                 reason: "Driver declined your join request."
             });

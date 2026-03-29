@@ -26,16 +26,21 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
   const userId = user?.id || user?._id;
 
   const totalSpent = ridesHistory.reduce((acc: number, ride: any) => {
+    if (ride.status !== 'COMPLETED') return acc;
     const isDriver = (ride.driverId === userId) || (ride.driverId?._id === userId);
     return isDriver ? acc : acc + (ride.price || 0);
   }, 0);
 
   const totalEarned = ridesHistory.reduce((acc: number, ride: any) => {
+    if (ride.status !== 'COMPLETED') return acc;
     const isDriver = (ride.driverId === userId) || (ride.driverId?._id === userId);
     return isDriver ? acc + (ride.price || 0) : acc;
   }, 0);
 
-  const totalDistance = ridesHistory.reduce((acc: number, ride: any) => acc + (Number(ride.distance) || 0), 0);
+  const totalDistance = ridesHistory.reduce((acc: number, ride: any) => {
+    if (ride.status !== 'COMPLETED') return acc;
+    return acc + (Number(ride.distance) || 0);
+  }, 0);
 
   return (
     <div className="flex-1 bg-slate-50 p-6 sm:p-12 overflow-y-auto custom-scrollbar relative">
@@ -64,82 +69,79 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
         </div>
 
         <div className="space-y-6">
-          {ridesHistory.length > 0 ? ridesHistory.map((ride: any, i: number) => (
+          {ridesHistory.filter((r: any) => r.status === 'COMPLETED').length > 0 ? ridesHistory.filter((r: any) => r.status === 'COMPLETED').map((ride: any, i: number) => (
             <div key={ride.id || ride._id} 
               onClick={() => setSelectedRide(ride)}
-              className="bg-white p-6 sm:p-8 rounded-[40px] border border-slate-100 shadow-sm hover:shadow-xl hover:border-[#FFD700]/30 transition-all group cursor-pointer relative overflow-hidden animate-fade-in" 
-              style={{ animationDelay: `${i * 100}ms` }}
+              className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-2xl hover:border-[#FFD700]/50 transition-all group cursor-pointer relative overflow-hidden flex flex-col lg:flex-row gap-8 items-start lg:items-center animate-fade-in" 
+              style={{ animationDelay: `${i * 50}ms` }}
             >
-              <div className="relative z-10 flex flex-col lg:flex-row gap-8 items-start lg:items-center">
-                <div className="flex items-center gap-4 min-w-[180px]">
-                  <div className="w-14 h-14 bg-[#0A192F] text-[#FFD700] rounded-[22px] flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                    {ride.requestedVehicleType === 'car' ? <Car className="w-7 h-7" /> : ride.requestedVehicleType === 'bike' ? <Bike className="w-7 h-7" /> : <AutoRickshawIcon className="w-8 h-8" />}
+              <div className="flex items-center gap-5 min-w-[220px]">
+                <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-[24px] flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-500 shrink-0">
+                  {ride.requestedVehicleType === 'car' || ride.requestedVehicleType === 'go' || ride.requestedVehicleType === 'sedan' ? <Car className="w-8 h-8" /> : ride.requestedVehicleType === 'bike' ? <Bike className="w-8 h-8" /> : <AutoRickshawIcon className="w-9 h-9" />}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-black text-[#0A192F] text-[15px] uppercase tracking-tight">{ride.requestedVehicleType || 'Ride'}</h4>
+                    <div className="w-1 h-1 rounded-full bg-slate-300" />
+                    <span className="text-[10px] font-black text-emerald-500 uppercase">Completed</span>
                   </div>
-                  <div>
-                    <h4 className="font-black text-[#0A192F] text-sm uppercase tracking-tight flex items-center gap-2">
-                       {ride.requestedVehicleType || 'Ride'}
-                       <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${ride.type === 'CARPOOL' ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
-                          {ride.type === 'CARPOOL' ? 'Ride Share' : 'Taxi Service'}
-                       </span>
-                    </h4>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
-                      <span className="text-[10px] font-black text-slate-500">{(ride.driverId as any)?.rating || '5'}.0 Rating</span>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${ride.type === 'CARPOOL' ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
+                      {ride.type === 'CARPOOL' ? 'Ride Share' : 'Private Taxi'}
+                    </span>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-black uppercase tracking-tighter flex items-center gap-1">
+                      <CreditCard className="w-2.5 h-2.5" /> Wallet
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 space-y-4 w-full">
+                <div className="flex items-start gap-4 relative">
+                  <div className="absolute left-[5px] top-[14px] bottom-[14px] w-[1px] bg-slate-100 group-hover:bg-[#FFD700]/30 transition-colors" />
+                  <div className="flex flex-col items-center gap-1 mt-1.5 z-10">
+                    <div className="w-2.5 h-2.5 rounded-full border-2 border-[#FFD700] bg-white" />
+                    <div className="flex-1" />
+                    <MapPin className="w-3.5 h-3.5 text-rose-500 fill-rose-500/10" />
+                  </div>
+                  <div className="space-y-4 flex-1">
+                    <div className="max-w-md">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pickup Information</p>
+                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.pickup?.label || 'Pickup Location'}</p>
+                    </div>
+                    <div className="max-w-md">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Final Destination</p>
+                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.drop?.label || 'Destination'}</p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="flex flex-col items-center gap-1 mt-1">
-                      <div className="w-2.5 h-2.5 rounded-full border-2 border-[#FFD700]" />
-                      <div className="w-0.5 h-4 bg-slate-100" />
-                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                    </div>
-                    <div className="space-y-3">
-                      <div className="max-w-[300px]">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pickup</p>
-                        <p className="text-sm font-bold text-[#0A192F] truncate">{ride.pickup?.label || 'Pickup Location'}</p>
-                      </div>
-                      <div className="max-w-[300px]">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Destination</p>
-                        <p className="text-sm font-bold text-[#0A192F] truncate">{ride.drop?.label || 'Destination'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              </div>
 
-                <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-auto gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                  <div className="text-left lg:text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                      {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </p>
-                    <div className="flex items-center lg:justify-end gap-2">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tight ${ride.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
-                        {ride.status}
-                      </span>
-                      <span className="text-sm font-black text-[#00838F]">{ride.distance?.toFixed(1) || '0.0'} km</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                      {((ride.driverId === userId) || (ride.driverId?._id === userId)) ? 'Fare Earned' : 'Fare Paid'}
-                    </p>
-                    <h3 className={`text-2xl font-black tracking-tighter ${((ride.driverId === userId) || (ride.driverId?._id === userId)) ? 'text-emerald-600' : 'text-[#0A192F]'}`}>
-                      {((ride.driverId === userId) || (ride.driverId?._id === userId)) ? '+' : ''} Rs {ride.price || 0}
-                    </h3>
-                  </div>
+              <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-[160px] gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50">
+                <div className="text-left lg:text-right">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 leading-none">
+                    {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                  <p className="text-[13px] font-black text-[#00838F] mt-1">{ride.distance?.toFixed(1) || '0.0'} KM TRIP</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">
+                    {((ride.driverId === userId) || (ride.driverId?._id === userId)) ? 'Revenue' : 'Paid Amount'}
+                  </p>
+                  <h3 className={`text-2xl font-black tracking-tighter leading-none ${((ride.driverId === userId) || (ride.driverId?._id === userId)) ? 'text-emerald-600' : 'text-[#0A192F]'}`}>
+                    ₹{ride.price || 0}
+                  </h3>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="py-20 text-center bg-white rounded-[48px] border-2 border-dashed border-slate-200">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Car className="w-10 h-10 text-slate-200" />
+            <div className="py-24 text-center bg-white rounded-[48px] border-2 border-dashed border-slate-100 shadow-inner">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 opacity-40">
+                <Car className="w-12 h-12 text-slate-300" />
               </div>
-              <h3 className="text-xl font-black text-[#0A192F] mb-2">No Rides Yet</h3>
-              <p className="text-slate-400 text-sm font-medium max-w-xs mx-auto">Your journey history will appear here once you take your first ride with Go Ride.</p>
-              <Button variant="primary" className="mt-8" onClick={() => setActiveTab('dashboard')}>Book Your First Ride</Button>
+              <h3 className="text-2xl font-black text-[#0A192F] mb-3 tracking-tight">Accessing Journey Ledger</h3>
+              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto opacity-60">No completed sessions available to display</p>
+              <Button variant="primary" className="mt-10 px-10 py-4 shadow-xl hover:shadow-[#FFD700]/20" onClick={() => setActiveTab('dashboard')}>Begin a new trip</Button>
             </div>
           )}
         </div>

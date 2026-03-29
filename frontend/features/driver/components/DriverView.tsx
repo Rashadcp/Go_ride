@@ -1,10 +1,11 @@
+import { useEffect } from "react";
 import { Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus, Zap, Users, User as UserProfile, Clock, Star, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import { useMapLogic } from "@/features/map/hooks/useMapLogic";
 import api from "@/lib/axios";
 import toast from "react-hot-toast";
-import { socket } from "@/lib/socket";
+import { socket, connectSocket } from "@/lib/socket";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
    ssr: false, loading: () => <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center">Loading Map...</div>
@@ -25,6 +26,37 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       incomingCarpoolRequests
    } = rideState;
 
+   useEffect(() => {
+      if (!user) return;
+
+      connectSocket();
+      socket.emit("join", {
+         userId: user.id || user._id,
+         role: "DRIVER"
+      });
+   }, [user?.id, user?._id]);
+
+   useEffect(() => {
+      if (!userLoc) {
+         mapLogic.handleLocate();
+      }
+   }, [userLoc]);
+
+   useEffect(() => {
+      if (!user || !userLoc) return;
+
+      socket.emit("driver-online", {
+         driverId: user.id || user._id,
+         location: { lat: userLoc[0], lng: userLoc[1] },
+         name: user.name,
+         profilePhoto: user.profilePhoto,
+         rating: user?.rating ,
+         vehicleType: (user as any).vehicleType || rideState.vehicleType || "go",
+         isCarpool: true
+      });
+
+   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType]);
+
    const handleStartDriverTrip = async () => {
       if (!driverDest.coords || !user) {
          toast.error("Please select a destination first");
@@ -41,20 +73,26 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
       try {
          const rideId = `POOL-${Date.now()}`;
+         const isBike = rideState.vehicleType === 'bike';
+         const perSeat = isBike ? 40 : 100;
+         const totalFare = perSeat * seatsAvailable;
+         const distance = rideState.routeInfo?.distance || 5;
+
          const response = await api.post('/rides/create-pool', {
             rideId,
             pickup: { lat: userLoc[0], lng: userLoc[1], label: "Current Location" },
             drop: { lat: driverDest.coords[0], lng: driverDest.coords[1], label: driverDest.query },
-            price: 150 * seatsAvailable,
-            pricePerSeat: 150,
-            distance: 5,
-            duration: 10,
+            price: totalFare,
+            pricePerSeat: perSeat,
+            distance,
+            duration: rideState.routeInfo?.duration || 10,
             availableSeats: seatsAvailable,
             departureTime: new Date(Date.now() + 15 * 60000).toISOString()
          });
 
          rideState.setActiveRide(response.data);
          setIsDriverTripActive(true);
+         socket.emit("join-ride", { driverId: user.id || user._id, rideId: response.data.rideId || response.data._id });
          toast.success("Trip activated! Looking for riders.");
       } catch (err: any) {
          console.error("❌ Driver trip activation error:", err);
@@ -65,7 +103,13 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
    return (
       <>
          <div className="absolute inset-0 z-0">
-            <MapComponent userLoc={userLoc} passengerLoc={userLoc} stops={driverDest.coords ? [driverDest.coords] : []} onLocate={mapLogic.handleLocate} onRouteInfo={() => { }} />
+            <MapComponent 
+               userLoc={userLoc} 
+               passengerLoc={userLoc} 
+               stops={driverDest.coords ? [driverDest.coords] : []} 
+               onLocate={mapLogic.handleLocate} 
+               onRouteInfo={(dist: number, dur: number) => rideState.setRouteInfo({ distance: dist, duration: dur })} 
+            />
          </div>
 
          <div className="absolute top-10 left-10 z-30 w-[440px] pointer-events-none flex flex-col gap-6">
@@ -149,8 +193,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      <div>
                         <h3 className="text-2xl font-black text-white tracking-tight mb-1">
                            {rideState.activeRide?.status === "ARRIVED" ? "At Pickup Point" :
-                            rideState.activeRide?.status === "STARTED" ? "Trip in Progress" :
-                            (rideState.activeRide?.passengers?.length > 0) ? "Heading to Pickup" : "Looking for riders"}
+                              rideState.activeRide?.status === "STARTED" ? "Trip in Progress" :
+                                 (rideState.activeRide?.passengers?.length > 0) ? "Heading to Pickup" : "Looking for riders"}
                         </h3>
                         <p className="font-black text-[#FFD700] text-[12px] tracking-widest uppercase">
                            {rideState.activeRide?.availableSeats !== undefined ? rideState.activeRide.availableSeats : seatsAvailable} SEAT{(rideState.activeRide?.availableSeats ?? seatsAvailable) > 1 ? 'S' : ''} AVAILABLE
@@ -186,8 +230,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               <div className="flex items-center justify-between">
                                  <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-[#FFD700] rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-                                       {req.passengerPhoto ? (
-                                          <img src={req.passengerPhoto} className="w-full h-full object-cover" />
+                                       {(req.passengerPhoto || req.photo) ? (
+                                          <img src={req.passengerPhoto || req.photo} className="w-full h-full object-cover" />
                                        ) : (
                                           <UserProfile className="w-6 h-6 text-[#0A192F]" />
                                        )}
@@ -248,9 +292,9 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      </div>
                   )}
 
-                  {/* Status Control Buttons - Optimized Visibility */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 mb-2 relative z-10 font-sans">
-                     {(!rideState.activeRide?.status || ["OPEN", "ACCEPTED", "CONFIRMED", "MATCHED"].includes(rideState.activeRide.status)) && (
+                                 {/* Status Control Buttons - Premium Implementation */}
+                  <div className="flex flex-col gap-3 mt-6 relative z-10 font-sans">
+                     {(!rideState.activeRide?.status || ["OPEN", "ACCEPTED", "CONFIRMED", "MATCHED", "FULL"].includes(rideState.activeRide.status)) && (
                         <button
                            onClick={() => {
                               const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
@@ -259,10 +303,10 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               rideState.setActiveRide((prev: any) => ({ ...prev, status: "ARRIVED" }));
                               toast.success("Updated: Arrived at Pickup!");
                            }}
-                           className="py-3.5 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg shadow-[#FFD700]/10 flex items-center justify-center gap-2"
+                           className="w-full py-4 bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-[#FFD700]/10 flex items-center justify-center gap-3 active:scale-95"
                         >
-                           <MapPin className="w-4 h-4" />
-                           Arrived
+                           <MapPin className="w-5 h-5" />
+                           Im at Pickup Point
                         </button>
                      )}
 
@@ -275,10 +319,10 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               rideState.setActiveRide((prev: any) => ({ ...prev, status: "STARTED" }));
                               toast.success("Trip officially started!");
                            }}
-                           className="py-3.5 bg-emerald-500 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                           className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
                         >
-                           <Zap className="w-4 h-4" />
-                           Start Trip
+                           <Zap className="w-5 h-5" />
+                           Begin Journey
                         </button>
                      )}
 
@@ -292,15 +336,20 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               setIsDriverTripActive(false);
                               toast.success("Ride completed successfully!");
                            }}
-                           className="py-3.5 bg-white text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all hover:scale-[1.02] shadow-lg flex items-center justify-center gap-2"
+                           className="w-full py-4 bg-white hover:bg-slate-50 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl flex items-center justify-center gap-3 active:scale-95 border border-slate-200"
                         >
-                           <ShieldCheck className="w-4 h-4" />
-                           End Trip
+                           <ShieldCheck className="w-5 h-5" />
+                           Complete Ride
                         </button>
                      )}
                   </div>
 
-                  <button onClick={() => { setIsDriverTripActive(false); rideState.resetRideState(); }} className="w-full mt-6 py-5 relative z-10 bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 text-rose-500 hover:text-white rounded-[20px] font-black text-[13px] uppercase tracking-[0.2em] transition-all">Cancel Trip</button>
+                  <button
+                     onClick={() => { setIsDriverTripActive(false); rideState.resetRideState(); }}
+                     className="w-full mt-4 py-4 relative z-10 bg-transparent hover:bg-rose-500/10 border border-white/10 text-slate-400 hover:text-rose-500 rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] transition-all active:scale-95"
+                  >
+                     Cancel Entire Trip
+                  </button>
                </div>
             </div>
          )}

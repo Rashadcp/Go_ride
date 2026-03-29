@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import {
   Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus,
-  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike
+  X, ArrowLeft, Loader2, GripVertical, Trash2, Car, Users, Star, XCircle, Bike, ShieldCheck, Banknote, CreditCard, QrCode, Phone, MessageSquare
 } from "lucide-react";
 import dynamic from "next/dynamic";
+
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import { useMapLogic } from "@/features/map/hooks/useMapLogic";
 import { useRideSocket } from "@/features/ride/hooks/useRideSocket";
@@ -33,7 +34,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     isSearchOpen, isRouteSearched, searchStarted,
     visibleNearbyDrivers, availableCarpools,
     loadingDrivers, isRequestingRide, dashboardStep,
-    isSharedRide, vehicleType
+    isSharedRide, vehicleType, paymentMethod, setPaymentMethod
   } = rideState;
 
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
@@ -60,19 +61,32 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     return () => clearInterval(interval);
   }, [isRequestingRide, activeRide]);
 
-  const estimatedRideFare = Math.round(routeInfo?.distance ? routeInfo.distance * 12 : 150);
-
   const CAR_STYLES = [
-    { id: 'bike', name: 'Bike', multiplier: 0.4, icon: Bike, desc: 'Fast & Affordable', time: '2 min', person: 1 },
-    { id: 'auto', name: 'Auto Riksha', multiplier: 0.6, icon: Users, desc: 'Quick rides, no bargaining', time: '3 min', person: 3 },
-    { id: 'go', name: 'Go', multiplier: 1.0, icon: Car, desc: 'Affordable, everyday rides', time: '5 min', person: 4 },
-    { id: 'sedan', name: 'Sedan', multiplier: 1.3, icon: Car, desc: 'Extra legroom, premium', time: '6 min', person: 4 },
-    { id: 'xl', name: 'XL', multiplier: 1.8, icon: Users, desc: 'Comfortable SUVs for groups', time: '8 min', person: 6 }
+    { id: 'bike', name: 'Bike', baseFare: 20, ratePerKm: 6, icon: Bike, desc: 'Fast & Affordable', time: '2 min', person: 1 },
+    { id: 'auto', name: 'Auto Riksha', baseFare: 40, ratePerKm: 10, icon: Users, desc: 'Quick rides, no bargaining', time: '3 min', person: 3 },
+    { id: 'go', name: 'Go', baseFare: 60, ratePerKm: 15, icon: Car, desc: 'Affordable, everyday rides', time: '5 min', person: 4 },
+    { id: 'sedan', name: 'Sedan', baseFare: 80, ratePerKm: 20, icon: Car, desc: 'Extra legroom, premium', time: '6 min', person: 4 },
+    { id: 'xl', name: 'XL', baseFare: 110, ratePerKm: 28, icon: Users, desc: 'Comfortable SUVs for groups', time: '8 min', person: 6 }
   ];
+
+  const calculateFare = (vType: string) => {
+    const style = CAR_STYLES.find(s => s.id === vType) || CAR_STYLES[2];
+    const distance = routeInfo?.distance || 0;
+    const finalFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
+    return Math.round(finalFare);
+  };
+
+  const estimatedRideFare = calculateFare(vehicleType);
 
   const handleRequestRide = () => {
     if (!user) {
       toast.error("User not found");
+      return;
+    }
+
+    const currentFare = isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare;
+    if (paymentMethod === "WALLET" && (user.walletBalance || 0) < currentFare) {
+      toast.error(`Insufficient wallet balance. You need at least Rs ${currentFare} to book this ride.`);
       return;
     }
 
@@ -88,6 +102,9 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
     rideState.setIsRequestingRide(true);
 
+    const isBike = vehicleType === 'bike';
+    const sharedFare = isBike ? 40 : 100;
+
     const payload = {
       passengerId: user.id || user._id || "507f1f77bcf86cd799439011",
       passengerName: user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Passenger"),
@@ -98,9 +115,10 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       destination: { lat: dropLoc.coords[0], lng: dropLoc.coords[1], label: dropLoc.query },
       requestedVehicleType: isSharedRide ? "carpool" : vehicleType,
       isSharedRide,
-      fare: isSharedRide ? estimatedRideFare * 0.6 : estimatedRideFare,
+      fare: isSharedRide ? sharedFare : estimatedRideFare,
       distance: routeInfo?.distance || 0,
-      duration: routeInfo?.duration || 0
+      duration: routeInfo?.duration || 0,
+      paymentMethod
     };
 
     socket.emit("ride-request", payload);
@@ -108,6 +126,14 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   };
 
   const handleJoinCarpool = (rideId: string) => {
+    const isBike = availableCarpools.find(p => p.rideId === rideId)?.vehicleType === 'bike';
+    const sharedFare = isBike ? 40 : 100;
+
+    if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
+      toast.error(`Not enough wallet balance to join this pool. (Minimum Rs ${sharedFare} required)`);
+      return;
+    }
+
     const dropLoc = stops.find((s: any) => s.id !== 'pickup') || stops[stops.length - 1];
     socket.emit("carpool:join:request", {
       rideId,
@@ -324,7 +350,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="font-black text-[18px] text-[#0A192F]">Rs {pool.pricePerSeat || Math.round(estimatedRideFare * 0.6)}</p>
+                          <p className="font-black text-[18px] text-[#0A192F]">Rs {pool.pricePerSeat || (pool.vehicleType === 'bike' ? 40 : 100)}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Join Now</p>
                         </div>
                       </button>
@@ -340,28 +366,80 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   )}
                 </>
               ) : (
-                CAR_STYLES.map(style => (
-                  <button key={style.id} onClick={() => rideState.setVehicleType(style.id as any)} className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all group shrink-0 ${vehicleType === style.id ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-md' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center transition-colors shrink-0 ${vehicleType === style.id ? 'bg-[#0A192F] text-[#FFD700] shadow-lg' : 'bg-white text-slate-400 shadow-sm border border-slate-100'}`}>
-                        <style.icon className="w-8 h-8" />
-                      </div>
-                      <div className="text-left flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <p className={`font-black tracking-tight transition-colors ${vehicleType === style.id ? 'text-[#0A192F] text-[18px]' : 'text-slate-600 text-[17px]'}`}>{style.name}</p>
-                          <div className="flex items-center gap-0.5 text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-md">
-                            <Users className="w-3 h-3" />
-                            <span className="text-[10px] font-bold">{style.person}</span>
-                          </div>
+                CAR_STYLES.map(style => {
+                  const isSelected = vehicleType === style.id;
+                  const carFare = calculateFare(style.id);
+                  return (
+                    <button 
+                      key={style.id} 
+                      onClick={() => rideState.setVehicleType(style.id as any)} 
+                      className={`w-full flex items-center justify-between p-4 rounded-3xl border-2 transition-all group shrink-0 relative overflow-hidden ${isSelected ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-xl' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}
+                    >
+                      {isSelected && <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />}
+                      <div className="flex items-center gap-4 relative z-10">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shrink-0 ${isSelected ? 'bg-[#0A192F] text-[#FFD700] shadow-2xl scale-110' : 'bg-white text-slate-300 shadow-sm border border-slate-100'}`}>
+                          <style.icon className="w-8 h-8" />
                         </div>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{style.time} away • {style.desc}</p>
+                        <div className="text-left flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-black tracking-tight transition-colors ${isSelected ? 'text-[#0A192F] text-[20px]' : 'text-slate-700 text-[18px]'}`}>{style.name}</p>
+                            <div className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full ${isSelected ? 'bg-[#0A192F] text-[#FFD700]' : 'bg-slate-100 text-slate-400'}`}>
+                              <Users className="w-3 h-3" />
+                              <span className="text-[10px] font-black">{style.person}</span>
+                            </div>
+                          </div>
+                          <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{style.time} • {style.desc}</p>
+                        </div>
                       </div>
-                    </div>
-                    <p className={`font-black text-[20px] tracking-tight ${vehicleType === style.id ? 'text-[#0A192F]' : 'text-slate-400'}`}>Rs {Math.round(estimatedRideFare * style.multiplier)}</p>
-                  </button>
-                ))
+                      <div className="text-right relative z-10">
+                        <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
+                        <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Minimum ₹{style.baseFare}</p>
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
+
+            {/* Payment Selection Section */}
+            {!isSharedRide && (
+              <div className="mt-4 px-2 space-y-3 shrink-0">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest pl-2">Payment Method</p>
+                <div className="flex gap-2 p-1 bg-slate-100 rounded-[22px]">
+                   <button 
+                    onClick={() => setPaymentMethod("WALLET")}
+                    className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "WALLET" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
+                   >
+                     <Wallet className="w-4 h-4" />
+                     <div className="flex flex-col items-start leading-none gap-1">
+                        <span className="text-[10px] font-black uppercase">Wallet</span>
+                        <span className="text-[8px] font-bold opacity-60">Rs {user?.walletBalance || 0}</span>
+                     </div>
+                   </button>
+                   <button 
+                    onClick={() => setPaymentMethod("UPI")}
+                    className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "UPI" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
+                   >
+                     <QrCode className="w-4 h-4" />
+                     <div className="flex flex-col items-start leading-none gap-1">
+                        <span className="text-[10px] font-black uppercase">UPI</span>
+                        <span className="text-[8px] font-bold opacity-60">Razorpay</span>
+                     </div>
+                   </button>
+                   <button 
+                    onClick={() => setPaymentMethod("CASH")}
+                    className={`flex-1 py-3 px-2 rounded-[18px] transition-all flex items-center justify-center gap-2 ${paymentMethod === "CASH" ? 'bg-[#0A192F] text-white shadow-md' : 'text-slate-500 hover:bg-white/50'}`}
+                   >
+                     <Banknote className="w-4 h-4" />
+                     <div className="flex flex-col items-start leading-none gap-1">
+                        <span className="text-[10px] font-black uppercase">Cash</span>
+                        <span className="text-[8px] font-bold opacity-60">Pay Driver</span>
+                     </div>
+                   </button>
+                </div>
+              </div>
+            )}
+
             <div className="px-2 mt-4 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
                 onClick={handleRequestRide}
@@ -402,175 +480,277 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           </div>
         )}
 
-        {/* Active Ride Panel */}
-        {activeRide && (
-          <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.4)] p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-y-auto max-h-full custom-scrollbar">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/10 rounded-full blur-3xl -mr-10 -mt-20" />
-            <h3 className="text-[11px] font-black text-[#FFD700] uppercase tracking-[0.3em] mb-2">
-              {activeRide.status === "SEARCHING" ? "Finding you a driver" :
-                activeRide.status === "ACCEPTED" ? "Driver is on the way" :
-                  activeRide.status === "ARRIVED" ? "Driver is at pickup" :
-                    activeRide.status === "STARTED" ? "Ride in progress" :
-                      activeRide.status === "COMPLETED" ? "Trip Finished" : "Driver is coming"}
-            </h3>
+        {/* Active Ride Panel (Only show if user is NOT the driver) */}
+        {activeRide && (activeRide.driverId !== (user?.id || user?._id)) && (
+          <div className="bg-white/95 backdrop-blur-3xl rounded-[32px] shadow-[0_40px_100px_rgba(0,0,0,0.4)] p-0 border border-white/20 pointer-events-auto shrink-0 relative overflow-hidden transition-all duration-700 w-[420px]">
+            {/* Glassy Background Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50 pointer-events-none" />
+            
+            {/* Header Section: ETA & Status */}
+            <div className="p-8 pb-6 relative z-10 border-b border-slate-100/50 bg-slate-50/30">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  {activeRide.status === "SEARCHING" ? "Searching for driver" :
+                   activeRide.status === "ACCEPTED" ? "Driver arriving" :
+                   activeRide.status === "ARRIVED" ? "Driver is here" :
+                   activeRide.status === "STARTED" ? "Trip in progress" : "Trip Summary"}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {activeRide.isSharedRide && (
+                    <div className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full border border-amber-100 flex items-center gap-1.5">
+                      <Users className="w-3 h-3" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Shared</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Live Sync</span>
+                  </div>
+                </div>
+              </div>
 
-            {/* Close Button to Reset everything if stuck or finished */}
-            <button
-              onClick={() => rideState.resetRideState()}
-              className="absolute top-8 right-8 z-10 w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-all text-white/60 hover:text-white"
-              title="Close and Reset"
-            >
-              <X className="w-5 h-5" />
-            </button>
+              {/* Reset Control (Minimalist) */}
+              <button
+                onClick={() => rideState.resetRideState()}
+                className="absolute top-8 right-8 w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition-all text-slate-400 hover:text-slate-600"
+                title="Reset Ride"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-            {/* Stage Progress Bar */}
-            <div className="flex gap-2 mb-8 px-1">
-              <div className={`h-1.5 flex-1 rounded-full transition-all duration-1000 ${['ACCEPTED', 'ARRIVED', 'STARTED', 'COMPLETED'].includes(activeRide.status) ? 'bg-[#FFD700]' : 'bg-white/10'}`} />
-              <div className={`h-1.5 flex-1 rounded-full transition-all duration-1000 ${['ARRIVED', 'STARTED', 'COMPLETED'].includes(activeRide.status) ? 'bg-[#FFD700]' : 'bg-white/10'}`} />
-              <div className={`h-1.5 flex-1 rounded-full transition-all duration-1000 ${['STARTED', 'COMPLETED'].includes(activeRide.status) ? 'bg-[#FFD700]' : 'bg-white/10'}`} />
+              {(() => {
+                const getDriverDistance = () => {
+                  const drvLoc = activeRide?.driverInfo?.location || (activeRide?.driverLocation?.lat ? activeRide.driverLocation : null);
+                  if (!userLoc || !drvLoc) return null;
+                  const dLat = (drvLoc.lat - userLoc[0]) * Math.PI / 180;
+                  const dLon = (drvLoc.lng - userLoc[1]) * Math.PI / 180;
+                  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(userLoc[0] * Math.PI / 180) * Math.cos(drvLoc.lat * Math.PI / 180) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                  return 6371 * c; // km
+                };
+                const dist = getDriverDistance();
+                
+                return (
+                  <div className="flex flex-col gap-1">
+                    <h2 className="text-4xl font-black text-[#0A192F] tracking-tighter leading-tight italic">
+                      {activeRide.status === "ARRIVED" ? "At Pickup" :
+                       activeRide.status === "STARTED" ? "On Trip" :
+                       activeRide.status === "SEARCHING" ? "Searching..." :
+                       (activeRide.eta || (dist ? `${dist.toFixed(1)} km away` : 'On the Way'))}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {activeRide.status === "ACCEPTED" && (
+                        <p className="text-[13px] font-bold text-slate-500">Pick-up in approx. {activeRide.eta || '5 mins'}</p>
+                      )}
+                      {activeRide.isSharedRide && (
+                        <span className="text-[11px] font-black text-[#0A192F] bg-[#FFD700] px-2 py-0.5 rounded-md uppercase tracking-tighter shadow-sm">
+                          {activeRide.passengers?.length || 1} Seat Booked
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Distance Helper for UI */}
-            {(() => {
-              const getDriverDistance = () => {
-                const drvLoc = activeRide?.driverInfo?.location || (activeRide?.driverLocation?.lat ? activeRide.driverLocation : null);
-                if (!userLoc || !drvLoc) return null;
-                const dLat = (drvLoc.lat - userLoc[0]) * Math.PI / 180;
-                const dLon = (drvLoc.lng - userLoc[1]) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(userLoc[0] * Math.PI / 180) * Math.cos(drvLoc.lat * Math.PI / 180) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                return 6371 * c; // km
-              };
-              const dist = getDriverDistance();
+            {/* Subtle Progress Bar */}
+            <div className="flex gap-1 h-1 bg-slate-50 relative z-20">
+              <div className={`h-full transition-all duration-1000 ${['ACCEPTED', 'ARRIVED', 'STARTED', 'COMPLETED', 'CONFIRMED'].includes(activeRide.status) ? 'bg-[#0A192F] flex-1' : 'w-0'}`} />
+              <div className={`h-full transition-all duration-1000 ${['ARRIVED', 'STARTED', 'COMPLETED', 'CONFIRMED'].includes(activeRide.status) ? 'bg-[#0A192F] flex-1' : 'w-0'}`} />
+              <div className={`h-full transition-all duration-1000 ${['STARTED', 'COMPLETED'].includes(activeRide.status) ? 'bg-[#0A192F] flex-1' : 'w-0'}`} />
+            </div>
 
-              return (
-                <p className="text-4xl font-black text-white mb-8 tracking-tighter leading-none">
-                  {activeRide.status === "ARRIVED" ? "At Pickup" :
-                    activeRide.status === "STARTED" ? "On Trip" :
-                      activeRide.status === "COMPLETED" ? "Finished" :
-                        (activeRide.eta || (dist ? `${dist.toFixed(1)} km away` : 'On the Way'))}
-                </p>
-              );
-            })()}
-
-
-            {activeRide.driverInfo && (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center gap-5 mb-8 shadow-inner overflow-hidden">
-                <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg border-2 border-white/20 shrink-0">
-                  {(() => {
-                    const rawPhoto = activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo;
-                    if (!rawPhoto) return (
-                      <div className="w-full h-full bg-[#FFD700] flex items-center justify-center">
-                        <Users className="text-[#0A192F] w-7 h-7" />
+            {/* Content Body */}
+            <div className="p-8 pt-6 space-y-6">
+              <div className="space-y-6">
+                  {/* Driver Header */}
+                  <div className="flex items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <div className="inline-flex items-center gap-2 mb-1">
+                        <h4 className="font-extrabold text-xl text-[#0A192F] tracking-tight truncate max-w-[180px]">
+                          {activeRide.driverInfo?.name || activeRide.driverName || "Jasir o"}
+                        </h4>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
+                            <Star className="w-3 h-3 fill-slate-900 text-slate-900" />
+                            <span className="text-[11px] font-bold text-[#0A192F]">{activeRide.driverInfo?.rating || activeRide.driverRating || "4.9"}</span>
+                        </div>
                       </div>
-                    );
-
-                    // Normalize URL: handles S3 URLs (via proxy), full URLs, and local paths
-                    let finalSrc = rawPhoto;
-                    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
-
-                    if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
-                      // Redirect through our backend proxy to bypass S3 Access Denied (403)
-                      const filename = rawPhoto.split('/').pop();
-                      finalSrc = `${baseUrl}/api/auth/profile-photo/${filename}`;
-                    } else if (!rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
-                      const cleanPath = rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`;
-                      finalSrc = `${baseUrl}${cleanPath}`;
-                    }
-
-
-                    return (
-                      <img 
-                        src={finalSrc} 
-                        alt="Driver" 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          console.error("❌ Failed to load driver photo:", finalSrc);
-                          target.onerror = null;
-                          target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeRide.driverInfo?.name || "Driver")}&background=FFD700&color=0A192F&bold=true`;
-                        }}
-                      />
-                    );
-                  })()}
-                </div>
-                <div className="flex-1">
-                  <p className="font-black text-lg text-white mb-1 leading-none">{activeRide.driverInfo.name || "Driver"}</p>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-white/5 bg-black/20">
-                      <Star className="w-3.5 h-3.5 fill-[#FFD700] text-[#FFD700]" />
-                      <span className="font-black text-[12px] text-[#FFD700]">{activeRide.driverInfo.rating || "4.9"}</span>
+                      <p className="text-[12px] font-bold text-slate-400 tracking-wide uppercase">
+                        {activeRide.driverInfo?.vehicleModel || activeRide.vehicleModel || "Premium Transport"}
+                      </p>
+                      
+                      {/* Communication Controls */}
+                      <div className="flex items-center gap-2 mt-3">
+                         <a 
+                           href={`tel:${activeRide.driverInfo?.phone || activeRide.driverPhone || '0000000000'}`}
+                           className="flex-1 flex items-center justify-center gap-2 py-2 bg-[#0A192F] text-[#FFD700] rounded-xl hover:bg-black transition-all shadow-md group"
+                           title="Call Driver"
+                         >
+                           <Phone className="w-4 h-4" />
+                           <span className="text-[10px] font-black uppercase tracking-widest">Call</span>
+                         </a>
+                         <button 
+                           onClick={() => toast.success("Chat feature coming soon!")}
+                           className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 text-[#0A192F] rounded-xl border border-slate-200 hover:bg-slate-200 transition-all font-black text-[10px] uppercase tracking-widest"
+                           title="Chat with Driver"
+                         >
+                           <MessageSquare className="w-4 h-4" />
+                           Chat
+                         </button>
+                      </div>
                     </div>
-                    {activeRide.driverInfo.vehicleModel && (
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate max-w-[120px]">{activeRide.driverInfo.vehicleModel}</span>
-                    )}
+
+                    <div className="relative group">
+                       <div className="w-20 h-20 bg-slate-50 rounded-[24px] overflow-hidden border-2 border-slate-100 shadow-md transform group-hover:scale-105 transition-all duration-500">
+                         {(() => {
+                           const rawPhoto = activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo || activeRide.driverPhoto;
+                           if (!rawPhoto) return (
+                             <div className="w-full h-full flex items-center justify-center bg-[#0A192F] text-white">
+                               <Users className="w-8 h-8 opacity-40" />
+                             </div>
+                           );
+
+                           let finalSrc = rawPhoto;
+                           const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+
+                           if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
+                             const filename = rawPhoto.split('/').pop();
+                             finalSrc = `${baseUrl}/api/auth/profile-photo/${filename}`;
+                           } else if (!rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
+                             const cleanPath = rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`;
+                             finalSrc = `${baseUrl}${cleanPath}`;
+                           }
+
+                           return (
+                             <img 
+                               src={finalSrc} 
+                               alt="Driver" 
+                               className="w-full h-full object-cover" 
+                               onError={(e) => {
+                                 const target = e.target as HTMLImageElement;
+                                 target.onerror = null;
+                                 target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeRide.driverInfo?.name || activeRide.driverName || "Driver")}&background=0A192F&color=FFFFFF&bold=true`;
+                               }}
+                             />
+                           );
+                         })()}
+                       </div>
+                       <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full shadow-lg" />
+                    </div>
                   </div>
-                </div>
-                {activeRide.driverInfo.vehiclePlate && (
-                   <div className="bg-white text-[#0A192F] px-4 py-2 rounded-xl font-black text-[11px] uppercase tracking-tighter border-2 border-slate-200 shadow-sm leading-none shrink-0">
-                      {activeRide.driverInfo.vehiclePlate}
-                   </div>
+
+                  {/* Identification Card */}
+                  <div className="flex items-center justify-between p-5 bg-slate-50 rounded-[24px] border border-slate-100 group">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">State Registry Number</span>
+                      <div className="flex items-center gap-3">
+                         <div className="w-2 h-2 rounded-full bg-slate-300" />
+                         <span className="font-black text-[18px] text-[#0A192F] tracking-widest font-mono">
+                           {activeRide.driverInfo?.vehiclePlate || activeRide.vehiclePlate || "TN 01 AB 1234"}
+                         </span>
+                         <div className="w-2 h-2 rounded-full bg-slate-300" />
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm transition-transform group-hover:scale-110">
+                      <ShieldCheck className="w-6 h-6 text-emerald-500" />
+                    </div>
+                  </div>
+              </div>
+
+              {/* Action Area */}
+              <div className="mt-8 flex flex-col gap-4">
+                {activeRide.status !== "COMPLETED" && activeRide.status !== "STARTED" && (
+                  <button 
+                    onClick={handleCancelRide} 
+                    className="w-full py-5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-500 rounded-[22px] font-black text-[13px] uppercase tracking-[0.2em] transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-3"
+                  >
+                    <XCircle className="w-5 h-5" />
+                    Cancel Ride
+                  </button>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Vehicle Preview Card (Secondary) */}
-            {activeRide.driverInfo?.vehiclePhoto && (
-               <div className="mb-8 rounded-[24px] overflow-hidden border border-white/10 bg-black/20 relative group aspect-video">
-                  <img 
-                    src={activeRide.driverInfo.vehiclePhoto.startsWith('http') ? activeRide.driverInfo.vehiclePhoto : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/${activeRide.driverInfo.vehiclePhoto}`} 
-                    className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-700"
-                    alt="Vehicle"
-                    onError={(e) => (e.target as any).style.display = 'none'}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                     <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-widest">{activeRide.driverInfo.vehicleModel || "Car Information"}</span>
-                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[8px] font-black text-white/60 uppercase tracking-widest italic">Verified Transport</span>
-                     </div>
-                  </div>
-               </div>
-            )}
 
-            {/* Multi-Step Rating & Feedback UI (Compact) */}
+            {/* Bottom Safe Area Decoration */}
+            <div className="h-2 bg-[#0A192F]" />
+
+            {/* Multi-Step Rating & Feedback UI (Compact & Scrollable) */}
             {activeRide.status === "COMPLETED" && (
-              <div className="fixed inset-0 z-[2500] flex items-end justify-center pointer-events-auto">
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in pointer-events-auto" />
+              <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
+                <div className="absolute inset-0 bg-[#0A192F]/95 backdrop-blur-3xl animate-fade-in pointer-events-auto" />
                 
-                <div className="relative w-full max-w-sm bg-[#0A192F] rounded-[40px] border border-white/10 shadow-[0_-20px_100px_-20px_rgba(0,0,0,0.8)] p-8 text-center animate-slide-up pointer-events-auto overflow-hidden mx-4 mb-4">
-                  {/* Step Indicators (Tiny) */}
-                  <div className="flex justify-center gap-1.5 mb-6 shrink-0">
-                    <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 1 ? 'w-6 bg-[#FFD700]' : 'w-2 bg-white/10'}`} />
-                    <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 2 ? 'w-6 bg-[#FFD700]' : 'w-2 bg-white/10'}`} />
-                  </div>
+                <div className="relative w-full max-w-[420px] max-h-[92vh] flex flex-col bg-white rounded-[32px] shadow-[0_45px_120px_rgba(0,0,0,0.7)] text-center animate-slide-up pointer-events-auto overflow-hidden">
+                   {/* FIXED HEADER: Driver Profile */}
+                   <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-4 relative overflow-hidden text-left shrink-0">
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />
+                      <div className="relative z-10 w-14 h-14 shrink-0 bg-white rounded-2xl overflow-hidden border-2 border-white shadow-lg">
+                        {(() => {
+                           const rawPhoto = activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo;
+                           const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                           let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeRide.driverInfo?.name || "D")}&background=0A192F&color=FFD700&bold=true`;
 
-                  <div className="flex-1 overflow-y-auto custom-scrollbar px-1">
+                           if (rawPhoto) {
+                              if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
+                                finalSrc = `${baseUrl}/api/auth/profile-photo/${rawPhoto.split('/').pop()}`;
+                              } else if (!rawPhoto.startsWith('http')) {
+                                finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                              } else {
+                                finalSrc = rawPhoto;
+                              }
+                           }
+                           return <img src={finalSrc} alt="Driver" className="w-full h-full object-cover" />;
+                        })()}
+                      </div>
+                      <div className="relative z-10 flex-1 min-w-0">
+                           <h3 className="text-xl font-black text-[#0A192F] tracking-tight truncate leading-tight">
+                             {activeRide.driverInfo?.name || "Driver"}
+                           </h3>
+                           <div className="flex flex-col gap-0.5 mt-0.5">
+                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                               {activeRide.driverInfo?.vehicleModel || "Premium Transport"}
+                             </p>
+                             <div className="inline-flex mt-1 px-3 py-1 bg-[#0A192F] text-[#FFD700] rounded-full w-max text-[8px] font-bold uppercase tracking-widest shadow-sm">
+                               {activeRide.driverInfo?.vehicleType || "Ride"}
+                             </div>
+                           </div>
+                      </div>
+                   </div>
+
+                  {/* SCROLLABLE BODY: Rating Steps */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+                    {/* Stepper Dots */}
+                    <div className="flex justify-center gap-2 mb-2">
+                      <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 1 ? 'w-12 bg-[#FFD700]' : 'w-2 bg-[#0A192F]/10'}`} />
+                      <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 2 ? 'w-12 bg-[#FFD700]' : 'w-2 bg-[#0A192F]/10'}`} />
+                    </div>
+
                     {ratingStep === 1 ? (
-                      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="space-y-2">
-                          <h1 className="text-2xl font-[family-name:var(--font-montserrat)] font-black text-white italic uppercase tracking-tighter leading-none">
-                            Trip <span className="text-[#FFD700]">Rating</span>
+                          <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
+                            Rate <span className="text-[#FFD700]">Experience</span>
                           </h1>
-                          <p className="text-slate-400 font-bold text-[8px] uppercase tracking-[0.2em] opacity-60">
-                            Rate {activeRide.driverInfo?.name || "driver"}
+                          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
+                            How was your trip?
                           </p>
                         </div>
 
-                        <div className="flex justify-center gap-3">
+                        <div className="flex justify-center gap-3 py-2">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
                               key={star}
                               onClick={() => setRating(star)}
-                              className={`group transition-all duration-300 transform ${star <= rating ? 'scale-110' : 'hover:scale-105 active:scale-95 opacity-20 hover:opacity-100'}`}
+                              className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
                             >
-                              <Star
-                                className={`w-8 h-8 sm:w-10 sm:h-10 transition-all duration-300 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_10px_rgba(255,215,0,0.4)]' : 'text-slate-500'}`}
-                                strokeWidth={1}
-                              />
+                              <div className="w-10 h-10 flex items-center justify-center">
+                                <Star
+                                  className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
+                                  strokeWidth={2}
+                                />
+                              </div>
                             </button>
                           ))}
                         </div>
@@ -578,35 +758,35 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                         <button
                           onClick={() => setRatingStep(2)}
                           disabled={rating === 0}
-                          className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-[0_15px_30px_-10px_rgba(255,215,0,0.3)] hover:scale-[1.01] active:scale-[0.98] transition-all disabled:opacity-20 disabled:grayscale"
+                          className="w-full py-5 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[13px] uppercase tracking-[0.3em] shadow-xl hover:bg-black hover:scale-[1.01] transition-all disabled:opacity-20"
                         >
                           Next Step
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
                         <div className="space-y-2">
-                          <h1 className="text-2xl font-[family-name:var(--font-montserrat)] font-black text-white italic uppercase tracking-tighter leading-none">
-                            Trip <span className="text-[#FFD700]">Feedback</span>
+                           <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
+                            Final <span className="text-[#FFD700]">Thoughts</span>
                           </h1>
-                          <p className="text-slate-400 font-bold text-[8px] uppercase tracking-[0.2em] opacity-60">
-                            Tell us what you think
+                          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
+                            Add your comment
                           </p>
                         </div>
 
                         <div className="relative">
                           <textarea
-                            placeholder="Your message (Optional)..."
+                            placeholder="Optional feedback..."
                             value={feedback}
                             onChange={(e) => setFeedback(e.target.value)}
-                            className="w-full h-24 bg-white/[0.02] border border-white/10 rounded-[20px] p-5 text-white text-sm font-medium outline-none focus:border-[#FFD700]/30 transition-all placeholder:text-slate-700 resize-none shadow-inner"
+                            className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-[#0A192F] text-sm font-bold outline-none focus:border-[#FFD700] transition-all placeholder:text-slate-300 resize-none shadow-inner"
                           />
                         </div>
 
                         <div className="flex gap-3">
                           <button
                             onClick={() => setRatingStep(1)}
-                            className="flex-1 py-4 bg-white/5 text-white/50 rounded-[20px] font-black text-[9px] uppercase tracking-[0.2em] hover:bg-white/10 hover:text-white transition-all shadow-inner border border-white/5"
+                            className="flex-1 py-4 bg-slate-100 text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
                           >
                             Back
                           </button>
@@ -625,14 +805,14 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 setRating(0);
                                 setFeedback("");
                                 setRatingStep(1);
-                                toast.success("Thanks for your feedback!");
+                                toast.success("Feedback submitted!");
                               } catch (err) {
                                 toast.error("Failed to submit rating");
                               }
                             }}
-                            className="flex-[2] py-4 bg-[#FFD700] text-[#0A192F] rounded-[20px] font-black text-xs uppercase tracking-[0.2em] shadow-[0_15px_30px_-10px_rgba(255,215,0,0.3)] hover:scale-[1.01] active:scale-[0.98] transition-all"
+                            className="flex-[2] py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[12px] uppercase tracking-[0.3em] shadow-lg hover:bg-yellow-400 transition-all"
                           >
-                            Submit & Finish
+                            Complete
                           </button>
                         </div>
                       </div>
@@ -640,10 +820,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   </div>
                 </div>
               </div>
-            )}
-
-            {activeRide.status !== "COMPLETED" && activeRide.status !== "STARTED" && (
-              <button onClick={handleCancelRide} className="w-full py-5 bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 text-rose-500 hover:text-white rounded-[20px] font-black text-[13px] uppercase tracking-[0.2em] transition-all">Cancel Trip</button>
             )}
           </div>
         )}

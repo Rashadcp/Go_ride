@@ -32,63 +32,79 @@ export const TripHistory: React.FC<TripHistoryProps> = ({ trips, loading }) => {
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
                     {loading && trips.length === 0 ? (
                         <div className="text-center py-20 bg-white/[0.02] border border-white/5 rounded-[40px] flex flex-col items-center justify-center">
                             <Loader2 className="w-8 h-8 text-[#FFD700] animate-spin mb-4" />
-                            <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest">Accessing Ledger...</p>
+                            <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest leading-none">Accessing Ledger...</p>
                         </div>
-                    ) : trips.length > 0 ? (
-                        trips.map((trip) => (
-                            <div key={trip._id} className="bg-white/[0.02] border border-white/5 rounded-[32px] lg:rounded-[40px] p-6 lg:p-8 hover:bg-white/[0.04] transition-all group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4">
-                                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                                        trip.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 
-                                        trip.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 
-                                        'bg-blue-500/10 text-blue-500 border border-blue-500/20'
-                                    }`}>
-                                        {trip.status}
-                                    </span>
+                    ) : trips.filter(t => t.status === 'COMPLETED').length > 0 ? (
+                        trips.filter(t => t.status === 'COMPLETED').map((trip) => (
+                            <div key={trip._id} className="bg-white/[0.02] border border-white/5 rounded-[40px] p-8 lg:p-10 hover:bg-white/[0.04] transition-all group relative overflow-hidden flex flex-col lg:flex-row gap-8 items-start lg:items-center">
+                                <div className="absolute top-0 right-0 p-6 pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity">
+                                    <Clock className="w-24 h-24 text-white" strokeWidth={0.5} />
                                 </div>
                                 
-                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                                    <div className="space-y-4 flex-1">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
-                                                <Clock className="w-5 h-5 text-slate-500" />
-                                            </div>
-                                            <div>
-                                                <p className="text-white font-black text-sm uppercase italic tracking-tight">{new Date(trip.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{new Date(trip.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                <div className="flex flex-col sm:flex-row lg:items-center gap-6 flex-1 w-full">
+                                    <div className="w-20 h-20 rounded-[28px] bg-gradient-to-br from-[#FFD700] to-yellow-600 flex items-center justify-center shadow-2xl shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                        <HistoryIcon className="w-9 h-9 text-[#0A192F]" />
+                                    </div>
+                                    
+                                    <div className="flex-1 min-w-0 space-y-5">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <span className="text-white font-black text-lg uppercase italic tracking-tighter leading-none">
+                                                {new Date(trip.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </span>
+                                            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                {new Date(trip.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">COMPLETED</span>
                                             </div>
                                         </div>
-                                        
-                                        <div className="space-y-3 pl-2 border-l-2 border-white/5 ml-5">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-[#FFD700] mt-1.5 shrink-0"></div>
-                                                <p className="text-slate-300 text-[11px] font-bold leading-tight">{trip.pickup?.address || trip.pickup?.label || "Unknown Origin"}</p>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+                                            <div className="absolute left-[7px] top-6 bottom-6 w-px bg-white/10" />
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-4 h-4 rounded-full border-2 border-[#FFD700] bg-[#0A192F] z-10 mt-1" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">Pickup Origin</p>
+                                                    <p className="text-slate-200 text-xs font-bold truncate tracking-tight">{trip.pickup?.label || "Unknown Point"}</p>
+                                                </div>
                                             </div>
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-slate-500 mt-1.5 shrink-0"></div>
-                                                <p className="text-slate-400 text-[11px] font-bold leading-tight">{trip.destination?.address || trip.destination?.label || "Unknown Destination"}</p>
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-4 h-4 rounded-full border-2 border-slate-500 bg-[#0A192F] z-10 mt-1" />
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none">Terminal Point</p>
+                                                    <p className="text-slate-400 text-xs font-bold truncate tracking-tight">{trip.drop?.label || trip.destination?.label || "Unknown Target"}</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    <div className="flex items-center justify-between lg:justify-end lg:flex-col lg:items-end gap-2 pt-4 lg:pt-0 border-t lg:border-t-0 border-white/5">
-                                        <div>
-                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-right mb-1">Earned</p>
-                                            <p className="text-2xl font-black text-white italic">₹{(trip.price || trip.fare || 0).toFixed(2)}</p>
+                                </div>
+                                
+                                <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-[180px] gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-white/5 relative z-10">
+                                    <div className="flex flex-col items-start lg:items-end">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1 leading-none text-right">Revenue</p>
+                                        <p className="text-3xl font-black text-[#FFD700] italic leading-tight tracking-tighter">₹{(trip.price || trip.fare || 0).toFixed(0)}</p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1.5">
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-xl border border-white/5">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Wallet</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700]" />
                                         </div>
-                                        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{trip.distance ? `${trip.distance.toFixed(1)} km` : 'N/A'}</p>
+                                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{trip.distance?.toFixed(1) || '0.0'} KM Session</p>
                                     </div>
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <div className="text-center py-20 bg-white/[0.02] border border-white/5 rounded-[40px]">
-                            <HistoryIcon className="w-12 h-12 text-slate-700 mx-auto mb-6 opacity-20" />
-                            <p className="text-slate-500 font-black text-xs uppercase tracking-widest">No trips recorded in history</p>
+                        <div className="text-center py-32 bg-white/[0.01] border border-white/5 border-dashed rounded-[48px] flex flex-col items-center justify-center gap-4">
+                            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center opacity-20">
+                                <HistoryIcon className="w-10 h-10 text-slate-500" />
+                            </div>
+                            <p className="text-slate-500 font-black text-[11px] uppercase tracking-[0.3em] italic">No completed trips found in your account history</p>
                         </div>
                     )}
                 </div>

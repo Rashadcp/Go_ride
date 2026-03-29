@@ -22,21 +22,23 @@ import { WalletTab } from "@/features/dashboard/components/WalletTab";
 import { SettingsTab } from "@/features/dashboard/components/SettingsTab";
 import { PassengerView } from "@/features/ride/components/PassengerView";
 import { DriverView } from "@/features/driver/components/DriverView";
+import { TopUpModal } from "@/features/dashboard/components/TopUpModal";
 
 export default function UserDashboard() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
   const { clearAuth } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
 
   // Activate WebSocket for real-time ride tracking/requests
   useRideSocket(user);
 
   // Global State
-  const { 
-    activeTab, 
-    setActiveTab, 
-    isSidebarExpanded, 
+  const {
+    activeTab,
+    setActiveTab,
+    isSidebarExpanded,
     setIsSidebarExpanded,
     isDriverMode,
     setIsDriverMode,
@@ -79,11 +81,11 @@ export default function UserDashboard() {
 
   return (
     <div className="flex h-screen bg-bg-main overflow-hidden selection:bg-[#FFD700]/30 font-sans transition-colors duration-500">
-      <Sidebar 
+      <Sidebar
         user={user}
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        isSidebarExpanded={isSidebarExpanded} 
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isSidebarExpanded={isSidebarExpanded}
         setIsSidebarExpanded={setIsSidebarExpanded}
         handleLogout={handleLogout}
       />
@@ -92,34 +94,34 @@ export default function UserDashboard() {
         {activeTab === "dashboard" && (
           <>
             <div className="absolute top-8 right-8 z-50 flex items-stretch justify-end gap-4 pointer-events-auto">
-               {!isDriverMode && (
-                 <div className="bg-[#FEF3C7]/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-lg border border-white/50 h-[44px]">
-                   <Wallet className="text-[#0A192F] w-5 h-5" />
-                   <div className="flex items-center gap-1 text-[#0A192F] font-black tracking-tight text-sm mt-0.5">
-                       <IndianRupee className="w-3.5 h-3.5 shrink-0" />
-                       <span>{Number((user as any)?.walletBalance ?? 0).toFixed(2)}</span>
-                   </div>
-                 </div>
-               )}
-               
-               <div className="flex p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden h-[44px]">
-                   <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
-                       Passenger
-                   </button>
-                   <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
-                       Share My Ride
-                   </button>
-               </div>
-               
-               <div className="flex items-center gap-3">
-                 <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center transition-all border border-white ${isNotificationsOpen ? "text-[#0A192F] bg-white ring-2 ring-[#FFD700]/20" : "text-slate-400 hover:text-[#0A192F]"}`}>
-                   <Bell className="w-5 h-5 relative" />
-                   <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
-                 </button>
-                 <button className="w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-white">
-                   <HelpCircle className="w-5 h-5" />
-                 </button>
-               </div>
+              {!isDriverMode && (
+                <div className="bg-[#FEF3C7]/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-lg border border-white/50 h-[44px]">
+                  <Wallet className="text-[#0A192F] w-5 h-5" />
+                  <div className="flex items-center gap-1 text-[#0A192F] font-black tracking-tight text-sm mt-0.5">
+                    <IndianRupee className="w-3.5 h-3.5 shrink-0" />
+                    <span>{Number((user as any)?.walletBalance ?? 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden h-[44px]">
+                <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
+                  Passenger
+                </button>
+                <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
+                  Share My Ride
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center transition-all border border-white ${isNotificationsOpen ? "text-[#0A192F] bg-white ring-2 ring-[#FFD700]/20" : "text-slate-400 hover:text-[#0A192F]"}`}>
+                  <Bell className="w-5 h-5 relative" />
+                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
+                </button>
+                <button className="w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-white">
+                  <HelpCircle className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {!isDriverMode ? (
@@ -139,30 +141,41 @@ export default function UserDashboard() {
         )}
 
         {activeTab === "wallet" && (
-          <WalletTab user={user} setShowTopUpModal={() => {}} />
+          <WalletTab 
+            user={user} 
+            setShowTopUpModal={setIsTopUpOpen} 
+            transactions={dashboardData.transactions}
+            loading={dashboardData.loadingTransactions}
+          />
         )}
 
         {activeTab === "settings" && (
-          <SettingsTab 
+          <SettingsTab
             user={user}
             isUpdatingProfile={dashboardData.updateProfileMutation.isPending}
             profileData={{ firstName: "", lastName: "" }}
-            setProfileData={() => {}}
-            handleUpdateProfile={() => {}}
-            handleUpdateImage={() => {}}
+            setProfileData={() => { }}
+            handleUpdateProfile={() => { }}
+            handleUpdateImage={() => { }}
             isAddingAddress={false}
-            setIsAddingAddress={() => {}}
+            setIsAddingAddress={() => { }}
             addressFormData={{ label: "", address: "" }}
-            setAddressFormData={() => {}}
-            handleAddAddress={() => {}}
-            handleDeleteAddress={() => {}}
+            setAddressFormData={() => { }}
+            handleAddAddress={() => { }}
+            handleDeleteAddress={() => { }}
             securityData={{}}
-            setSecurityData={() => {}}
-            handleChangePassword={() => {}}
+            setSecurityData={() => { }}
+            handleChangePassword={() => { }}
           />
         )}
+
+        <TopUpModal 
+            isOpen={isTopUpOpen} 
+            onClose={() => setIsTopUpOpen(false)} 
+            user={user} 
+        />
       </main>
-      
+
       <style jsx global>{`
           .custom-scrollbar::-webkit-scrollbar { width: 4px; }
           .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

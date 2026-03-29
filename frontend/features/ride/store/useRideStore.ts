@@ -41,6 +41,7 @@ interface RideState {
   activeRide: any | null;
   pendingRideId: string | null;
   incomingCarpoolRequests: any[];
+  paymentMethod: "WALLET" | "CASH" | "UPI";
 
   // Actions
   setDashboardStep: (step: "SEARCH" | "CHOICE" | "ACTIVE") => void;
@@ -71,6 +72,7 @@ interface RideState {
   setActiveRide: (v: any | null | ((prev: any) => any)) => void;
   setPendingRideId: (v: string | null) => void;
   setIncomingCarpoolRequests: (v: any[] | ((prev: any[]) => any[])) => void;
+  setPaymentMethod: (v: "WALLET" | "CASH" | "UPI") => void;
   resetRideState: () => void;
 }
 
@@ -108,6 +110,7 @@ export const useRideStore = create<RideState>()(
       activeRide: null,
       pendingRideId: null,
       incomingCarpoolRequests: [],
+      paymentMethod: "WALLET",
 
       // Actions
       setDashboardStep: (step) => set({ dashboardStep: step }),
@@ -138,6 +141,7 @@ export const useRideStore = create<RideState>()(
       setActiveRide: (v) => set((state) => ({ activeRide: typeof v === 'function' ? v(state.activeRide) : v })),
       setPendingRideId: (pendingRideId) => set({ pendingRideId }),
       setIncomingCarpoolRequests: (v) => set((state) => ({ incomingCarpoolRequests: typeof v === 'function' ? v(state.incomingCarpoolRequests) : v })),
+      setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
       resetRideState: () => set({
         activeRide: null,
         pendingRideId: null,
@@ -163,7 +167,8 @@ export const useRideStore = create<RideState>()(
         isRouteSearched: state.isRouteSearched,
         isDriverTripActive: state.isDriverTripActive,
         stops: state.stops.map(s => ({ id: s.id, query: s.query, coords: s.coords, suggestions: [], showSuggestions: false })),
-        driverDest: { id: state.driverDest.id, query: state.driverDest.query, coords: state.driverDest.coords, suggestions: [], showSuggestions: false }
+        driverDest: { id: state.driverDest.id, query: state.driverDest.query, coords: state.driverDest.coords, suggestions: [], showSuggestions: false },
+        paymentMethod: state.paymentMethod
       }),
     }
   )

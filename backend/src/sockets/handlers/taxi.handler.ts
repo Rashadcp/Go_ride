@@ -1,6 +1,8 @@
 import { Server, Socket } from "socket.io";
 import { activeDrivers } from "../state";
 import Ride from "../../models/ride";
+import User from "../../models/user";
+import Transaction from "../../models/transaction";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
@@ -29,13 +31,12 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 distance: parseFloat(data.distance) || 0,
                 duration: parseFloat(data.duration) || 0,
                 status: 'SEARCHING',
-                requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType
+                requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType,
+                paymentMethod: data.paymentMethod || 'WALLET'
             });
 
             // Find nearby drivers
             // For TAXI, look for available drivers of specific type
-            // For CARPOOL, we broadcast to the carpool logic/drivers (already handled by carpool.handler if specific)
-            // But we can filter drivers who are 'available' and match vehicle type
             // Distance helper (Haversine formula)
             const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
                 const R = 6371; // km
@@ -56,18 +57,16 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const passengerRequestedType = (requestedVehicleType || "").toLowerCase();
                 
                 // Only notify if within 20km AND (it's carpool OR vehicle type matches)
-                const isMatch = d.status === "available" && distance <= 20 && (isSharedRide || driverVehicleType === passengerRequestedType);
-                
-                console.log(`   🔍 [CHECK] Driver: ${d.driverId} | Dist: ${distance.toFixed(2)}km | Status: ${d.status} | Vehicle: ${driverVehicleType} | Req: ${passengerRequestedType} | Match: ${isMatch}`);
+                const isMatch = d.status === "available" && distance <= 20 && 
+                    (isSharedRide ? d.isCarpool === true : (driverVehicleType === passengerRequestedType && !d.isCarpool));
+
                 return isMatch;
             });
 
             // Notify them
             console.log(`📡 [DISPATCH] Searching for ${requestedVehicleType} drivers (Shared: ${isSharedRide})`);
-            console.log(`   Active Drivers Count: ${activeDrivers.size}`);
             
             nearbyDrivers.forEach(driver => {
-                console.log(`   🔔 Notifying Driver: ${driver.driverId} (Socket: ${driver.socketId})`);
                 io.to(driver.socketId).emit("ride-request", {
                     rideId: newRide.rideId,
                     dbId: newRide._id,
@@ -95,17 +94,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 }).populate('createdBy', 'name phone email profilePhoto rating').populate('driverId', 'name phone email profilePhoto rating').limit(1);
             }
 
-            console.log(`-----------------------------------------`);
-            console.log(`🚕 [NEW RIDE REQUESTED]`);
-            console.log(`   Type: ${isSharedRide ? 'SHARED/CARPOOL' : 'PRIVATE TAXI'}`);
-            console.log(`   Ride ID: ${newRide.rideId}`);
-            console.log(`   Passenger: ${data.passengerName || 'Unknown'} (${passengerId})`);
-            console.log(`   Pickup: ${pickup.label || 'Unknown location'}`);
-            console.log(`   Destination: ${destination.label || 'Unknown location'}`);
-            console.log(`   Broadcasted to ${nearbyDrivers.length} drivers`);
-
             if (matchingPools.length > 0) {
-                console.log(`   💡 POSSIBLY MATCHING DRIVERS:`);
                 const notifiedDrivers = new Set<string>();
 
                 matchingPools.forEach(p => {
@@ -114,30 +103,22 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
                     if (notifiedDrivers.has(driverIdStr)) return;
 
-                    console.log(`      - Pool: ${p.rideId} | Driver: ${driver?.name || 'Unknown'} | Phone: ${driver?.phone || 'N/A'}`);
-
-                    // [FIX] Notify the carpool driver specifically via the carpool notification system
-                    // This ensures the "passenger list" in their carpool interface gets updated
                     const driverSocket = activeDrivers.get(driverIdStr);
                     if (driverSocket) {
                         io.to(driverSocket.socketId).emit("carpool:join:new_request", {
                             rideId: p.rideId,
                             userId: passengerId,
                             name: data.passengerName || "A Passenger",
-                            photo: data.passengerPhoto,
+                            passengerPhoto: data.passengerPhoto,
                             seats: data.seats || 1,
                             pickup: pickup,
                             destination: destination,
-                            passengerSocketId: socket.id // Important for replying
+                            passengerSocketId: socket.id
                         });
-                        console.log(`   🔔 Notified driver ${driverIdStr} of this match via Carpool system`);
                         notifiedDrivers.add(driverIdStr);
                     }
                 });
-
-                console.log(`   🔔 Notified ${notifiedDrivers.size} potential carpool driver(s) of this match`);
             }
-            console.log(`-----------------------------------------`);
         } catch (error) {
             console.error("Taxi request error:", error);
             socket.emit("ride-request-failed", { reason: "Internal server error" });
@@ -146,14 +127,11 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
     socket.on("cancel-ride-request", async (data: { passengerId: string }) => {
         try {
-            const ride = await Ride.findOneAndUpdate(
+            await Ride.findOneAndUpdate(
                 { createdBy: data.passengerId, status: 'SEARCHING' },
                 { status: 'CANCELLED', cancelledAt: new Date() },
                 { new: true }
             );
-            if (ride) {
-                console.log(`❌ Ride search cancelled for user ${data.passengerId}`);
-            }
         } catch (error) {
             console.error("Cancel ride error:", error);
         }
@@ -174,7 +152,6 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 createdAt: { $gte: fourHoursAgo }
             };
 
-            // If pickup provided, filter by proximity
             query["pickup.location"] = {
                 $near: {
                     $geometry: { type: "Point", coordinates: [pickup.lng, pickup.lat] },
@@ -187,21 +164,15 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 .populate('createdBy', 'name profilePhoto rating')
                 .limit(1);
 
-            // Post-filtering for destination if needed
             let filteredPools = pools;
             if (destination?.lat && destination?.lng) {
-                // Filter rides where destination is within 25km of requested destination
                 filteredPools = pools.filter(p => {
                     const dLoc = p.drop?.location?.coordinates || [p.drop?.lng || 0, p.drop?.lat || 0];
-                    if (!dLoc || dLoc[0] === 0) return true; // fallback
-                    const destLng = destination?.lng ?? 0;
-                    const destLat = destination?.lat ?? 0;
-                    const dist = Math.sqrt(Math.pow(dLoc[0] - destLng, 2) + Math.pow(dLoc[1] - destLat, 2));
-                    return dist < 0.25; // Roughly 25km
+                    if (!dLoc || dLoc[0] === 0) return true;
+                    const dist = Math.sqrt(Math.pow(dLoc[0] - destination.lng, 2) + Math.pow(dLoc[1] - destination.lat, 2));
+                    return dist < 0.25;
                 });
             }
-
-            console.log(`🔍 Found ${filteredPools.length}/${pools.length} carpools for query:`, JSON.stringify({ pickup, destination }));
 
             const enrichedPools = filteredPools.map(p => {
                 const driver = p.driverId || p.createdBy;
@@ -219,7 +190,6 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
         }
     });
 
-    // Taxi Accept
     socket.on("ride-accept", async (data: any) => {
         try {
             const { rideId, driverId, driverInfo } = data;
@@ -233,7 +203,6 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (!updatedRide) return;
 
-            // Notify passenger
             io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
                 driverId,
@@ -241,27 +210,18 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 status: 'ACCEPTED'
             });
 
-            // Update driver status in memory
             const driver = activeDrivers.get(driverId);
             if (driver) driver.status = "busy";
 
             socket.join(`ride:${rideId}`);
-            console.log(`-----------------------------------------`);
-            console.log(`✅ [RIDE ACCEPTED BY DRIVER]`);
-            console.log(`   Ride ID: ${rideId}`);
-            console.log(`   Driver ID: ${driverId}`);
-            console.log(`   Internal ID: ${updatedRide._id}`);
-            console.log(`   Passenger ID: ${updatedRide.createdBy}`);
-            console.log(`-----------------------------------------`);
         } catch (error) {
             console.error("Taxi accept error:", error);
         }
     });
 
-    // Ride Status Update
     socket.on("update-ride-status", async (data: any) => {
         try {
-            const { rideId, status, driverId, passengerId } = data;
+            const { rideId, status, driverId } = data;
             const updatedRide = await Ride.findOneAndUpdate({ rideId }, {
                 status,
                 ...(status === 'ARRIVED' ? { arrivedAt: new Date() } : {}),
@@ -271,12 +231,10 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (!updatedRide) return;
 
-            // Broadcast to the passenger AND anyone in the ride room
             const payload = { ...data, status };
             io.to(`user:${updatedRide.createdBy}`).emit("ride-status-update", payload);
             io.to(`ride:${rideId}`).emit("ride-status-update", payload);
 
-            // Make sure all carpool passengers are notified individually
             if (updatedRide.passengers && updatedRide.passengers.length > 0) {
                 updatedRide.passengers.forEach((p: any) => {
                     io.to(`user:${p.userId}`).emit("ride-status-update", payload);
@@ -284,17 +242,88 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             }
 
             if (status === 'COMPLETED') {
-                const driver = activeDrivers.get(driverId);
-                if (driver) driver.status = "available";
-            }
+                const driverIdFromRide = updatedRide.driverId;
+                const paymentMethod = updatedRide.paymentMethod;
+                const isCarpool = updatedRide.type === 'CARPOOL' || updatedRide.isSharedRide;
 
-            console.log(`🚕 Ride ${rideId} status updated to ${status}`);
+                const processPayment = async (pId: string, amount: number) => {
+                    const person = await User.findById(pId);
+                    if (!person) return false;
+                    
+                    if (paymentMethod === 'WALLET') {
+                        if ((person.walletBalance || 0) < amount) {
+                            io.to(`user:${pId}`).emit("ride-request-failed", { reason: "Insufficient wallet balance to complete payment." });
+                            return false;
+                        }
+                        person.walletBalance -= amount;
+                        await person.save();
+                        
+                        await new Transaction({
+                            userId: pId,
+                            rideId: updatedRide._id,
+                            type: 'DEBIT',
+                            amount: amount,
+                            description: `Payment for Ride ${rideId}`,
+                            status: 'SUCCESS',
+                            method: 'WALLET'
+                        }).save();
+
+                        io.to(`user:${pId}`).emit("wallet-update", { balance: person.walletBalance });
+
+                        if (driverIdFromRide) {
+                            const driver = await User.findById(driverIdFromRide);
+                            if (driver) {
+                                const finalEarned = Math.round(amount * 0.85); // 15% platform fee
+                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+                                await driver.save();
+
+                                await new Transaction({
+                                    userId: driverIdFromRide,
+                                    rideId: updatedRide._id,
+                                    type: 'CREDIT',
+                                    amount: finalEarned,
+                                    description: `Earnings for Ride ${rideId} (from passenger payment)`,
+                                    status: 'SUCCESS',
+                                    method: 'WALLET'
+                                }).save();
+
+                                io.to(`user:${driverIdFromRide}`).emit("wallet-update", { balance: driver.walletBalance });
+                            }
+                        }
+                        return true;
+                    } else if (paymentMethod === 'CASH') {
+                        await new Transaction({
+                            userId: pId,
+                            rideId: updatedRide._id,
+                            type: 'DEBIT',
+                            amount: amount,
+                            description: `Cash payment for Ride ${rideId}`,
+                            status: 'SUCCESS',
+                            method: 'CASH'
+                        }).save();
+                        return true;
+                    }
+                    return false;
+                };
+
+                if (isCarpool) {
+                    if (updatedRide.passengers && updatedRide.passengers.length > 0) {
+                        for (const p of updatedRide.passengers) {
+                            await processPayment(p.userId.toString(), updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length));
+                        }
+                    }
+                } else {
+                    await processPayment(updatedRide.createdBy.toString(), updatedRide.price);
+                }
+
+                const d = activeDrivers.get(driverIdFromRide?.toString() || "");
+                if (d) d.status = "available";
+            }
         } catch (error) {
             console.error("Update status error:", error);
         }
     });
 
-    // Ride Cancel
     socket.on("ride-cancel", async (data: any) => {
         try {
             const { rideId, passengerId, driverId } = data;
@@ -313,41 +342,19 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const driver = activeDrivers.get(driverId);
                 if (driver) driver.status = "available";
             }
-
-            console.log(`❌ Ride ${rideId} cancelled`);
         } catch (error) {
             console.error("Cancel ride error:", error);
         }
     });
 
-    // Taxi Reject (Driver declines incoming request)
     socket.on("ride-reject", async (data: { rideId: string; driverId: string }) => {
         try {
             const { rideId, driverId } = data;
-            
-            // Log rejection in the ride document
-            const ride = await Ride.findOneAndUpdate(
+            await Ride.findOneAndUpdate(
                 { rideId },
-                { 
-                    $push: { 
-                        candidateDrivers: { 
-                            driverId, 
-                            status: "REJECTED", 
-                            rejectedAt: new Date() 
-                        } 
-                    } 
-                },
+                { $push: { candidateDrivers: { driverId, status: "REJECTED", rejectedAt: new Date() } } },
                 { new: true }
             );
-
-            if (ride) {
-                console.log(`👎 [RIDE REJECTED BY DRIVER]`);
-                console.log(`   Ride ID: ${rideId}`);
-                console.log(`   Driver ID: ${driverId}`);
-            }
-
-            // We don't necessarily need to notify the passenger yet 
-            // but we could if we wanted to show who rejected (Uber doesn't usually)
         } catch (error) {
             console.error("Taxi reject error:", error);
         }

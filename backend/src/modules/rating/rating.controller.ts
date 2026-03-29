@@ -6,21 +6,28 @@ import User from "../../models/user";
 export const createRating = async (req: any, res: Response) => {
     try {
         let { rideId, rating, feedback, targetId } = req.body;
+        console.log(`⭐ Processing rating for Ride: ${rideId}, Rating: ${rating}, Target: ${targetId}`);
         
         // 1. Resolve MongoDB _id and ensure we have a targetId (Driver)
+        // Check both internal _id and public rideId
         const ride = await Ride.findOne({ 
             $or: [
-                { _id: (rideId && rideId.match(/^[0-9a-fA-F]{24}$/)) ? rideId : null }, 
+                { _id: (rideId && typeof rideId === 'string' && rideId.match(/^[0-9a-fA-F]{24}$/)) ? rideId : undefined }, 
                 { rideId: rideId }
-            ] 
+            ].filter(query => Object.values(query)[0] !== undefined)
         }).populate('driverId').populate('createdBy');
 
         if (!ride) {
-            console.error(`❌ Ride not found for rating: ${rideId}`);
-            return res.status(404).json({ message: "Ride connection failed. Document not found." });
+            console.error(`❌ Rating Error: Ride not found for ID: ${rideId}. Available search params were: rideId or _id.`);
+            return res.status(404).json({ 
+                message: "Trip record not found. Unable to attach rating.",
+                receivedId: rideId 
+            });
         }
 
         // Final resolution for targetId (Driver to be rated)
+        // If passenger ratings driver, targetId is driverId.
+        // If driver ratings passenger (not implemented but prepared), it would be different.
         const finalTargetId = targetId || ride.driverId?._id || ride.driverId || ride.createdBy?._id || ride.createdBy;
 
         if (!finalTargetId) {
