@@ -146,7 +146,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
       const { order, key_id, paymentContext } = data;
 
-      return new Promise((resolve) => {
+      return new Promise<boolean>((resolve) => {
         const options = {
           key: key_id,
           amount: order.amount,

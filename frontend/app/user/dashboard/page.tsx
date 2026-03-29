@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Bell, HelpCircle, Wallet, IndianRupee } from "lucide-react";
+import toast from "react-hot-toast";
 
 import { useUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
@@ -31,6 +32,10 @@ export default function UserDashboard() {
   const { clearAuth } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [profileData, setProfileData] = useState({ firstName: "", lastName: "" });
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [addressFormData, setAddressFormData] = useState({ label: "Home", address: "" });
+  const [securityData, setSecurityData] = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
 
   // Activate WebSocket for real-time ride tracking/requests
   useRideSocket(user);
@@ -58,6 +63,15 @@ export default function UserDashboard() {
   }, []);
 
   useEffect(() => {
+    if (user) {
+      setProfileData({
+        firstName: user.firstName || user.name?.split(" ")[0] || "",
+        lastName: user.lastName || user.name?.split(" ").slice(1).join(" ") || ""
+      });
+    }
+  }, [user]);
+
+  useEffect(() => {
     if (mounted && !userLoading && user?.role === "DRIVER" && ["PENDING", "AWAITING_APPROVAL"].includes(user?.status || "")) {
       router.push("/driver/onboarding");
     }
@@ -78,6 +92,78 @@ export default function UserDashboard() {
   const handleLogout = () => {
     clearAuth();
     router.push("/login");
+  };
+
+  const handleUpdateProfile = async () => {
+    const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
+    if (!fullName) {
+      toast.error("Please enter your name.");
+      return;
+    }
+    try {
+      await dashboardData.updateProfileMutation.mutateAsync({ name: fullName });
+      toast.success("Profile updated.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update profile.");
+    }
+  };
+
+  const handleUpdateImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await dashboardData.updateProfilePhotoMutation.mutateAsync(file);
+      toast.success("Profile photo updated.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to upload image.");
+    }
+  };
+
+  const handleAddAddress = async () => {
+    if (!addressFormData.address.trim()) {
+      toast.error("Please enter an address.");
+      return;
+    }
+    const addresses = [...(user?.addresses || []), addressFormData];
+    try {
+      await dashboardData.updateAddressesMutation.mutateAsync(addresses);
+      setAddressFormData({ label: "Home", address: "" });
+      setIsAddingAddress(false);
+      toast.success("Address added.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to add address.");
+    }
+  };
+
+  const handleDeleteAddress = async (idx: number) => {
+    const addresses = (user?.addresses || []).filter((_: any, index: number) => index !== idx);
+    try {
+      await dashboardData.updateAddressesMutation.mutateAsync(addresses);
+      toast.success("Address removed.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to remove address.");
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!securityData.oldPassword || !securityData.newPassword || !securityData.confirmPassword) {
+      toast.error("Please fill all password fields.");
+      return;
+    }
+    if (securityData.newPassword !== securityData.confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+    try {
+      await dashboardData.changePasswordMutation.mutateAsync({
+        oldPassword: securityData.oldPassword,
+        newPassword: securityData.newPassword
+      });
+      setSecurityData({ oldPassword: "", newPassword: "", confirmPassword: "" });
+      toast.success("Password updated.");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to update password.");
+    }
   };
 
   return (
@@ -142,7 +228,7 @@ export default function UserDashboard() {
         )}
 
         {activeTab === "earnings" && (
-          <EarningsTab />
+          <EarningsTab ridesHistory={dashboardData.ridesHistory} user={user} />
         )}
 
         {activeTab === "wallet" && (
@@ -157,20 +243,20 @@ export default function UserDashboard() {
         {activeTab === "settings" && (
           <SettingsTab
             user={user}
-            isUpdatingProfile={dashboardData.updateProfileMutation.isPending}
-            profileData={{ firstName: "", lastName: "" }}
-            setProfileData={() => { }}
-            handleUpdateProfile={() => { }}
-            handleUpdateImage={() => { }}
-            isAddingAddress={false}
-            setIsAddingAddress={() => { }}
-            addressFormData={{ label: "", address: "" }}
-            setAddressFormData={() => { }}
-            handleAddAddress={() => { }}
-            handleDeleteAddress={() => { }}
-            securityData={{}}
-            setSecurityData={() => { }}
-            handleChangePassword={() => { }}
+            isUpdatingProfile={dashboardData.updateProfileMutation.isPending || dashboardData.updateProfilePhotoMutation.isPending || dashboardData.updateAddressesMutation.isPending || dashboardData.changePasswordMutation.isPending}
+            profileData={profileData}
+            setProfileData={setProfileData}
+            handleUpdateProfile={handleUpdateProfile}
+            handleUpdateImage={handleUpdateImage}
+            isAddingAddress={isAddingAddress}
+            setIsAddingAddress={setIsAddingAddress}
+            addressFormData={addressFormData}
+            setAddressFormData={setAddressFormData}
+            handleAddAddress={handleAddAddress}
+            handleDeleteAddress={handleDeleteAddress}
+            securityData={securityData}
+            setSecurityData={setSecurityData}
+            handleChangePassword={handleChangePassword}
           />
         )}
 

@@ -31,6 +31,14 @@ export const useDashboardData = () => {
     },
   });
 
+  const { data: stats, isLoading: loadingStats } = useQuery({
+    queryKey: ['dashboardStats'],
+    queryFn: async () => {
+      const { data } = await api.get('/auth/stats');
+      return data;
+    },
+  });
+
   // Mutations
   const updateProfileMutation = useMutation({
     mutationFn: async (payload: { name: string }) => {
@@ -38,6 +46,7 @@ export const useDashboardData = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
     },
   });
 
@@ -51,6 +60,7 @@ export const useDashboardData = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
     },
   });
 
@@ -66,6 +76,7 @@ export const useDashboardData = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
@@ -76,6 +87,7 @@ export const useDashboardData = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
     },
   });
 
@@ -86,6 +98,8 @@ export const useDashboardData = () => {
     loadingHistory,
     transactions,
     loadingTransactions,
+    stats,
+    loadingStats,
     
     // mutations
     updateProfileMutation,

@@ -1,7 +1,25 @@
 import { IndianRupee, TrendingUp, CheckCircle2, Star, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
-export function EarningsTab() {
+export function EarningsTab({ ridesHistory = [], user }: { ridesHistory?: any[]; user?: any }) {
+  const completedRides = ridesHistory.filter((ride: any) => ride.status === 'COMPLETED');
+  const totalSpent = completedRides.reduce((sum: number, ride: any) => {
+    if (String(ride.createdBy?._id || ride.createdBy) === String(user?.id || user?._id)) {
+      return sum + Number(ride.price || 0);
+    }
+    return sum;
+  }, 0);
+  const totalTrips = completedRides.filter((ride: any) => String(ride.createdBy?._id || ride.createdBy) === String(user?.id || user?._id)).length;
+  const topRouteRide = completedRides[0];
+  const averageSpend = totalTrips > 0 ? totalSpent / totalTrips : 0;
+  const thisMonth = new Date().getMonth();
+  const monthlySpend = completedRides.reduce((sum: number, ride: any) => {
+    const isPassengerRide = String(ride.createdBy?._id || ride.createdBy) === String(user?.id || user?._id);
+    if (!isPassengerRide) return sum;
+    const rideDate = new Date(ride.createdAt);
+    return rideDate.getMonth() === thisMonth ? sum + Number(ride.price || 0) : sum;
+  }, 0);
+
   return (
     <div className="flex-1 bg-slate-50 p-12 overflow-y-auto custom-scrollbar">
       <div className="max-w-5xl mx-auto space-y-10">
@@ -25,26 +43,28 @@ export function EarningsTab() {
               <IndianRupee className="w-24 h-24" />
             </div>
             <p className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.2em] mb-4">Total Revenue</p>
-            <h3 className="text-4xl font-black tracking-tighter mb-2">Rs 0.00</h3>
+            <h3 className="text-4xl font-black tracking-tighter mb-2">Rs {totalSpent.toFixed(2)}</h3>
             <div className="flex items-center gap-2 text-slate-400">
               <TrendingUp className="w-4 h-4" />
-              <span className="text-[11px] font-bold">No data yet</span>
+              <span className="text-[11px] font-bold">{totalTrips > 0 ? `${totalTrips} completed rides` : 'No data yet'}</span>
             </div>
           </div>
           <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 relative overflow-hidden group">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Completed Rides</p>
-            <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">0</h3>
+            <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">{totalTrips}</h3>
             <div className="flex items-center gap-2 text-slate-400">
               <CheckCircle2 className="w-4 h-4" />
-              <span className="text-[11px] font-bold">--</span>
+              <span className="text-[11px] font-bold">Avg spend Rs {averageSpend.toFixed(0)}</span>
             </div>
           </div>
           <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 relative overflow-hidden group">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Top Route</p>
-            <h2 className="text-lg font-black text-[#0A192F] leading-tight mb-2 truncate">Indiranagar <span className="text-slate-300 mx-1">to</span> MG Road</h2>
+            <h2 className="text-lg font-black text-[#0A192F] leading-tight mb-2 truncate">
+              {topRouteRide ? `${topRouteRide.pickup?.label || 'Pickup'} to ${topRouteRide.drop?.label || 'Destination'}` : 'No rides yet'}
+            </h2>
             <div className="flex items-center gap-2 text-[#B8860B]">
               <Star className="w-4 h-4 fill-current" />
-              <span className="text-[11px] font-bold">4.9 Avg. Rating</span>
+              <span className="text-[11px] font-bold">{Number(user?.rating || 5).toFixed(1)} Avg. Rating</span>
             </div>
           </div>
         </div>
@@ -57,10 +77,26 @@ export function EarningsTab() {
               <button className="text-[10px] font-black text-[#00838F] uppercase hover:underline">View All</button>
             </div>
             <div className="space-y-4 py-12 text-center bg-white rounded-[32px] border border-slate-100">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="w-6 h-6 text-slate-200" />
-              </div>
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No payout history available</p>
+              {completedRides.length > 0 ? (
+                <div className="w-full max-w-2xl mx-auto px-6 space-y-4">
+                  {completedRides.slice(0, 5).map((ride: any) => (
+                    <div key={ride._id || ride.rideId} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="text-left min-w-0">
+                        <p className="text-sm font-black text-[#0A192F] truncate">{ride.pickup?.label || "Pickup"} to {ride.drop?.label || "Destination"}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">{new Date(ride.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <p className="text-sm font-black text-[#0A192F]">Rs {Number(ride.price || 0).toFixed(0)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="w-6 h-6 text-slate-200" />
+                  </div>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No payout history available</p>
+                </>
+              )}
             </div>
           </div>
           
@@ -82,9 +118,9 @@ export function EarningsTab() {
               <div className="text-center space-y-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target: Rs 2,000</p>
                 <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#FFD700] h-full w-3/4" />
+                  <div className="bg-[#FFD700] h-full" style={{ width: `${Math.min(100, (monthlySpend / 2000) * 100)}%` }} />
                 </div>
-                <p className="text-sm font-black text-[#0A192F]">Rs 1,500 Earned Today</p>
+                <p className="text-sm font-black text-[#0A192F]">Rs {monthlySpend.toFixed(0)} spent this month</p>
               </div>
             </div>
             

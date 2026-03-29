@@ -54,33 +54,37 @@ export default function DriverDashboard() {
     const [reviews, setReviews] = useState<any[]>([]);
     const [trips, setTrips] = useState<any[]>([]);
 
+    const fetchTrips = async () => {
+        try {
+            const { data } = await api.get("/rides/history");
+            setTrips(data);
+        } catch (err) {
+            console.error("Failed to fetch history:", err);
+        }
+    };
+
+    const fetchReviews = async () => {
+        try {
+            const { data } = await api.get("/rating/my-ratings");
+            setReviews(data);
+
+            const profile = await api.get("/auth/me");
+            useAuthStore.getState().setUser(profile.data);
+        } catch (err) {
+            console.error("Failed to fetch reviews:", err);
+        }
+    };
+
     useEffect(() => {
-        const fetchHistory = async () => {
+        const loadTrips = async () => {
             setLoading(true);
-            try {
-                const { data } = await api.get("/rides/history");
-                setTrips(data);
-            } catch (err) {
-                console.error("Failed to fetch history:", err);
-            } finally {
-                setLoading(false);
-            }
+            await fetchTrips();
+            setLoading(false);
         };
-        if (user && activeTab === 'history') fetchHistory();
+        if (user && (activeTab === 'history' || activeTab === 'earnings')) loadTrips();
     }, [user, activeTab]);
 
     useEffect(() => {
-        const fetchReviews = async () => {
-            try {
-                const { data } = await api.get("/rating/my-ratings");
-                setReviews(data);
-                
-                const profile = await api.get("/auth/me");
-                useAuthStore.getState().setUser(profile.data);
-            } catch (err) {
-                console.error("Failed to fetch reviews:", err);
-            }
-        };
         if (user && activeTab === 'reviews') fetchReviews();
     }, [user, activeTab]);
 
@@ -97,6 +101,10 @@ export default function DriverDashboard() {
                 useAuthStore.getState().setUser(data);
                 setProfileName(data.name);
                 setProfileEmail(data.email);
+                const activeRideRes = await api.get("/rides/active");
+                if (activeRideRes.data) {
+                    setActiveTrip(activeRideRes.data);
+                }
             } catch (err) {
                 console.error("Profile sync error:", err);
             }
