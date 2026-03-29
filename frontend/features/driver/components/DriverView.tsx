@@ -240,14 +240,15 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               <div className="flex items-center gap-2">
                                  <button 
                                    onClick={() => {
-                                     setChatReceiver({ id: p.userId, name: p.name });
+                                     setChatReceiver({ id: p.userId?._id || p.userId, name: p.name });
                                      setIsChatOpen(true);
                                    }}
                                    className="w-10 h-10 bg-[#FFD700] text-[#0A192F] rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 relative"
                                  >
                                    <MessageCircle className="w-5 h-5" />
                                    {(() => {
-                                      const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(p.userId)].sort().join("_")}`;
+                                      const passengerId = p.userId?._id || p.userId;
+                                      const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(passengerId)].sort().join("_")}`;
                                       const unreadCount = unreadChatMessages[chatKey] || 0;
                                       if (unreadCount > 0) return (
                                         <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">

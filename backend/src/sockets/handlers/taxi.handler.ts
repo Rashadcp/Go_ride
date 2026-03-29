@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
-import { activeDrivers } from "../state";
+import { getActiveDriver, getAvailableDrivers, updateDriverStatus } from "../state";
 import Ride from "../../models/ride";
 import User from "../../models/user";
 import Transaction from "../../models/transaction";
@@ -51,7 +51,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 return R * c;
             };
 
-            const nearbyDrivers = Array.from(activeDrivers.values()).filter(d => {
+            const nearbyDrivers = (await getAvailableDrivers()).filter(d => {
                 if (!d.location?.lat || !d.location?.lng) return false;
                 
                 const distance = getDistance(pickup.lat, pickup.lng, d.location.lat, d.location.lng);
@@ -99,13 +99,13 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             if (matchingPools.length > 0) {
                 const notifiedDrivers = new Set<string>();
 
-                matchingPools.forEach(p => {
+                for (const p of matchingPools) {
                     const driver = p.createdBy as any;
                     const driverIdStr = driver._id.toString();
 
-                    if (notifiedDrivers.has(driverIdStr)) return;
+                    if (notifiedDrivers.has(driverIdStr)) continue;
 
-                    const driverSocket = activeDrivers.get(driverIdStr);
+                    const driverSocket = await getActiveDriver(driverIdStr);
                     if (driverSocket) {
                         io.to(driverSocket.socketId).emit("carpool:join:new_request", {
                             rideId: p.rideId,
@@ -119,7 +119,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                         });
                         notifiedDrivers.add(driverIdStr);
                     }
-                });
+                }
             }
         } catch (error) {
             console.error("Taxi request error:", error);
@@ -217,13 +217,19 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
-                driverId,
+                driverId: finalDriverId,
                 driverInfo,
-                status: 'ACCEPTED'
+                status: 'ACCEPTED',
+                ride: {
+                    ...updatedRide.toObject(),
+                    driverId: finalDriverId,
+                    driverInfo
+                }
             });
 
-            const driver = activeDrivers.get(driverId);
-            if (driver) driver.status = "busy";
+            if (finalDriverId) {
+                await updateDriverStatus(finalDriverId.toString(), "busy");
+            }
 
             socket.join(`ride:${rideId}`);
         } catch (error) {
@@ -243,7 +249,11 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (!updatedRide) return;
 
-            const payload = { ...data, status };
+            const payload = {
+                ...data,
+                status,
+                ride: updatedRide.toObject()
+            };
             io.to(`user:${updatedRide.createdBy}`).emit("ride-status-update", payload);
             io.to(`ride:${rideId}`).emit("ride-status-update", payload);
 
@@ -257,10 +267,9 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (status === 'COMPLETED') {
                 const driverIdFromRide = updatedRide.driverId;
-                const paymentMethod = updatedRide.paymentMethod;
                 const isCarpool = updatedRide.type === 'CARPOOL' || updatedRide.isSharedRide;
 
-                const processPayment = async (pId: string, amount: number) => {
+                const processPayment = async (pId: string, amount: number, paymentMethod: string) => {
                     const person = await User.findById(pId);
                     if (!person) return false;
                     
@@ -316,6 +325,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                             method: 'CASH'
                         }).save();
                         return true;
+                    } else if (paymentMethod === 'UPI') {
+                        return true;
                     }
                     return false;
                 };
@@ -324,16 +335,30 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                     if (updatedRide.passengers && updatedRide.passengers.length > 0) {
                         for (const p of updatedRide.passengers) {
                             if (p.userId) {
-                                await processPayment(p.userId.toString(), updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length));
+                                const passengerPaymentMethod = (p as any).paymentMethod || updatedRide.paymentMethod || 'CASH';
+                                const passengerAmount = (updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length)) * Number((p as any).seats || 1);
+
+                                io.to(`user:${p.userId}`).emit("ride-status-update", {
+                                    rideId,
+                                    status,
+                                    ride: {
+                                        ...updatedRide.toObject(),
+                                        paymentMethod: passengerPaymentMethod
+                                    }
+                                });
+
+                                await processPayment(p.userId.toString(), passengerAmount, passengerPaymentMethod);
                             }
                         }
                     }
                 } else {
-                    await processPayment(updatedRide.createdBy.toString(), updatedRide.price);
+                    await processPayment(updatedRide.createdBy.toString(), updatedRide.price, updatedRide.paymentMethod);
                 }
 
-                const d = activeDrivers.get(driverIdFromRide?.toString() || "");
-                if (d) d.status = "available";
+                const completedDriverId = driverIdFromRide?.toString();
+                if (completedDriverId) {
+                    await updateDriverStatus(completedDriverId, "available");
+                }
             }
         } catch (error) {
             console.error("Update status error:", error);
@@ -355,8 +380,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             if (driverId) {
                 io.to(`driver:${driverId}`).emit("ride-cancelled", { rideId });
-                const driver = activeDrivers.get(driverId);
-                if (driver) driver.status = "available";
+                await updateDriverStatus(driverId, "available");
             }
         } catch (error) {
             console.error("Cancel ride error:", error);

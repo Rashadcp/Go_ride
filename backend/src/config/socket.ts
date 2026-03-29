@@ -5,10 +5,17 @@ import { registerCarpoolHandlers } from "../sockets/handlers/carpool.handler";
 import { registerTrackingHandlers } from "../sockets/handlers/tracking.handler";
 import { registerEmergencyHandlers } from "../sockets/handlers/emergency.handler";
 import { registerChatHandlers } from "../sockets/handlers/chat.handler";
+import { configureSocketRedisAdapter } from "./redis";
+import {
+    getAvailableDrivers,
+    getDriverIdBySocket,
+    removeActiveDriver,
+    removeSocketDriver,
+    setActiveDriver,
+    setSocketDriver
+} from "../sockets/state";
 
-import { activeDrivers, socketToDriver } from "../sockets/state";
-
-export const initSocket = (server: HttpServer) => {
+export const initSocket = async (server: HttpServer) => {
     const io = new Server(server, {
         cors: {
             origin: [
@@ -23,59 +30,74 @@ export const initSocket = (server: HttpServer) => {
         }
     });
 
-    io.on("connection", (socket) => {
-        console.log(`🔌 Modular Socket Connected: ${socket.id}`);
+    await configureSocketRedisAdapter(io);
 
-        // Register Shared/Modular Handlers
+    io.on("connection", (socket) => {
+        console.log(`Socket connected: ${socket.id}`);
+
         registerTaxiHandlers(io, socket);
         registerCarpoolHandlers(io, socket);
         registerTrackingHandlers(io, socket);
         registerEmergencyHandlers(io, socket);
         registerChatHandlers(io, socket);
 
-        // Global Handlers
         socket.on("join", (data: { userId: string; role: string }) => {
-            console.log(`-----------------------------------------`);
-            console.log(`👤 [USER JOINED]`);
+            console.log("-----------------------------------------");
+            console.log("[USER JOINED]");
             console.log(`   User ID: ${data.userId}`);
             console.log(`   Role: ${data.role}`);
             console.log(`   Socket ID: ${socket.id}`);
-            console.log(`-----------------------------------------`);
-            
+            console.log("-----------------------------------------");
+
             socket.join(`user:${data.userId}`);
             if (data.role === "DRIVER") {
                 socket.join(`driver:${data.userId}`);
                 socket.join("drivers-pool");
-                // Don't auto-add to activeDrivers anymore. Only via driver-online event.
             }
         });
 
-        // Driver Online/Offline (Maintain legacy for now but bridge to modular)
         socket.on("driver-online", (data: any) => {
-            activeDrivers.set(data.driverId, { ...data, socketId: socket.id, lastSeen: Date.now(), status: "available" });
-            socketToDriver.set(socket.id, data.driverId);
-            socket.join(`driver:${data.driverId}`);
-            socket.join("drivers-pool");
-            
-            console.log(`-----------------------------------------`);
-            console.log(`🚗 [DRIVER ONLINE]`);
-            console.log(`   Driver ID: ${data.driverId}`);
-            console.log(`   Socket ID: ${socket.id}`);
-            console.log(`   Vehicle: ${data.vehicleType || 'Not specified'}`);
-            console.log(`   Total Active Drivers: ${activeDrivers.size}`);
-            console.log(`-----------------------------------------`);
+            void (async () => {
+                await setActiveDriver(data.driverId, {
+                    ...data,
+                    driverId: data.driverId,
+                    socketId: socket.id,
+                    lastSeen: Date.now(),
+                    status: "available"
+                });
+                await setSocketDriver(socket.id, data.driverId);
+                socket.join(`driver:${data.driverId}`);
+                socket.join("drivers-pool");
 
-            io.emit("active-drivers", Array.from(activeDrivers.values()).filter(d => d.status === "available"));
+                const availableDrivers = await getAvailableDrivers();
+
+                console.log("-----------------------------------------");
+                console.log("[DRIVER ONLINE]");
+                console.log(`   Driver ID: ${data.driverId}`);
+                console.log(`   Socket ID: ${socket.id}`);
+                console.log(`   Vehicle: ${data.vehicleType || "Not specified"}`);
+                console.log(`   Total Active Drivers: ${availableDrivers.length}`);
+                console.log("-----------------------------------------");
+
+                io.emit("active-drivers", availableDrivers);
+            })().catch((error) => {
+                console.error("Driver online state sync failed:", error);
+            });
         });
 
         socket.on("disconnect", () => {
-            const driverId = socketToDriver.get(socket.id);
-            if (driverId) {
-                activeDrivers.delete(driverId);
-                socketToDriver.delete(socket.id);
-                io.emit("active-drivers", Array.from(activeDrivers.values()).filter(d => d.status === "available"));
-            }
-            console.log(`🔌 Disconnected: ${socket.id}`);
+            void (async () => {
+                const driverId = await getDriverIdBySocket(socket.id);
+                if (driverId) {
+                    await removeActiveDriver(driverId);
+                    await removeSocketDriver(socket.id);
+                    io.emit("active-drivers", await getAvailableDrivers());
+                }
+
+                console.log(`Socket disconnected: ${socket.id}`);
+            })().catch((error) => {
+                console.error("Disconnect cleanup failed:", error);
+            });
         });
     });
 

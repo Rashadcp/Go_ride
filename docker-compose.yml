@@ -10,6 +10,16 @@ services:
       - mongodb_data:/data/db
     restart: always
 
+  redis:
+    image: redis:7-alpine
+    container_name: goride-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: always
+
   backend:
     build:
       context: ./backend
@@ -23,8 +33,10 @@ services:
       # Overriding MONGO_URI to use the local container name instead of the cloud URI
       # If you want to use the cloud DB instead, comment out the line below
       - MONGO_URI=mongodb://mongodb:27017/goride
+      - REDIS_URL=redis://redis:6379
     depends_on:
       - mongodb
+      - redis
     restart: always
 
   frontend:
@@ -40,3 +52,4 @@ services:
 
 volumes:
   mongodb_data:
+  redis_data:

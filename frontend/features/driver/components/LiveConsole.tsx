@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Star, Power, User, Loader2, MessageSquare } from "lucide-react";
 import { ChatModal } from "@/features/chat/components/ChatModal";
 import { useRideStore } from "@/features/ride/store/useRideStore";
@@ -41,8 +41,31 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
     setActiveTab,
     setIsOnline
 }) => {
-    const { unreadChatMessages } = useRideStore();
+    const { unreadChatMessages, chatHistory } = useRideStore();
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const lastAutoOpenedChatRef = useRef<string | null>(null);
+
+    const receiverId = activeTrip?.passengerId?._id || activeTrip?.passengerId || activeTrip?.createdBy || "";
+    const activeChatKey = `${activeTrip?.rideId || activeTrip?._id || ""}_${[String(user?.id || user?._id || ""), String(receiverId)].sort().join("_")}`;
+    const activeChatMessages = chatHistory?.[activeChatKey] || [];
+    const activeUnreadCount = unreadChatMessages[activeChatKey] || 0;
+    const latestIncomingChat = activeChatMessages.length > 0 ? activeChatMessages[activeChatMessages.length - 1] : null;
+
+    useEffect(() => {
+        const latestMessageId = latestIncomingChat?.id || latestIncomingChat?.timestamp || null;
+
+        if (!activeTrip || isChatOpen || !latestIncomingChat || latestIncomingChat.isSelf || activeUnreadCount <= 0 || !latestMessageId) {
+            return;
+        }
+
+        if (lastAutoOpenedChatRef.current === latestMessageId) {
+            return;
+        }
+
+        lastAutoOpenedChatRef.current = latestMessageId;
+        setIsChatOpen(true);
+    }, [activeTrip, activeUnreadCount, isChatOpen, latestIncomingChat]);
+
     return (
         <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
             {/* Map Section */}
@@ -117,12 +140,9 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                                         >
                                             <MessageSquare className="w-4 h-4" />
                                             {(() => {
-                                               const receiverId = activeTrip.passengerId?._id || activeTrip.passengerId || activeTrip.createdBy || "";
-                                               const chatKey = `${activeTrip.rideId || activeTrip._id || ""}_${[String(user?.id || user?._id), String(receiverId)].sort().join("_")}`;
-                                               const unreadCount = unreadChatMessages[chatKey] || 0;
-                                               if (unreadCount > 0) return (
+                                               if (activeUnreadCount > 0) return (
                                                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[8px] text-white shadow-lg animate-bounce border border-white/20">
-                                                   {unreadCount}
+                                                   {activeUnreadCount}
                                                  </span>
                                                );
                                                return null;
@@ -131,6 +151,27 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                                     </div>
                                     <div className="w-2 h-2 rounded-full bg-[#0A192F] shadow-sm animate-pulse"></div>
                                 </div>
+                                {activeUnreadCount > 0 && (
+                                    <button
+                                        onClick={() => setIsChatOpen(true)}
+                                        className="w-full flex items-center justify-between gap-3 mb-5 px-4 py-3 bg-white/70 text-[#0A192F] rounded-2xl border border-white/60 shadow-sm hover:bg-white transition-all"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-9 h-9 rounded-xl bg-[#0A192F] text-[#FFD700] flex items-center justify-center shrink-0">
+                                                <MessageSquare className="w-4 h-4" />
+                                            </div>
+                                            <div className="text-left min-w-0">
+                                                <p className="text-[10px] font-black uppercase tracking-widest">New Passenger Message</p>
+                                                <p className="text-xs font-semibold text-slate-700 truncate">
+                                                    {latestIncomingChat?.message || "Tap to open chat"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className="shrink-0 min-w-6 h-6 px-2 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                                            {activeUnreadCount}
+                                        </span>
+                                    </button>
+                                )}
                                 <div className="text-center mb-6">
                                     <p className="text-[#0A192F] font-black text-base lg:text-lg leading-tight mb-1">
                                         {activeTrip.status === "ACCEPTED" ? `Heading to Pickup` : 
@@ -207,7 +248,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                 onClose={() => setIsChatOpen(false)}
                 rideId={activeTrip.rideId || activeTrip._id || ""}
                 userId={user?.id || user?._id || ""}
-                receiverId={activeTrip.passengerId?._id || activeTrip.passengerId || activeTrip.createdBy || ""}
+                receiverId={receiverId}
                 receiverName={activeTrip.passengerName || "Passenger"}
                 senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Driver")}
               />

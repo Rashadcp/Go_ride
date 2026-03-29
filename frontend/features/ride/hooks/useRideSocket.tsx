@@ -91,7 +91,12 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     };
 
     const handleRideAccepted = (data: any) => {
-      setActiveRide(data);
+      setActiveRide((prev: any) => ({
+        ...prev,
+        ...(data.ride || {}),
+        ...data,
+        driverInfo: data.driverInfo || data.ride?.driverInfo || prev?.driverInfo
+      }));
       setPendingRideId(data.rideId || null);
       setIsRequestingRide(false);
       setLoadingDrivers(false);
@@ -104,12 +109,22 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       
       if (status === "COMPLETED") {
         toast.success("Destination reached!");
-        setActiveRide((prev: any) => ({ ...prev, status: "COMPLETED" }));
+        setActiveRide((prev: any) => ({
+          ...prev,
+          ...(ride || {}),
+          status: "COMPLETED",
+          driverInfo: prev?.driverInfo || ride?.driverInfo
+        }));
         return;
       }
       
       if (ride) {
-        setActiveRide(ride);
+        setActiveRide((prev: any) => ({
+          ...prev,
+          ...ride,
+          status: ride.status || status,
+          driverInfo: prev?.driverInfo || ride?.driverInfo
+        }));
       } else {
         setActiveRide((prev: any) => ({ ...prev, status }));
       }

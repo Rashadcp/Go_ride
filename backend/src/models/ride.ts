@@ -57,6 +57,11 @@ const rideSchema = new mongoose.Schema(
             name: String,
             photo: String,
             seats: Number,
+            paymentMethod: {
+                type: String,
+                enum: ["WALLET", "CASH", "UPI"],
+                default: "CASH",
+            },
             joinedAt: { type: Date, default: Date.now }
         }],
         availableSeats: {
@@ -132,4 +137,4 @@ rideSchema.index({ "drop.location": "2dsphere" });
 // rideSchema.index({ rideId: 1 }); // Duplicate index removed - already defined as unique: true in field definition
 rideSchema.index({ type: 1 });
 
-export default mongoose.model("Ride", rideSchema);
+export default mongoose.model("Ride", rideSchema);

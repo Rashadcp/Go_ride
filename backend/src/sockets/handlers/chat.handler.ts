@@ -1,25 +1,36 @@
 import { Server, Socket } from "socket.io";
 
-export const registerChatHandlers = (io: Server, socket: Socket) => {
-    // 💬 Send specific message
-    socket.on("chat:message", (data: { rideId: string; senderId: string; receiverId: string; message: string; senderName: string }) => {
-        const { rideId, receiverId } = data;
-        
-        console.log(`💬 Chat Message: From ${data.senderName} to User ${receiverId} for Ride ${rideId}`);
-        
-        // Broadcast to the specifically targeted user room
-        // This ensures both passenger and driver get it if they are correctly in their rooms
-        io.to(`user:${receiverId}`).emit("chat:new_message", {
-            ...data,
-            timestamp: new Date().toISOString()
-        });
-        
-        // Also send back to sender (to confirm delivery/update UI if not local)
-        socket.emit("chat:message_sent", {
-            ...data,
-            timestamp: new Date().toISOString()
-        });
-    });
+const normalizeUserId = (value: any) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") return String(value._id || value.id || "");
+    return String(value);
+};
 
-    // 🕒 Optional: Chat history could be implemented here with DB
+export const registerChatHandlers = (io: Server, socket: Socket) => {
+    socket.on("chat:message", (data: { rideId: string; senderId: string; receiverId: string; message: string; senderName: string }) => {
+        const rideId = String(data.rideId || "");
+        const senderId = normalizeUserId(data.senderId);
+        const receiverId = normalizeUserId(data.receiverId);
+        const message = data.message?.trim();
+
+        if (!rideId || !senderId || !receiverId || !message) {
+            socket.emit("chat:error", { message: "Unable to send chat message." });
+            return;
+        }
+
+        const payload = {
+            ...data,
+            rideId,
+            senderId,
+            receiverId,
+            message,
+            timestamp: new Date().toISOString(),
+        };
+
+        console.log(`Chat Message: From ${data.senderName} to User ${receiverId} for Ride ${rideId}`);
+
+        io.to(`user:${receiverId}`).to(`driver:${receiverId}`).emit("chat:new_message", payload);
+        socket.emit("chat:message_sent", payload);
+    });
 };

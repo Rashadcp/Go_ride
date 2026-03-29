@@ -14,7 +14,8 @@ import stream from "stream";
 
 export const getProfilePhoto = async (req: Request, res: Response) => {
   try {
-    const { key } = req.params;
+    const keyParam = req.params.key;
+    const key = Array.isArray(keyParam) ? keyParam[0] : keyParam;
     const bucket = process.env.AWS_BUCKET_NAME || "go-ride";
     
     // Attempt to determine folder based on file naming or just try both

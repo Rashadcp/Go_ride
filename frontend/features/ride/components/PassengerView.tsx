@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import api from "@/lib/axios";
 import {
   Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus,
@@ -45,6 +45,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPaymentDone, setIsPaymentDone] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const lastAutoOpenedChatRef = useRef<string | null>(null);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -84,15 +85,66 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
   const estimatedRideFare = calculateFare(vehicleType);
 
+  const getRideSettlementAmount = (ride: any) => {
+    if (!ride) return estimatedRideFare;
+
+    const sharedRide = ride.type === "CARPOOL" || ride.isSharedRide || isSharedRide;
+    if (!sharedRide) {
+      return Number(ride.price || estimatedRideFare);
+    }
+
+    const currentUserId = String(user?.id || user?._id || "");
+    const passengerEntry = Array.isArray(ride.passengers)
+      ? ride.passengers.find((passenger: any) => String(passenger.userId?._id || passenger.userId) === currentUserId)
+      : null;
+
+    if (passengerEntry) {
+      const seatCount = Number(passengerEntry.seats || 1);
+      const seatPrice = Number(ride.pricePerSeat || ride.price || 0);
+      return seatPrice * seatCount;
+    }
+
+    return Number(ride.pricePerSeat || ride.price || (vehicleType === "bike" ? 40 : 100));
+  };
+
+  const activeChatKey = `${activeRide?.rideId || activeRide?._id || ""}_${[
+    String(user?.id || user?._id || ""),
+    String(activeRide?.driverId?._id || activeRide?.driverId || "")
+  ].sort().join("_")}`;
+  const activeChatMessages = unreadChatMessages[activeChatKey] !== undefined || rideState.chatHistory?.[activeChatKey]
+    ? (rideState.chatHistory?.[activeChatKey] || [])
+    : [];
+  const activeUnreadCount = unreadChatMessages[activeChatKey] || 0;
+  const latestIncomingChat = activeChatMessages.length > 0 ? activeChatMessages[activeChatMessages.length - 1] : null;
+
+  useEffect(() => {
+    const isSharedActiveRide = !!activeRide && (activeRide.type === "CARPOOL" || activeRide.isSharedRide);
+    const latestMessageId = latestIncomingChat?.id || latestIncomingChat?.timestamp || null;
+
+    if (!isSharedActiveRide || isChatOpen || !latestIncomingChat || latestIncomingChat.isSelf || activeUnreadCount <= 0 || !latestMessageId) {
+      return;
+    }
+
+    if (lastAutoOpenedChatRef.current === latestMessageId) {
+      return;
+    }
+
+    lastAutoOpenedChatRef.current = latestMessageId;
+    setIsChatOpen(true);
+    toast.success(`${latestIncomingChat.senderName || "Driver"} sent you a message.`);
+  }, [activeRide, activeUnreadCount, isChatOpen, latestIncomingChat]);
+
   const processPayment = async (amount: number, rideId?: string, driverId?: string): Promise<boolean> => {
     setIsProcessingPayment(true);
     try {
       const { data } = await api.post("/payment/create", {
         amount,
-        method: "RAZORPAY"
+        method: "RAZORPAY",
+        rideId,
+        driverId
       });
 
-      const { order, key_id } = data;
+      const { order, key_id, paymentContext } = data;
 
       return new Promise((resolve) => {
         const options = {
@@ -100,7 +152,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           amount: order.amount,
           currency: order.currency,
           name: "Go Ride Mobility",
-          description: rideId ? `Trip settlement for Ride ${rideId}` : "Wallet Credit Addition",
+          description: paymentContext?.description || (rideId ? `Trip settlement for Ride ${rideId}` : "Wallet Credit Addition"),
           order_id: order.id,
           handler: async function (response: any) {
              try {
@@ -112,29 +164,38 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                  rideId,
                  driverId
                });
-               toast.success(rideId ? "Trip settled successfully!" : "Payment successful!");
+               toast.success(rideId ? "UPI payment completed successfully." : "Payment successful!");
                resolve(true);
-             } catch (err) {
-               toast.error("Payment verification failed.");
+             } catch (err: any) {
+               toast.error(err?.response?.data?.message || "Payment verification failed.");
                resolve(false);
              }
           },
           prefill: {
             name: user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || ''),
             email: user.email,
+            contact: user.phone || user.phoneNumber || "",
+          },
+          method: {
+            upi: true,
+            card: false,
+            netbanking: false,
+            wallet: false,
+            emi: false,
+            paylater: false,
           },
           theme: { color: "#0A192F" },
-          modal: { ondismiss: () => resolve(false) }
+          modal: { ondismiss: () => resolve(false) },
+          retry: { enabled: false }
         };
 
         const rzp = new (window as any).Razorpay(options);
         rzp.open();
-      });
-    } catch (err) {
-      toast.error("Initialization failed.");
-      return false;
-    } finally {
+      }).finally(() => setIsProcessingPayment(false));
+    } catch (err: any) {
       setIsProcessingPayment(false);
+      toast.error(err?.response?.data?.message || "Unable to initialize UPI payment.");
+      return false;
     }
   };
 
@@ -711,6 +772,28 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       </p>
                       
                       {/* Communication Controls */}
+                      {activeUnreadCount > 0 && (
+                        <button
+                          onClick={() => setIsChatOpen(true)}
+                          className="w-full flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-amber-50 text-[#0A192F] rounded-2xl border border-amber-200 shadow-sm hover:bg-amber-100 transition-all"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-[#0A192F] text-[#FFD700] flex items-center justify-center shrink-0">
+                              <MessageSquare className="w-4 h-4" />
+                            </div>
+                            <div className="text-left min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-widest">New Driver Message</p>
+                              <p className="text-xs font-semibold text-slate-600 truncate">
+                                {latestIncomingChat?.message || "Tap to open chat"}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 min-w-6 h-6 px-2 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">
+                            {activeUnreadCount}
+                          </span>
+                        </button>
+                      )}
+
                       <div className="flex items-center gap-2 mt-3">
                          <a 
                            href={`tel:${activeRide.driverInfo?.phone || activeRide.driverPhone || '0000000000'}`}
@@ -870,16 +953,26 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {activeRide.paymentMethod === 'UPI' && !isPaymentDone ? (
                            <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-100 flex flex-col items-center gap-4">
+                              <div className="w-full flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-left">
+                                 <div className="w-9 h-9 rounded-xl bg-[#0A192F] text-[#FFD700] flex items-center justify-center shrink-0">
+                                    <QrCode className="w-4 h-4" />
+                                 </div>
+                                 <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Complete Your UPI Payment Now</p>
+                                    <p className="text-xs font-semibold text-slate-600 mt-1">Your trip is finished, but payment is still pending. Tap below to open Razorpay and finish the fare.</p>
+                                 </div>
+                              </div>
                               <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg">
                                  <IndianRupee className="w-8 h-8" />
                               </div>
                               <div className="text-center">
-                                 <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic">Trip Settlement</h4>
-                                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Outstanding Balance: ₹{activeRide.price || (isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare)}</p>
+                                 <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic">Complete UPI Payment</h4>
+                                 <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-1">Outstanding Balance: ₹{getRideSettlementAmount(activeRide)}</p>
+                                 <p className="text-slate-500 font-semibold text-xs mt-2">Your driver will be credited as soon as Razorpay confirms the payment.</p>
                               </div>
                               <button 
                                 onClick={async () => {
-                                  const fare = activeRide.price || (isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare);
+                                  const fare = getRideSettlementAmount(activeRide);
                                   const rId = activeRide.rideId || activeRide._id;
                                   const dId = activeRide.driverId?._id || activeRide.driverId;
                                   const success = await processPayment(fare, rId, dId);
@@ -889,7 +982,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:bg-black"
                               >
                                 {isProcessingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                                {isProcessingPayment ? "Initializing..." : "Pay with UPI"}
+                                {isProcessingPayment ? "Opening UPI..." : "Pay Now via UPI"}
                               </button>
                            </div>
                         ) : (

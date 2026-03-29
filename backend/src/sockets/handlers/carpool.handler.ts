@@ -22,7 +22,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     });
 
     // Carpool Join Accept (Driver -> Server -> Passenger)
-    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string }) => {
+    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string; photo?: string; passengerPhoto?: string }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL" || ride.availableSeats < data.seats) return;
@@ -44,10 +44,20 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 .populate('driverId', 'name email phone profilePhoto rating')
                 .populate('passengers.userId', 'name profilePhoto');
 
+            const passengerRideView = populatedRide?.toObject
+                ? {
+                    ...populatedRide.toObject(),
+                    paymentMethod: data.paymentMethod || "CASH"
+                }
+                : {
+                    ...populatedRide,
+                    paymentMethod: data.paymentMethod || "CASH"
+                };
+
             // Notify passenger using their persistent user room
             io.to(`user:${data.userId}`).emit("carpool:join:accepted", { 
                 rideId: data.rideId, 
-                ride: populatedRide 
+                ride: passengerRideView 
             });
 
             // [FIX] Clean up any other "SEARCHING" taxi requests for this passenger 
@@ -59,7 +69,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             
             // Re-broadcast updated ride to the specific ride room and everyone
             io.to(`ride:${data.rideId}`).emit("ride:update", populatedRide);
-            io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride: populatedRide });
+            io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride: passengerRideView });
             
             // Still broadcast globally for list updates if needed
             io.emit("ride:update", populatedRide);

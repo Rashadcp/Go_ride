@@ -8,7 +8,6 @@ import vehicleRoutes from "./routes/vehicle.routes";
 import mapRoutes from "./routes/map.routes";
 import rideRoutes from "./routes/ride.routes";
 
-// New Modular Routes
 import taxiRoutes from "./modules/taxi/taxi.routes";
 import carpoolRoutes from "./modules/carpool/carpool.routes";
 import paymentRoutes from "./modules/payment/payment.routes";
@@ -17,6 +16,7 @@ import ratingRoutes from "./modules/rating/rating.routes";
 import notificationRoutes from "./routes/notification.routes";
 
 import passport from "./config/passport";
+import { closeRedisConnections, connectRedis } from "./config/redis";
 
 dotenv.config();
 
@@ -26,10 +26,6 @@ import { initSocket } from "./config/socket";
 const app = express();
 const httpServer = createServer(app);
 
-// Initialize Socket.io
-initSocket(httpServer);
-
-// 1. CORS at the TRIPLE TOP to ensure all responses (including errors) have headers
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
@@ -39,11 +35,11 @@ app.use(cors({
       "http://192.168.56.1:3000",
       "http://192.168.0.103:3000"
     ];
-    // During development, allow all local origins and echo them back for compatibility
-    if (!origin || allowedOrigins.includes(origin) || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.startsWith('http://192.168.')) {
+
+    if (!origin || allowedOrigins.includes(origin) || origin.includes("localhost") || origin.includes("127.0.0.1") || origin.startsWith("http://192.168.")) {
       callback(null, true);
     } else {
-      console.log("⚠️ CORS Blocked Origin:", origin);
+      console.log("CORS blocked origin:", origin);
       callback(null, false);
     }
   },
@@ -52,18 +48,13 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// app.use((req, res, next) => {
-//   console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-//   next();
-// });
-
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use(passport.initialize());
 
 mongoose.connect(process.env.MONGO_URI!)
-  .then(() => console.log("✅ MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
@@ -71,7 +62,6 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/map", mapRoutes);
 app.use("/api/rides", rideRoutes);
 
-// New Modular endpoints
 app.use("/api/taxi", taxiRoutes);
 app.use("/api/carpool", carpoolRoutes);
 app.use("/api/payment", paymentRoutes);
@@ -81,9 +71,8 @@ app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 
-// Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("🏁 Global Error Context:", {
+  console.error("Global Error Context:", {
     method: req.method,
     url: req.url,
     error: err.message || err,
@@ -97,6 +86,30 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 const PORT = Number(process.env.PORT) || 5000;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Server + Real-time System on port ${PORT}`);
+
+const bootstrap = async () => {
+  await connectRedis();
+  await initSocket(httpServer);
+
+  httpServer.listen(PORT, () => {
+    console.log(`Server + real-time system on port ${PORT}`);
+  });
+};
+
+void bootstrap().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
+});
+
+const shutdown = async () => {
+  await closeRedisConnections();
+  process.exit(0);
+};
+
+process.on("SIGINT", () => {
+  void shutdown();
+});
+
+process.on("SIGTERM", () => {
+  void shutdown();
 });

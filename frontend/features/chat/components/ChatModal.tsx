@@ -28,7 +28,19 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, rideId, u
   const [inputText, setInputText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const conversationKey = `${rideId}_${[userId, receiverId].sort().join("_")}`;
+  const normalizeId = (value: unknown) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      return String(record._id || record.id || "");
+    }
+    return String(value);
+  };
+
+  const normalizedUserId = normalizeId(userId);
+  const normalizedReceiverId = normalizeId(receiverId);
+  const conversationKey = `${rideId}_${[normalizedUserId, normalizedReceiverId].sort().join("_")}`;
   const messages = chatHistory[conversationKey] || [];
 
   useEffect(() => {
@@ -48,12 +60,12 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, rideId, u
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || !rideId || !normalizedUserId || !normalizedReceiverId) return;
 
     const payload = {
       rideId,
-      senderId: userId,
-      receiverId,
+      senderId: normalizedUserId,
+      receiverId: normalizedReceiverId,
       senderName: senderName,
       message: inputText.trim(),
     };
