@@ -59,17 +59,17 @@ export default function LoginPage() {
 
                 <div className="max-w-md w-full mx-auto lg:ml-0 my-auto pb-10">
                     <div className="mb-10 font-[family-name:var(--font-montserrat)] text-center sm:text-left">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Access Terminal</span>
-                        <h1 className="text-4xl sm:text-5xl font-black mb-3 tracking-tighter uppercase leading-tight">Authorize <br /> <span className="text-[#B8860B]">Session</span></h1>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Welcome Back</span>
+                        <h1 className="text-4xl sm:text-5xl font-black mb-3 tracking-tighter uppercase leading-tight">Sign <br /> <span className="text-[#B8860B]">In</span></h1>
                         <p className="text-[#4A4A48] font-semibold text-sm leading-relaxed border-l-2 border-[#FFD700] pl-4 font-[family-name:var(--font-roboto)] text-left">
-                            Welcome back. Please authorize your session to continue managing your travels.
+                            Good to see you again! Log in to continue your journey.
                         </p>
                     </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Official Email</label>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Email</label>
                         <Mail className="w-3.5 h-3.5 text-slate-300" />
                     </div>
                     <input
@@ -84,8 +84,8 @@ export default function LoginPage() {
                 </div>
                 <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Secure Password</label>
-                        <a href="/forgot-password" className="text-[#B8860B] hover:text-[#FFD700] text-[10px] font-black uppercase tracking-widest transition-colors">Recover?</a>
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Password</label>
+                        <a href="/forgot-password" className="text-[#B8860B] hover:text-[#FFD700] text-[10px] font-black uppercase tracking-widest transition-colors">Forgot?</a>
                     </div>
                     <div className="relative">
                         <input
@@ -112,7 +112,7 @@ export default function LoginPage() {
                             loading={loading}
                             className="w-full py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none"
                         >
-                            Authorize Account <ArrowRight className="w-4 h-4" />
+                            Sign In <ArrowRight className="w-4 h-4" />
                         </Button>
                     </form>
 
@@ -120,15 +120,15 @@ export default function LoginPage() {
 
                     <div className="mt-12 text-center sm:text-left pt-6 border-t border-[#E5E5E0]">
                         <p className="text-[#4A4A48] text-[11px] font-black uppercase tracking-widest leading-tight">
-                            No credentials?{" "}
-                            <a href="/register" className="text-[#FFD700] hover:text-[#B8860B] transition-colors ml-2 underline decoration-2 underline-offset-4">Join Go Ride Today</a>
+                            New here?{" "}
+                            <a href="/register" className="text-[#FFD700] hover:text-[#B8860B] transition-colors ml-2 underline decoration-2 underline-offset-4">Create an Account</a>
                         </p>
                     </div>
                 </div>
             </div>
 
             {/* Right Side: Editorial Canvas */}
-            <div className="hidden lg:flex lg:w-[55%] bg-[#1A1A1A] relative items-center justify-center overflow-hidden">
+            <div className="hidden lg:flex lg:w-[55%] bg-[#0A192F] relative items-center justify-center overflow-hidden">
                 <div className="absolute top-0 right-0 w-[80%] h-[80%] bg-[#FFD700]/5 rounded-full blur-[150px]"></div>
                 <div className="absolute bottom-0 left-0 w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px]"></div>
 
@@ -137,10 +137,10 @@ export default function LoginPage() {
                         <ShieldCheck className="w-8 h-8 text-[#FFD700]" strokeWidth={1} />
                     </div>
                     <h2 className="text-6xl font-[family-name:var(--font-montserrat)] font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
-                        Travel <br /> <span className="text-[#FFD700]">Authorized.</span>
+                        Welcome <br /> <span className="text-[#FFD700]">Back.</span>
                     </h2>
                     <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                        Efficiency is the foundation of excellence. Access your portal to manage your urban mobility with precision.
+                        Your rides, your way. Sign in to book trips, track rides, and get where you need to go.
                     </p>
                 </div>
 

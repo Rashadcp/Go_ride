@@ -4,19 +4,14 @@ import React, { useEffect, useState } from "react";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import {
-    CheckCircle,
-    XCircle,
-    Clock,
     User,
     ShieldCheck,
     AlertCircle,
     Loader2,
     Users,
     Search,
-    ChevronRight,
     Eye,
     FileText,
-    Image as ImageIcon,
     Car,
     X,
     Check,
@@ -26,10 +21,11 @@ import {
     Unlock,
     AlertTriangle,
     History,
-    Navigation,
-    Circle,
-    UserCircle,
-    Edit2
+    Edit2,
+    Mail,
+    Phone,
+    Fingerprint,
+    CreditCard
 } from "lucide-react";
 import UserRideHistoryModal from "@/components/admin/UserRideHistoryModal";
 import EditUserModal from "@/components/admin/EditUserModal";
@@ -81,22 +77,19 @@ export default function DriverVerificationPage() {
     }, []);
 
     const handleAction = async (vehicleId: string, status: "APPROVED" | "REJECTED") => {
-        console.warn(`🛡️ Audit Decision: ${status} for Vehicle ID: ${vehicleId}`); 
         try {
-            const response = await api.put(`/admin/approve-driver/${vehicleId}`, { status });
-            console.log("✅ Audit Success:", response.data);
+            await api.put(`/admin/approve-driver/${vehicleId}`, { status });
             toast.success(`Driver ${status.toLowerCase()} successfully`);
-            fetchDrivers(); 
+            fetchDrivers();
             setSelectedDriver(null);
         } catch (error: any) {
-            console.error("❌ Audit Failure:", error);
             toast.error(error.response?.data?.message || "Failed to update status");
         }
     };
 
     const toggleBlockUser = async (id: string, currentlyBlocked: boolean) => {
         const action = currentlyBlocked ? "unblock" : "block";
-        if (!currentlyBlocked && !window.confirm(`Are you sure you want to block this driver? They won't be able to log in or take rides.`)) return;
+        if (!currentlyBlocked && !window.confirm(`Are you sure you want to block this driver?`)) return;
         try {
             await api.put(`/admin/users/block/${id}`);
             toast.success(`Driver ${action}ed successfully`);
@@ -124,10 +117,10 @@ export default function DriverVerificationPage() {
     };
 
     const handleSoftDelete = async (id: string) => {
-        if (!window.confirm("Are you sure you want to delete this driver account? This is a soft delete and the data will be retained for archival purposes.")) return;
+        if (!window.confirm("Are you sure you want to delete this driver?")) return;
         try {
             await api.delete(`/admin/users/${id}`);
-            toast.success("Driver account deleted successfully");
+            toast.success("Driver deleted successfully");
             fetchDrivers();
             setSelectedDriver(null);
         } catch (error: any) {
@@ -160,206 +153,179 @@ export default function DriverVerificationPage() {
         return matchesSearch && d.status === filter;
     });
 
+    const getImageUrl = (path?: string) => {
+        if (!path) return "";
+        if (path.startsWith("http") || path.startsWith("data:")) return path;
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001").replace("/api", "");
+        return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+    };
+
     if (loading) {
         return (
-            <div className="h-full flex flex-col items-center justify-center gap-4 bg-bg-main transition-colors duration-500">
+            <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC] min-h-screen">
                 <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
-                <p className="text-[#0A192F] dark:text-slate-400 font-medium font-bold">Loading Verification Portal...</p>
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Synchronizing Driver Audits...</p>
             </div>
         );
     }
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col bg-[#0A192F] transition-colors duration-500 min-h-screen">
-            {/* Header & Stats */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+        <div className="p-8 max-w-[1600px] mx-auto min-h-screen bg-[#F8FAFC]">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-white transition-colors tracking-tight italic uppercase">Go<span className="text-[#FFD700]">Ride</span> Drivers</h1>
-                    <p className="text-slate-400 font-medium mt-1">Manage and audit vehicle operator applications</p>
+                    <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Driver <span className="text-[#FFD700]">Intelligence</span></h1>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Review and manage elite driver registrations</p>
                 </div>
 
-                <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl shadow-sm border border-white/5">
+                <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
                     {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map(f => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
-                            className={`px-5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all ${filter === f
-                                ? "bg-[#FFD700] text-[#0A192F] shadow-lg shadow-[#FFD700]/20"
-                                : "text-slate-400 hover:text-white hover:bg-white/5"
+                            className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filter === f
+                                ? "bg-[#0A192F] text-[#FFD700] shadow-lg shadow-[#0A192F]/10"
+                                : "text-slate-400 hover:text-[#0A192F] hover:bg-slate-50"
                                 }`}
                         >
-                            {f === "PENDING" ? "Reviewing" : f}
+                            {f === "PENDING" ? "Auditing" : f}
                         </button>
                     ))}
                 </div>
             </div>
 
-            {/* Main List Table Area */}
-            <div className="bg-white/5 rounded-[32px] border border-white/5 shadow-sm overflow-hidden flex flex-col">
-                <div className="p-6 border-b border-white/5 bg-white/5 flex items-center justify-between">
+            {/* Main Content */}
+            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+                <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white">
                     <div className="relative w-full max-w-md">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                         <input
                             type="text"
-                            placeholder="Search by name, email or plate..."
-                            className="w-full pl-11 pr-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none"
+                            placeholder="Search by name, plate, or email..."
+                            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm text-[#0A192F] font-black focus:ring-2 ring-[#FFD700]/10 transition-all outline-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex gap-4">
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4 py-2 bg-white/5 rounded-xl border border-white/10 shadow-sm transition-all">
-                            <Users className="w-3 h-3" />
-                            {filteredDrivers.length} Candidates Found
-                        </div>
+                    <div className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 italic">
+                        <Users className="w-4 h-4 text-[#FFD700]" />
+                        {filteredDrivers.length} Professional Units
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-white/5">
-                                <th className="px-8 py-5 text-[10px] font-black text-[#FFD700] uppercase tracking-widest">Operator Identity</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-[#FFD700] uppercase tracking-widest">Vehicle Details</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-[#FFD700] uppercase tracking-widest text-center">Current Status</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-[#FFD700] uppercase tracking-widest text-right">Rapid Controls</th>
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50">
+                            <tr className="border-b border-slate-100">
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Driver Identity</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Asset Details</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-[#0A192F] uppercase tracking-widest italic text-center">Audit Status</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-slate-50">
                             {filteredDrivers.length > 0 ? (
                                 filteredDrivers.map(driver => (
-                                    <tr key={driver._id} className="hover:bg-white/5 transition-colors group">
+                                    <tr key={driver._id} className="hover:bg-slate-50/50 transition-colors group">
                                         <td className="px-8 py-6">
-                                            <div
-                                                className="flex items-center gap-4 cursor-pointer"
-                                                onClick={() => setSelectedDriver(driver)}
-                                            >
-                                                <div className="w-12 h-12 rounded-2xl bg-white/5 overflow-hidden border border-white/5 group-hover:border-[#FFD700]/50 transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-[#0A192F] overflow-hidden flex-shrink-0 border border-[#0A192F] shadow-lg shadow-[#0A192F]/5 group-hover:border-[#FFD700] transition-all flex items-center justify-center">
                                                     {driver.profilePhoto ? (
-                                                        <img src={driver.profilePhoto} alt="" className="w-full h-full object-cover" />
+                                                        <img src={getImageUrl(driver.profilePhoto)} alt="" className="w-full h-full object-cover" />
                                                     ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-slate-500">
-                                                            <User className="w-6 h-6" />
-                                                        </div>
+                                                        <User className="w-6 h-6 text-[#FFD700]" />
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-bold text-white group-hover:text-[#FFD700] transition-colors">{driver.name}</p>
+                                                    <p className="font-black text-[#0A192F] tracking-tight flex items-center gap-1.5 uppercase italic italic-none">
+                                                        {driver.name}
                                                         {driver.isBlocked && <Ban className="w-3 h-3 text-rose-500" />}
-                                                        {driver.isSuspicious && <AlertTriangle className="w-3 h-3 text-orange-500" />}
-                                                    </div>
-                                                    <p className="text-xs text-slate-400 font-medium">{driver.email}</p>
-                                                    {driver.reportCount && driver.reportCount > 0 ? (
-                                                        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 rounded-md w-fit">
-                                                            <AlertCircle className="w-3 h-3 text-rose-500" />
-                                                            <span className="text-[9px] font-black text-rose-500 uppercase tracking-widest">{driver.reportCount} Safety Reports</span>
-                                                        </div>
-                                                    ) : null}
+                                                    </p>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{driver.email}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
                                             {driver.vehicle ? (
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-white/5 rounded-lg text-slate-500 border border-white/5">
-                                                        <Car className="w-4 h-4" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-xs font-bold text-white">{driver.vehicle.vehicleModel} <span className="text-[#FFD700] ml-1 opacity-70">({driver.vehicle.vehicleType})</span></p>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase bg-white/5 px-2 py-0.5 rounded-md w-fit mt-1 border border-white/5">{driver.vehicle.numberPlate}</p>
-                                                    </div>
+                                                <div className="flex flex-col">
+                                                    <p className="text-[#0A192F] font-black text-[13px] tracking-tight">{driver.vehicle.vehicleModel}</p>
+                                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest italic">{driver.vehicle.numberPlate}</p>
                                                 </div>
                                             ) : (
-                                                <span className="text-xs italic text-slate-500">No vehicle data</span>
+                                                <span className="text-[10px] font-black text-slate-300 uppercase italic opacity-50">No Active Asset</span>
                                             )}
                                         </td>
                                         <td className="px-8 py-6 text-center">
-                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${driver.status === 'APPROVED' ? 'bg-emerald-400/10 text-emerald-400' :
-                                                driver.status === 'REJECTED' ? 'bg-rose-400/10 text-rose-400' :
-                                                    'bg-amber-400/10 text-amber-400'
-                                                }`}>
-                                                <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                            <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                                driver.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                driver.status === 'REJECTED' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                'bg-amber-50 text-amber-600 border-amber-100'
+                                            }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                                    driver.status === 'APPROVED' ? 'bg-emerald-500' :
+                                                    driver.status === 'REJECTED' ? 'bg-rose-500' :
+                                                    'bg-amber-500'
+                                                }`}></span>
                                                 {driver.status.replace("_", " ")}
                                             </span>
                                         </td>
-                                         <td className="px-8 py-6">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Management Buttons */}
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                {/* Verification Quick Actions */}
+                                                {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL') && driver.vehicle && (
+                                                    <div className="flex items-center gap-1 mr-3 bg-slate-50 p-1 rounded-xl border border-slate-100">
+                                                        <button
+                                                            onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "APPROVED")}
+                                                            className="p-2 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-lg transition-all border border-transparent hover:border-emerald-200"
+                                                            title="Quick Approve"
+                                                        >
+                                                            <Check className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "REJECTED")}
+                                                            className="p-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all border border-transparent hover:border-rose-200"
+                                                            title="Quick Reject"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                <button
+                                                    onClick={() => setSelectedDriver(driver)}
+                                                    className="p-2.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+                                                    title="Review Documents"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => handleEditDriver(driver)}
-                                                    className="p-2.5 text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 rounded-xl transition-all"
-                                                    title="Edit Driver Details"
+                                                    className="p-2.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+                                                    title="Edit Unit"
                                                 >
                                                     <Edit2 className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => viewRideHistory(driver._id)}
-                                                    className="p-2.5 text-slate-400 hover:text-[#FFD700] hover:bg-[#FFD700]/10 rounded-xl transition-all"
-                                                    title="Ride History"
+                                                    className="p-2.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+                                                    title="Audit Logs"
                                                 >
                                                     <History className="w-4 h-4" />
                                                 </button>
-                                                <button
-                                                    onClick={() => toggleFlagUser(driver._id, !!driver.isSuspicious)}
-                                                    className={`p-2.5 rounded-xl transition-all ${driver.isSuspicious ? 'text-orange-500 bg-orange-500/10' : 'text-slate-400 hover:text-orange-500 hover:bg-orange-500/10'}`}
-                                                    title={driver.isSuspicious ? "Unflag Suspicious" : "Flag Suspicious"}
-                                                >
-                                                    <AlertTriangle className="w-4 h-4" />
-                                                </button>
+                                                <div className="w-px h-5 bg-slate-100 mx-1.5" />
                                                 <button
                                                     onClick={() => toggleBlockUser(driver._id, !!driver.isBlocked)}
-                                                    className={`p-2.5 rounded-xl transition-all ${driver.isBlocked ? 'text-rose-500 bg-rose-500/10' : 'text-slate-400 hover:text-rose-500 hover:bg-rose-500/10'}`}
-                                                    title={driver.isBlocked ? "Unblock Driver" : "Block Driver"}
+                                                    className={`p-2.5 rounded-xl transition-all border ${driver.isBlocked ? 'text-rose-500 bg-rose-50 border-rose-100' : 'text-slate-300 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100'}`}
+                                                    title={driver.isBlocked ? "Unblock Unit" : "Block Unit"}
                                                 >
                                                     {driver.isBlocked ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                                                 </button>
                                                 <button
                                                     onClick={() => handleSoftDelete(driver._id)}
-                                                    className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-600/10 rounded-xl transition-all mr-2"
-                                                    title="Soft Delete Account"
+                                                    className="p-2.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                                                    title="Decommission Unit"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
-                                                </button>
-
-                                                <div className="w-px h-6 bg-white/10 mx-1" />
-
-                                                {/* Action Buttons for Pending/Rejected/Approved */}
-                                                {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL' || driver.status === 'REJECTED' || driver.status === 'APPROVED') && (
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "REJECTED")}
-                                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest ${driver.status === 'REJECTED'
-                                                                ? "bg-rose-100 text-rose-300 cursor-not-allowed opacity-50"
-                                                                : "bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white shadow-sm"
-                                                                }`}
-                                                            disabled={driver.status === 'REJECTED' || !driver.vehicle}
-                                                        >
-                                                            <X className="w-3.5 h-3.5" />
-                                                            Reject
-                                                        </button>
-                                                        <button
-                                                            onClick={() => driver.vehicle && handleAction(driver.vehicle._id, "APPROVED")}
-                                                            disabled={driver.status === 'APPROVED' || !driver.vehicle}
-                                                            title={!driver.vehicle ? "Vehicle information required for approval" : driver.status === 'APPROVED' ? "Driver is already approved" : "Approve this driver"}
-                                                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-widest shadow-lg ${driver.status === 'APPROVED' || !driver.vehicle
-                                                                ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                                                                : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20"
-                                                                }`}
-                                                        >
-                                                            <Check className="w-4 h-4" />
-                                                            Approve
-                                                        </button>
-                                                    </div>
-                                                )}
-
-                                                {/* Primary Review Button */}
-                                                <button
-                                                    onClick={() => setSelectedDriver(driver)}
-                                                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-[#0A192F] rounded-xl hover:bg-slate-100 transition-all text-[10px] font-black uppercase tracking-widest border border-slate-100"
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                    Review
                                                 </button>
                                             </div>
                                         </td>
@@ -367,11 +333,8 @@ export default function DriverVerificationPage() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="px-8 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-3 text-slate-300">
-                                            <Users className="w-12 h-12 opacity-10" />
-                                            <p className="text-sm font-bold opacity-30">No drivers in this queue</p>
-                                        </div>
+                                    <td colSpan={4} className="px-6 py-12 text-center text-slate-500 text-sm italic">
+                                        No drivers found
                                     </td>
                                 </tr>
                             )}
@@ -380,171 +343,182 @@ export default function DriverVerificationPage() {
                 </div>
             </div>
 
-            {/* --- IDENTITY MODAL --- */}
+            {/* --- REVIEW MODAL --- */}
             {selectedDriver && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10">
-                    <div
-                        className="absolute inset-0 bg-[#0A192F]/80 backdrop-blur-sm transition-opacity"
-                        onClick={() => setSelectedDriver(null)}
-                    ></div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-[#0A192F]/60 backdrop-blur-md" onClick={() => setSelectedDriver(null)}></div>
 
-                    <div className="relative bg-white w-full max-w-5xl rounded-[40px] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300">
-                        {/* Modal Header */}
-                        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                    <div className="relative bg-white w-full max-w-4xl rounded-[40px] shadow-2xl border border-slate-100 flex flex-col max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-300">
+                        {/* Header */}
+                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white relative">
                             <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 rounded-[28px] overflow-hidden border-4 border-slate-50 shadow-xl relative">
+                                <div className="w-16 h-16 rounded-[24px] overflow-hidden border-2 border-slate-50 shadow-inner bg-slate-50">
                                     {selectedDriver.profilePhoto ? (
-                                        <img src={selectedDriver.profilePhoto} alt="" className="w-full h-full object-cover" />
+                                        <img src={getImageUrl(selectedDriver.profilePhoto)} alt="" className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
+                                        <div className="w-full h-full flex items-center justify-center text-slate-200">
                                             <User className="w-8 h-8" />
                                         </div>
                                     )}
                                 </div>
-                                <div>
-                                    <h2 className="text-3xl font-black text-[#0A192F] tracking-tight">{selectedDriver.name}</h2>
-                                    <div className="flex items-center gap-3 mt-1.5">
-                                        <span className="text-xs font-bold text-slate-400">{selectedDriver.email}</span>
-                                        <div className="w-1 h-1 bg-slate-200 rounded-full"></div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#FFD700]">Audit in Progress</span>
+                                <div className="flex flex-col">
+                                    <h2 className="text-2xl font-black text-[#0A192F] italic uppercase tracking-tight">{selectedDriver.name}</h2>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedDriver.email}</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+                                        <span className="text-[#FFD700] uppercase font-black text-[10px] tracking-[0.2em] italic">Identity Audit</span>
                                     </div>
                                 </div>
                             </div>
-
-                            <button
-                                onClick={() => setSelectedDriver(null)}
-                                className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-[#0A192F] transition-all"
-                            >
+                            <button onClick={() => setSelectedDriver(null)} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-[#0A192F] hover:bg-slate-50 rounded-2xl transition-all">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
 
-                        {/* Modal Content */}
-                        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-50/30">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                                {/* KYC Column */}
-                                <section>
-                                    <h3 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                        <div className="w-1.5 h-6 bg-[#FFD700] rounded-full shadow-glow"></div>
-                                        Identification Dossier
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-10 space-y-10 bg-slate-50/50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                {/* Left Column: Documents */}
+                                <div className="space-y-8">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 italic">
+                                        <Fingerprint className="w-5 h-5 text-[#FFD700]" />
+                                        Legal Credentials
                                     </h3>
-                                    <div className="space-y-6">
+                                    
+                                    <div className="grid grid-cols-1 gap-6">
                                         {[
-                                            { label: "Operating License", path: selectedDriver.license },
-                                            { label: "Identity Document (Aadhaar)", path: selectedDriver.aadhaar }
+                                            { label: "Driving Authority License", path: selectedDriver.license, icon: <CreditCard className="w-4 h-4" /> },
+                                            { label: "National Identity (Aadhaar)", path: selectedDriver.aadhaar, icon: <ShieldCheck className="w-4 h-4" /> }
                                         ].map((doc, i) => (
-                                            <div key={i} className="group relative aspect-video rounded-[32px] overflow-hidden bg-white border border-slate-100 shadow-sm">
-                                                {doc.path ? (
-                                                    <>
-                                                        <img src={doc.path} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                            <a href={doc.path} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-[#FFD700] text-[#0A192F] font-black text-xs uppercase tracking-widest rounded-2xl shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform">
-                                                                <ExternalLink className="w-4 h-4" />
-                                                                Expand Verification
-                                                            </a>
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-300">
-                                                        <AlertCircle className="w-8 h-8 opacity-20" />
-                                                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-30">Document Not Provided</p>
-                                                    </div>
-                                                )}
-                                                <div className="absolute top-6 left-6">
-                                                    <span className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] font-black text-[#0A192F] border border-black/5 shadow-lg uppercase tracking-wider">
+                                            <div key={i} className="group relative rounded-[32px] overflow-hidden bg-white border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex items-center justify-between mb-4 px-2">
+                                                    <span className="text-[11px] font-black text-[#0A192F] uppercase tracking-widest flex items-center gap-3 italic">
+                                                        <span className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-[#FFD700]">
+                                                            {doc.icon}
+                                                        </span>
                                                         {doc.label}
                                                     </span>
+                                                    {doc.path && (
+                                                        <a href={getImageUrl(doc.path)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 flex items-center justify-center bg-slate-50 text-[#0A192F] hover:bg-[#0A192F] hover:text-[#FFD700] rounded-xl transition-all shadow-sm">
+                                                            <ExternalLink className="w-4 h-4" />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="aspect-[4/3] rounded-[24px] bg-slate-100 overflow-hidden relative border border-slate-100 group-hover:border-[#FFD700]/30 transition-all">
+                                                    {doc.path ? (
+                                                        <img src={getImageUrl(doc.path)} alt={doc.label} className="w-full h-full object-contain p-2" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                                                            <AlertCircle className="w-10 h-10 mb-3 opacity-20" />
+                                                            <span className="text-[10px] uppercase font-black tracking-widest">Document Registry Null</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                </section>
+                                </div>
 
-                                {/* Vehicle Column */}
-                                <section>
-                                    <h3 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                                        <div className="w-1.5 h-6 bg-[#FFD700] rounded-full shadow-glow"></div>
-                                        Machine Assets
+                                {/* Right Column: Vehicle */}
+                                <div className="space-y-8">
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3 italic">
+                                        <Car className="w-5 h-5 text-[#FFD700]" />
+                                        Unit Specifications
                                     </h3>
-                                    <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
-                                        <div className="relative z-10 flex flex-col gap-8">
-                                            <div className="w-full grid grid-cols-2 gap-4">
-                                                {selectedDriver.vehicle?.vehiclePhotos && selectedDriver.vehicle.vehiclePhotos.length > 0 ? (
-                                                    selectedDriver.vehicle.vehiclePhotos.map((photo, idx) => (
-                                                        <div key={idx} className="aspect-video rounded-2xl overflow-hidden shadow-xl border-4 border-slate-50 hover:border-[#FFD700]/30 transition-all cursor-zoom-in">
-                                                            <img src={photo} alt={`Vehicle ${idx + 1}`} className="w-full h-full object-cover" />
+
+                                    <div className="bg-white rounded-[32px] border border-slate-100 p-8 space-y-8 shadow-sm">
+                                        {/* Vehicle Photos */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {(() => {
+                                                const vehicleObj = selectedDriver.vehicle as any;
+                                                const photos = vehicleObj?.vehiclePhotos || 
+                                                              vehicleObj?.photos || 
+                                                              (vehicleObj?.photo ? [vehicleObj.photo] : 
+                                                              (vehicleObj?.vehiclePhoto ? [vehicleObj.vehiclePhoto] : []));
+                                                
+                                                if (photos && Array.isArray(photos) && photos.length > 0) {
+                                                    return photos.map((photo: string, idx: number) => (
+                                                        <div key={idx} className="aspect-video rounded-[24px] overflow-hidden border border-slate-100 group relative">
+                                                            <img src={getImageUrl(photo)} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                                            <div className="absolute inset-0 bg-[#0A192F]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                                                <a href={getImageUrl(photo)} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-white text-[#0A192F] flex items-center justify-center rounded-[18px] shadow-2xl hover:scale-110 transition-all">
+                                                                    <ExternalLink className="w-5 h-5" />
+                                                                </a>
+                                                            </div>
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="col-span-2 aspect-video rounded-2xl bg-[#0A192F] flex items-center justify-center text-[#FFD700]">
-                                                        <Car className="w-12 h-12" />
+                                                    ));
+                                                }
+                                                return (
+                                                    <div className="col-span-2 py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[24px] text-slate-200 border border-dashed border-slate-200">
+                                                        <Car className="w-12 h-12 mb-3 opacity-10" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Exterior Images Unavailable</span>
                                                     </div>
-                                                )}
+                                                );
+                                            })()}
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-8">
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Unit Model</p>
+                                                <p className="text-lg font-black text-[#0A192F] tracking-tight uppercase leading-none">
+                                                    {selectedDriver.vehicle?.vehicleModel || "N/A"}
+                                                </p>
+                                                <p className="text-[10px] font-black text-[#FFD700] uppercase tracking-widest">{selectedDriver.vehicle?.vehicleType || "GENERIC UNIT"}</p>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-6">
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Fleet Model & Type</p>
-                                                    <p className="text-xl font-black text-[#0A192F]">{selectedDriver.vehicle?.vehicleModel || "Unknown"} <span className="text-slate-400 text-sm">({selectedDriver.vehicle?.vehicleType || "N/A"})</span></p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">License ID</p>
-                                                    <span className="inline-block px-4 py-1.5 bg-[#FFD700] text-[#0A192F] font-black text-xs rounded-lg shadow-sm border border-white/20">
-                                                        {selectedDriver.vehicle?.numberPlate || "N/A"}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Registration Dossier (RC)</p>
-                                                {selectedDriver.vehicle?.rc ? (
-                                                    <a href={selectedDriver.vehicle.rc} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-[#0A192F] bg-slate-50 w-full p-4 rounded-2xl text-[10px] font-black hover:bg-[#FFD700] transition-all border border-slate-100 shadow-sm group/rc">
-                                                        <div className="p-2 bg-white rounded-xl shadow-sm group-hover/rc:bg-[#0A192F] group-hover/rc:text-[#FFD700] transition-all">
-                                                            <FileText className="w-5 h-5" />
-                                                        </div>
-                                                        <div className="flex-1 text-left">
-                                                            <p className="uppercase tracking-widest">Verify RC Document</p>
-                                                            <p className="text-[9px] text-slate-400 font-bold group-hover:text-[#0A192F]">Click to open secure PDF viewer</p>
-                                                        </div>
-                                                        <ExternalLink className="w-5 h-5 opacity-20" />
-                                                    </a>
-                                                ) : (
-                                                    <p className="text-xs italic text-slate-400 py-4 bg-slate-50/50 rounded-2xl text-center border border-dashed border-slate-200">Registration Proof Missing</p>
-                                                )}
+                                            <div className="flex flex-col gap-1 items-end">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Registry Number</p>
+                                                <span className="bg-[#0A192F] text-[#FFD700] px-4 py-2 rounded-xl text-xs font-black shadow-lg shadow-[#0A192F]/10 tracking-widest">
+                                                    {selectedDriver.vehicle?.numberPlate || "N/A"}
+                                                </span>
                                             </div>
                                         </div>
+
+                                        <div className="pt-8 border-t border-slate-50">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 italic">Registry Cryptography (RC)</p>
+                                            {selectedDriver.vehicle?.rc ? (
+                                                <a href={getImageUrl(selectedDriver.vehicle.rc)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-5 bg-slate-50 rounded-[24px] hover:bg-slate-100 transition-all border border-slate-100 group shadow-sm">
+                                                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#FFD700] shadow-sm group-hover:scale-110 transition-transform">
+                                                        <FileText className="w-6 h-6" />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-[11px] font-black text-[#0A192F] uppercase tracking-widest leading-none mb-1">Registration Proof</p>
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest opacity-60">Audit-ready documentation</p>
+                                                    </div>
+                                                    <ExternalLink className="w-5 h-5 text-slate-300 group-hover:text-[#0A192F] transition-colors" />
+                                                </a>
+                                            ) : (
+                                                <div className="text-center py-6 bg-slate-50 rounded-[24px] text-[10px] font-black text-slate-300 uppercase tracking-widest border border-dashed border-slate-200 italic shadow-inner">
+                                                    Official RC proof pending upload
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </section>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Modal Footer Controls */}
-                        <div className="p-8 border-t border-slate-100 bg-white sticky bottom-0 z-10 flex items-center justify-end gap-4">
+                        {/* Footer */}
+                        <div className="p-8 border-t border-slate-50 bg-white flex items-center justify-end gap-5">
                             {selectedDriver.vehicle ? (
                                 <>
                                     <button
                                         onClick={() => handleAction(selectedDriver.vehicle!._id, "REJECTED")}
-                                        disabled={selectedDriver.status === 'REJECTED'}
-                                        className={`px-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] border transition-all ${selectedDriver.status === 'REJECTED'
-                                            ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed"
-                                            : "bg-white text-slate-500 border-slate-200 hover:bg-rose-500 hover:text-white hover:border-rose-500"
-                                            }`}
+                                        className="px-10 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] italic text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"
                                     >
-                                        Reject Operator
+                                        Decline Intent
                                     </button>
                                     <button
                                         onClick={() => handleAction(selectedDriver.vehicle!._id, "APPROVED")}
-                                        disabled={selectedDriver.status === 'APPROVED'}
-                                        className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl transition-all ${selectedDriver.status === 'APPROVED'
-                                            ? "bg-emerald-50 text-emerald-300 cursor-not-allowed"
-                                            : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/40 hover:-translate-y-1 active:translate-y-0"
-                                            }`}
+                                        className="px-10 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] italic text-[#FFD700] bg-[#0A192F] hover:bg-black transition-all shadow-xl shadow-[#0A192F]/10 border border-[#0A192F]"
                                     >
-                                        Authorize to Drive
+                                        Authorize Driver
                                     </button>
                                 </>
                             ) : (
-                                <p className="text-xs font-bold text-rose-500 bg-rose-50 px-6 py-3 rounded-2xl border border-rose-100 flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4" /> Approval requires vehicle on-boarding
-                                </p>
+                                <div className="flex items-center gap-4 text-rose-600 text-[10px] font-black px-8 py-4 bg-rose-50 rounded-[20px] border border-rose-100 uppercase tracking-widest italic">
+                                    <AlertCircle className="w-5 h-5" />
+                                    Authorization requires complete asset profile
+                                </div>
                             )}
                         </div>
                     </div>

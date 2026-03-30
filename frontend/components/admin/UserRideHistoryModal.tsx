@@ -75,13 +75,13 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
     const getStatusStyle = (status: string) => {
         switch (status) {
             case "COMPLETED":
-                return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                return "bg-emerald-50 text-emerald-600 border-emerald-100";
             case "CANCELLED":
-                return "bg-rose-500/10 text-rose-400 border-rose-500/20";
+                return "bg-rose-50 text-rose-600 border-rose-100";
             case "STARTED":
-                return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+                return "bg-amber-50 text-amber-600 border-amber-100";
             default:
-                return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+                return "bg-slate-50 text-slate-600 border-slate-100";
         }
     };
 
@@ -97,101 +97,109 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A192F]/80 backdrop-blur-md">
-            <div className="bg-[#112240] w-full max-w-4xl max-h-[90vh] rounded-[32px] border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/2">
-                    <div>
-                        <h2 className="text-2xl font-black text-white italic uppercase tracking-tight">
-                            Ride <span className="text-[#FACC15]">History</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A192F]/60 backdrop-blur-md">
+            <div className="bg-white w-full max-w-4xl max-h-[90vh] rounded-[40px] border border-slate-100 shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-white relative">
+                    <div className="relative z-10">
+                        <h2 className="text-3xl font-black text-[#0A192F] italic uppercase tracking-tight leading-none mb-1">
+                            Ride <span className="text-[#FFD700]">Intelligence</span>
                         </h2>
-                        <p className="text-slate-400 text-sm font-medium mt-1">Activity log for user ID: {userId}</p>
+                        <div className="flex items-center gap-3">
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] italic">Log Archive</p>
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
+                            <p className="text-[#0A192F] text-[10px] font-black uppercase tracking-widest">{userId}</p>
+                        </div>
                     </div>
                     <button 
                         onClick={onClose}
-                        className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-2xl transition-all"
+                        className="w-14 h-14 flex items-center justify-center text-slate-300 hover:text-[#0A192F] hover:bg-slate-50 rounded-2xl transition-all"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-7 h-7" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-50/50">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <Loader2 className="w-10 h-10 text-[#FACC15] animate-spin" />
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Retrieving Logs...</p>
+                        <div className="flex flex-col items-center justify-center py-20 gap-6">
+                            <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
+                            <p className="text-[#0A192F] font-black uppercase tracking-[0.3em] text-[10px] italic">Retrieving Historical Data...</p>
                         </div>
                     ) : rides.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white/2 rounded-3xl border border-dashed border-white/10">
-                            <Navigation className="w-12 h-12 text-slate-600 mb-4" />
-                            <p className="text-slate-400 font-semibold tracking-tight">No ride history found</p>
+                        <div className="flex flex-col items-center justify-center py-24 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm">
+                            <Navigation className="w-16 h-16 text-slate-100 mb-6" />
+                            <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] italic">No logistical history recorded</p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-8">
                             {rides.map(ride => (
-                                <div key={ride._id} className="bg-white/2 border border-white/5 rounded-3xl p-6 hover:border-[#FACC15]/20 transition-all group">
-                                    <div className="flex flex-col lg:flex-row gap-6">
-                                        <div className="flex-1 space-y-4">
+                                <div key={ride._id} className="bg-white border border-slate-100 rounded-[32px] p-8 shadow-sm hover:shadow-md hover:border-[#FFD700]/20 transition-all group overflow-hidden relative">
+                                    {/* Abstract background element */}
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl group-hover:bg-[#FFD700]/10 transition-colors"></div>
+                                    
+                                    <div className="flex flex-col lg:flex-row gap-10 relative z-10">
+                                        <div className="flex-1 space-y-6">
                                             <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${getStatusStyle(ride.status)}`}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border text-[9px] font-black uppercase tracking-[0.2em] italic ${getStatusStyle(ride.status)} shadow-sm`}>
                                                         {getStatusIcon(ride.status)}
                                                         {ride.status}
                                                     </div>
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                        ID: {ride.rideId}
+                                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">
+                                                        Registry ID: {ride.rideId}
                                                     </span>
                                                 </div>
-                                                <div className="text-[#FACC15] font-black text-lg">
+                                                <div className="text-[#0A192F] font-black text-2xl tracking-tighter">
                                                     ₹{ride.price}
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-3">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="mt-1">
-                                                        <Circle className="w-3 h-3 text-emerald-400 fill-emerald-400/20" />
+                                            <div className="space-y-4">
+                                                <div className="flex items-start gap-4">
+                                                    <div className="mt-1.5 w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-emerald-500 shadow-inner">
+                                                        <Circle className="w-4 h-4 fill-emerald-500/10" />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Pickup</p>
-                                                        <p className="text-sm font-bold text-white leading-snug">{ride.pickup.label}</p>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 italic">Logistical Origin</p>
+                                                        <p className="text-sm font-black text-[#0A192F] leading-snug uppercase tracking-tight">{ride.pickup.label}</p>
                                                     </div>
                                                 </div>
-                                                <div className="ml-1.5 h-6 w-px bg-white/10" />
-                                                <div className="flex items-start gap-3">
-                                                    <div className="mt-1">
-                                                        <MapPin className="w-3 h-3 text-rose-400 fill-rose-400/20" />
+                                                <div className="ml-5 h-8 w-px border-l-2 border-dashed border-slate-100" />
+                                                <div className="flex items-start gap-4">
+                                                    <div className="mt-1.5 w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-rose-500 shadow-inner">
+                                                        <MapPin className="w-5 h-5 fill-rose-500/10" />
                                                     </div>
                                                     <div className="flex-1">
-                                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Destination</p>
-                                                        <p className="text-sm font-bold text-white leading-snug">{ride.drop.label}</p>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 italic">Final Terminus</p>
+                                                        <p className="text-sm font-black text-[#0A192F] leading-snug uppercase tracking-tight">{ride.drop.label}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="w-px bg-white/5 self-stretch hidden lg:block" />
+                                        <div className="w-px bg-slate-50 self-stretch hidden lg:block" />
 
-                                        <div className="flex lg:flex-col items-center justify-between lg:w-48 gap-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden border border-white/10">
+                                        <div className="flex lg:flex-col items-center justify-between lg:w-56 gap-6">
+                                            <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-[24px] w-full border border-slate-100 shadow-inner">
+                                                <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform">
                                                     {ride.driverId?.profilePhoto ? (
                                                         <img src={ride.driverId.profilePhoto} className="w-full h-full object-cover" />
                                                     ) : (
-                                                        <UserIcon className="w-5 h-5 text-slate-600" />
+                                                        <UserIcon className="w-6 h-6 text-slate-200" />
                                                     )}
                                                 </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Driver</p>
-                                                    <p className="text-xs font-bold text-white">{ride.driverId?.name || "N/A"}</p>
+                                                <div className="overflow-hidden">
+                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 italic">Specialist</p>
+                                                    <p className="text-[11px] font-black text-[#0A192F] uppercase truncate">{ride.driverId?.name || "Unassigned"}</p>
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col items-end lg:items-center gap-1">
-                                                <div className="flex items-center gap-2 text-slate-400">
-                                                    <Calendar className="w-3.5 h-3.5" />
-                                                    <span className="text-xs font-medium">{format(new Date(ride.createdAt), "dd MMM yyyy")}</span>
+                                            <div className="flex flex-col items-end lg:items-center gap-2">
+                                                <div className="flex items-center gap-2 text-[#0A192F] bg-[#FFD700] px-3 py-1.5 rounded-xl shadow-lg shadow-[#FFD700]/10">
+                                                    <Calendar className="w-4 h-4" />
+                                                    <span className="text-[11px] font-black uppercase tracking-tighter">{format(new Date(ride.createdAt), "dd MMM yyyy")}</span>
                                                 </div>
-                                                <div className="flex items-center gap-1 text-[10px] text-slate-500 font-medium">
+                                                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] italic">
+                                                    <Clock className="w-3.5 h-3.5" />
                                                     {format(new Date(ride.createdAt), "hh:mm a")}
                                                 </div>
                                             </div>
@@ -203,12 +211,12 @@ const UserRideHistoryModal: React.FC<UserRideHistoryModalProps> = ({ isOpen, onC
                     )}
                 </div>
 
-                <div className="p-8 border-t border-white/5 bg-white/2 flex justify-end">
+                <div className="p-10 border-t border-slate-50 bg-white flex justify-end">
                     <button 
                         onClick={onClose}
-                        className="px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-white font-black uppercase tracking-widest text-xs transition-all"
+                        className="px-12 py-4 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black uppercase tracking-[0.3em] italic text-[10px] transition-all shadow-xl shadow-[#0A192F]/10 border border-[#0A192F]"
                     >
-                        Close Logs
+                        Deactivate Console
                     </button>
                 </div>
             </div>

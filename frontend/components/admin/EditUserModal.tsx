@@ -61,106 +61,109 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A192F]/80 backdrop-blur-md">
-            <div className="bg-[#112240] w-full max-w-md rounded-[32px] border border-white/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="p-8 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-black text-white italic uppercase tracking-tight">
-                            Edit <span className="text-[#FFD700]">User</span> Details
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A192F]/60 backdrop-blur-md">
+            <div className="bg-white w-full max-w-md rounded-[40px] border border-slate-100 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-white relative">
+                    <div className="relative z-10">
+                        <h2 className="text-2xl font-black text-[#0A192F] italic uppercase tracking-tight leading-none mb-1">
+                            Modify <span className="text-[#FFD700]">Identity</span>
                         </h2>
-                        <p className="text-slate-400 text-xs font-medium mt-1">Modify account information for {user.name}</p>
+                        <p className="text-slate-300 text-[9px] font-black uppercase tracking-[0.2em] italic">Account Revision Protocol</p>
                     </div>
-                    <button onClick={onClose} className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-[#0A192F] hover:bg-slate-50 rounded-2xl transition-all">
+                        <X className="w-6 h-6" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Full Name</label>
+                <form onSubmit={handleSubmit} className="p-10 space-y-8 bg-slate-50/30">
+                    <div className="space-y-6">
+                        <div className="group">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Unit Designation</label>
                             <div className="relative">
-                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
                                 <input
                                     type="text"
                                     required
-                                    className="w-full pl-11 pr-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] uppercase tracking-tight focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none italic-none shadow-sm"
+                                    placeholder="Enter full name"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Email address</label>
+                        <div className="group">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Registry Communication</label>
                             <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
                                 <input
                                     type="email"
                                     required
-                                    className="w-full pl-11 pr-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] lowercase tracking-tight focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none shadow-sm"
+                                    placeholder="Enter email address"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Phone Number</label>
+                        <div className="group">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Contact Protocol (Phone)</label>
                             <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
                                 <input
                                     type="text"
-                                    className="w-full pl-11 pr-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none shadow-sm"
+                                    placeholder="Enter contact number"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Role</label>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="group">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Access Level</label>
                                 <select 
-                                    className="w-full px-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none appearance-none"
+                                    className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
                                     value={formData.role}
                                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                 >
-                                    <option value="USER">User</option>
-                                    <option value="DRIVER">Driver</option>
-                                    <option value="ADMIN">Admin</option>
+                                    <option value="USER">User (Standard)</option>
+                                    <option value="DRIVER">Driver (Operator)</option>
+                                    <option value="ADMIN">Admin (Executive)</option>
                                 </select>
                             </div>
-                            <div>
-                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Status</label>
+                            <div className="group">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">System Status</label>
                                 <select 
-                                    className="w-full px-4 py-3 bg-[#0A192F] border border-white/10 rounded-xl text-sm text-white focus:ring-2 ring-[#FFD700]/10 transition-all outline-none appearance-none"
+                                    className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
                                     value={formData.status}
                                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                 >
-                                    <option value="ACTIVE">Active</option>
-                                    <option value="INACTIVE">Inactive</option>
-                                    <option value="APPROVED">Approved</option>
-                                    <option value="REJECTED">Rejected</option>
+                                    <option value="ACTIVE">Status: Operational</option>
+                                    <option value="INACTIVE">Status: Suspended</option>
+                                    <option value="APPROVED">Status: Verified</option>
+                                    <option value="REJECTED">Status: Denied</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
-                    <div className="pt-4 flex gap-3">
+                    <div className="pt-6 flex gap-4 relative z-10">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white font-black uppercase tracking-widest text-[10px] transition-all"
+                            className="flex-1 px-6 py-4 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl text-slate-400 font-black uppercase tracking-[0.2em] italic text-[10px] transition-all shadow-sm"
                         >
-                            Cancel
+                            Abort
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-6 py-3 bg-[#FFD700] hover:bg-[#FFC800] text-[#0A192F] rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 shadow-xl shadow-[#FFD700]/10 disabled:opacity-50 transition-all"
+                            className="flex-[2] px-6 py-4 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-2xl font-black uppercase tracking-[0.2em] italic text-[10px] flex items-center justify-center gap-3 shadow-xl shadow-[#0A192F]/10 disabled:opacity-50 transition-all border border-[#0A192F]"
                         >
-                            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin text-[#FFD700]" /> : <Save className="w-4 h-4 text-[#FFD700]" />}
                             Commit Changes
                         </button>
                     </div>

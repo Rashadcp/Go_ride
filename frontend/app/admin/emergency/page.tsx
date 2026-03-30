@@ -7,7 +7,7 @@ import { socket, connectSocket } from "@/lib/socket";
 import {
     AlertTriangle, Shield, CheckCircle2, Clock, User, MapPin,
     MessageSquare, Loader2, Car, Bell, Filter, X, ChevronRight,
-    Siren, Fingerprint, Banknote, HelpCircle
+    Siren, Fingerprint, Banknote, HelpCircle, Search
 } from "lucide-react";
 
 interface Report {
@@ -32,9 +32,9 @@ const TYPE_CONFIG = {
 };
 
 const STATUS_CONFIG = {
-    PENDING:      { label: "Pending",      color: "bg-rose-500/10 text-rose-400 border-rose-500/20"    },
-    INVESTIGATING:{ label: "Investigating",color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
-    RESOLVED:     { label: "Resolved",     color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+    PENDING:      { label: "Pending",      color: "bg-rose-100 text-rose-700 border-rose-200",       dot: "bg-rose-500"    },
+    INVESTIGATING:{ label: "Investigating",color: "bg-amber-100 text-amber-700 border-amber-200",     dot: "bg-amber-500"   },
+    RESOLVED:     { label: "Resolved",     color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
 };
 
 export default function EmergencyReportsPage() {
@@ -42,6 +42,7 @@ export default function EmergencyReportsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedReport, setSelectedReport] = useState<Report | null>(null);
     const [resNotes, setResNotes] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState<"ALL" | "PENDING" | "INVESTIGATING" | "RESOLVED">("ALL");
     const [liveAlertCount, setLiveAlertCount] = useState(0);
     const alertSound = useRef<boolean>(false);
@@ -109,49 +110,70 @@ export default function EmergencyReportsPage() {
         }
     };
 
-    const filtered = filterStatus === "ALL" ? reports : reports.filter(r => r.status === filterStatus);
+    const filtered = (filterStatus === "ALL" ? reports : reports.filter(r => r.status === filterStatus))
+        .filter(r => {
+            const reporterName = typeof r.reporterId === "object" ? r.reporterId?.name : "";
+            const reporterEmail = typeof r.reporterId === "object" ? r.reporterId?.email : "";
+            const dName = typeof r.driverId === "object" ? r.driverId?.name : (r.driverName || "");
+            
+            return reporterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   reporterEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   dName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   r.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                   r.type.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+
     const pendingCount = reports.filter(r => r.status === "PENDING").length;
 
     if (loading) {
         return (
-            <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#0A192F]">
-                <Loader2 className="w-12 h-12 text-rose-500 animate-spin" />
-                <p className="text-white font-bold text-sm">Loading incident reports...</p>
+            <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC] min-h-screen">
+                <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic text-sm">Loading incident reports...</p>
             </div>
         );
     }
 
     return (
-        <div className="p-8 max-w-[1400px] mx-auto min-h-screen bg-[#0A192F]">
+        <div className="p-8 max-w-[1400px] mx-auto min-h-screen bg-[#F8FAFC]">
             
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-rose-500 rounded-[20px] flex items-center justify-center shadow-xl shadow-rose-500/30">
-                        <Siren className="w-8 h-8 text-white" />
+                    <div className="w-14 h-14 bg-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20">
+                        <Siren className="w-7 h-7 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-black text-white tracking-tight">
-                            Safety <span className="text-rose-400">Reports</span>
+                        <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">
+                            Safety <span className="text-[#FFD700]">Reports</span>
                         </h1>
-                        <p className="text-slate-400 font-medium text-sm mt-1">
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">
                             Real-time passenger incident monitoring
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Live status badge */}
-                    <div className="flex items-center gap-2 px-5 py-3 bg-white/5 rounded-2xl border border-white/10">
-                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                        <span className="text-rose-400 font-black text-xs uppercase tracking-widest">Live Monitoring</span>
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
+                        <input 
+                            type="text" 
+                            placeholder="Search reports..." 
+                            className="pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm font-bold text-[#0A192F] focus:ring-2 ring-[#FFD700]/10 transition-all outline-none w-64 shadow-sm"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
 
-                    {/* Pending badge */}
+                    <div className="flex items-center gap-2 px-5 py-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        <span className="text-rose-600 font-black text-xs uppercase tracking-widest">Live</span>
+                    </div>
+
                     {pendingCount > 0 && (
-                        <div className="flex items-center gap-2 px-5 py-3 bg-rose-500/10 rounded-2xl border border-rose-500/20">
-                            <Bell className="w-4 h-4 text-rose-400" />
-                            <span className="text-rose-400 font-black text-xs">{pendingCount} Pending</span>
+                        <div className="flex items-center gap-2 px-5 py-3 bg-rose-50 rounded-xl border border-rose-100">
+                            <Bell className="w-4 h-4 text-rose-500" />
+                            <span className="text-rose-600 font-black text-xs">{pendingCount} Pending</span>
                         </div>
                     )}
                 </div>
@@ -160,12 +182,12 @@ export default function EmergencyReportsPage() {
             {/* Stats Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 {[
-                    { label: "Total Reports", value: reports.length, color: "text-white" },
-                    { label: "Pending Action", value: reports.filter(r=>r.status==="PENDING").length, color: "text-rose-400" },
-                    { label: "Investigating", value: reports.filter(r=>r.status==="INVESTIGATING").length, color: "text-amber-400" },
-                    { label: "Resolved", value: reports.filter(r=>r.status==="RESOLVED").length, color: "text-emerald-400" },
+                    { label: "Total Reports", value: reports.length, color: "text-[#0A192F]" },
+                    { label: "Pending Action", value: reports.filter(r=>r.status==="PENDING").length, color: "text-rose-600" },
+                    { label: "Investigating", value: reports.filter(r=>r.status==="INVESTIGATING").length, color: "text-amber-600" },
+                    { label: "Resolved", value: reports.filter(r=>r.status==="RESOLVED").length, color: "text-emerald-600" },
                 ].map((stat, i) => (
-                    <div key={i} className="bg-white/5 rounded-[20px] p-5 border border-white/10">
+                    <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
                         <p className={`text-3xl font-black ${stat.color}`}>{stat.value}</p>
                     </div>
@@ -173,15 +195,15 @@ export default function EmergencyReportsPage() {
             </div>
 
             {/* Filter Bar */}
-            <div className="flex gap-2 mb-6 flex-wrap">
+            <div className="flex gap-1 mb-6 flex-wrap bg-white p-1 rounded-2xl border border-slate-100 shadow-sm w-fit">
                 {(["ALL", "PENDING", "INVESTIGATING", "RESOLVED"] as const).map(f => (
                     <button
                         key={f}
                         onClick={() => setFilterStatus(f)}
-                        className={`px-5 py-2 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all border ${
+                        className={`px-6 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${
                             filterStatus === f
-                                ? "bg-[#FFD700] text-[#0A192F] border-[#FFD700] shadow-lg"
-                                : "bg-white/5 text-slate-400 border-white/10 hover:border-white/20"
+                                ? "bg-[#0A192F] text-[#FFD700] shadow-lg shadow-[#0A192F]/10"
+                                : "text-slate-400 hover:text-[#0A192F] hover:bg-slate-50"
                         }`}
                     >
                         {f === "ALL" ? `All (${reports.length})` : f}
@@ -194,10 +216,10 @@ export default function EmergencyReportsPage() {
                 {/* Reports List */}
                 <div className="lg:col-span-2 space-y-4">
                     {filtered.length === 0 ? (
-                        <div className="bg-white/5 rounded-[32px] p-16 text-center border border-white/5 flex flex-col items-center gap-4">
-                            <Shield className="w-16 h-16 text-slate-600" />
-                            <h3 className="text-xl font-black text-white">No Reports Found</h3>
-                            <p className="text-slate-500 font-medium text-sm">All clear — no incidents in this category.</p>
+                        <div className="bg-white rounded-[32px] p-16 text-center border border-slate-100 shadow-sm flex flex-col items-center gap-4">
+                            <Shield className="w-16 h-16 text-slate-200" />
+                            <h3 className="text-xl font-black text-[#0A192F]">No Incidents Found</h3>
+                            <p className="text-slate-400 font-medium text-sm">Either no reports exist or none match your search criteria.</p>
                         </div>
                     ) : (
                         filtered.map(report => {
@@ -210,45 +232,46 @@ export default function EmergencyReportsPage() {
                             return (
                                 <div
                                     key={report._id}
-                                    className={`bg-white/5 rounded-[24px] p-6 border-l-4 border border-white/5 transition-all hover:bg-white/[0.07] ${typeCfg.border}`}
+                                    className={`bg-white rounded-2xl p-6 border-l-4 border border-slate-100 transition-all hover:shadow-md ${typeCfg.border}`}
                                 >
                                     {/* Top Row */}
                                     <div className="flex items-start justify-between gap-4 mb-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 text-lg">
+                                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 text-lg">
                                                 {typeCfg.emoji}
                                             </div>
                                             <div>
-                                                <h3 className="font-black text-white text-sm leading-none">{reporterName}</h3>
-                                                <p className="text-[10px] text-slate-500 font-medium mt-0.5">{reporterEmail}</p>
+                                                <h3 className="font-black text-[#0A192F] text-sm leading-none">{reporterName}</h3>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{reporterEmail}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${typeCfg.color}`}>
                                                 {typeCfg.label}
                                             </span>
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusCfg.color}`}>
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusCfg.color}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`}></span>
                                                 {report.status}
                                             </span>
                                         </div>
                                     </div>
 
                                     {/* Description */}
-                                    <p className="text-slate-300 font-medium text-sm leading-relaxed bg-black/20 p-4 rounded-2xl italic mb-4">
-                                        "{report.description}"
+                                    <p className="text-slate-500 font-medium text-sm leading-relaxed bg-slate-50 p-4 rounded-xl italic mb-4 border border-slate-100">
+                                        &ldquo;{report.description}&rdquo;
                                     </p>
 
                                     {/* Meta Row */}
                                     <div className="flex items-center justify-between flex-wrap gap-3">
-                                        <div className="flex items-center gap-4 text-xs text-slate-500 font-bold">
+                                        <div className="flex items-center gap-4 text-xs text-slate-400 font-bold">
                                             <div className="flex items-center gap-1.5">
-                                                <Clock className="w-3 h-3 text-slate-600" />
+                                                <Clock className="w-3 h-3 text-slate-300" />
                                                 {new Date(report.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
                                             </div>
                                             {dName && (
-                                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded-lg border border-[#FFD700]/10">
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 rounded-lg border border-slate-100">
                                                     <Car className="w-3 h-3 text-[#FFD700]" />
-                                                    <span className="text-slate-400 font-bold ml-1">{dName}</span>
+                                                    <span className="text-[#0A192F] font-bold ml-1">{dName}</span>
                                                 </div>
                                             )}
                                             {report.location?.address && (
@@ -262,14 +285,14 @@ export default function EmergencyReportsPage() {
                                         {report.status !== "RESOLVED" && (
                                             <button
                                                 onClick={() => setSelectedReport(report)}
-                                                className="px-5 py-2.5 bg-[#FFD700] text-[#0A192F] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all flex items-center gap-1.5 shadow-lg shadow-[#FFD700]/10"
+                                                className="px-5 py-2.5 bg-[#F5C800] text-[#0A192F] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#e6ba00] transition-all flex items-center gap-1.5 shadow-sm"
                                             >
                                                 Take Action
                                                 <ChevronRight className="w-3 h-3" />
                                             </button>
                                         )}
                                         {report.status === "RESOLVED" && report.resolutionNotes && (
-                                            <p className="text-[10px] text-emerald-400 font-bold italic truncate max-w-[200px]">
+                                            <p className="text-[10px] text-emerald-600 font-bold italic truncate max-w-[200px]">
                                                 ✓ {report.resolutionNotes}
                                             </p>
                                         )}
@@ -284,19 +307,19 @@ export default function EmergencyReportsPage() {
                 <div className="space-y-6">
                     
                     {/* Incident Types Summary */}
-                    <div className="bg-white/5 rounded-[24px] p-6 border border-white/10">
-                        <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4">By Incident Type</h3>
+                    <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                        <h3 className="text-sm font-black text-[#0A192F] uppercase tracking-widest mb-4">By Incident Type</h3>
                         <div className="space-y-3">
                             {(["HARASSMENT", "ACCIDENT", "THEFT", "OTHER"] as const).map(type => {
                                 const count = reports.filter(r => r.type === type).length;
                                 const cfg = TYPE_CONFIG[type];
                                 return (
-                                    <div key={type} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                                    <div key={type} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm">{cfg.emoji}</span>
-                                            <span className="text-[11px] font-black text-slate-300 uppercase tracking-wider">{cfg.label}</span>
+                                            <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">{cfg.label}</span>
                                         </div>
-                                        <span className="font-black text-white text-sm">{count}</span>
+                                        <span className="font-black text-[#0A192F] text-sm">{count}</span>
                                     </div>
                                 );
                             })}
@@ -305,19 +328,19 @@ export default function EmergencyReportsPage() {
 
                     {/* Action Panel */}
                     {selectedReport && (
-                        <div className="bg-white/10 backdrop-blur-xl rounded-[24px] p-6 border border-white/10 shadow-2xl">
+                        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-lg">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                                <h3 className="text-sm font-black text-[#0A192F] flex items-center gap-2">
                                     <MessageSquare className="w-4 h-4 text-[#FFD700]" />
                                     Take Action
                                 </h3>
-                                <button onClick={() => setSelectedReport(null)} className="w-7 h-7 bg-white/10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-all">
+                                <button onClick={() => setSelectedReport(null)} className="w-7 h-7 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-slate-100">
                                     <X className="w-3 h-3" />
                                 </button>
                             </div>
                             
                             {/* Report Summary */}
-                            <div className="p-3 bg-black/20 rounded-xl mb-4 flex items-center gap-3">
+                            <div className="p-3 bg-slate-50 rounded-xl mb-4 flex items-center gap-3 border border-slate-100">
                                 <span className="text-lg">{TYPE_CONFIG[selectedReport.type]?.emoji}</span>
                                 <div>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -328,7 +351,7 @@ export default function EmergencyReportsPage() {
                                             {typeof selectedReport.driverId === "object" && selectedReport.driverId?.profilePhoto && (
                                                 <img src={selectedReport.driverId.profilePhoto} alt="" className="w-4 h-4 rounded-full border border-[#FFD700]/20" />
                                             )}
-                                            <p className="text-[11px] text-[#FFD700] font-bold">
+                                            <p className="text-[11px] text-[#0A192F] font-bold">
                                                 Driver: {typeof selectedReport.driverId === "object" ? selectedReport.driverId?.name : (selectedReport.driverName || "Unknown")}
                                             </p>
                                         </div>
@@ -340,13 +363,13 @@ export default function EmergencyReportsPage() {
                             <div className="flex gap-2 mb-4">
                                 <button
                                     onClick={() => handleUpdateStatus(selectedReport._id, "INVESTIGATING")}
-                                    className="flex-1 py-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-500/20 transition-all"
+                                    className="flex-1 py-2.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-all"
                                 >
                                     Investigate
                                 </button>
                                 <button
                                     onClick={() => handleUpdateStatus(selectedReport._id, "RESOLVED")}
-                                    className="flex-1 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500/20 transition-all"
+                                    className="flex-1 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-100 transition-all"
                                 >
                                     Resolve
                                 </button>
@@ -356,13 +379,13 @@ export default function EmergencyReportsPage() {
                                 value={resNotes}
                                 onChange={e => setResNotes(e.target.value)}
                                 placeholder="Add resolution notes (required to resolve)..."
-                                className="w-full h-28 p-4 bg-[#0A192F] border border-white/10 rounded-xl text-xs font-medium text-white focus:ring-1 ring-[#FFD700]/20 outline-none resize-none mb-4 placeholder:text-slate-600"
+                                className="w-full h-28 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-[#0A192F] focus:ring-2 ring-[#FFD700]/10 outline-none resize-none mb-4 placeholder:text-slate-300"
                             />
                             
                             <button
                                 onClick={() => handleUpdateStatus(selectedReport._id, "RESOLVED")}
                                 disabled={!resNotes.trim()}
-                                className="w-full py-4 bg-[#FFD700] text-[#0A192F] rounded-xl font-black text-[11px] uppercase tracking-widest transition-all hover:bg-yellow-400 disabled:opacity-30"
+                                className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-xl font-black text-[11px] uppercase tracking-widest transition-all hover:bg-black disabled:opacity-30 shadow-lg shadow-[#0A192F]/10"
                             >
                                 Mark as Resolved
                             </button>

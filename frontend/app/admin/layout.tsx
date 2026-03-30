@@ -7,7 +7,6 @@ import {
     Users,
     Car,
     Navigation,
-    Wallet,
     History,
     LogOut,
     Bell,
@@ -42,7 +41,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { id: "drivers", href: "/admin/drivers", icon: ShieldCheck, label: "Drivers Management" },
         { id: "users", href: "/admin/users", icon: Users, label: "Users" },
         { id: "revenue", href: "/admin/revenue", icon: TrendingUp, label: "Revenue" },
-        { id: "wallet", href: "/admin/wallet", icon: Wallet, label: "Wallet" },
     ];
 
     const supportItems = [
@@ -51,61 +49,61 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ];
 
     return (
-        <div className="flex h-screen bg-[#0B1E2D] overflow-hidden font-sans text-[#E6EDF3]">
+        <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans text-[#0A192F]">
             {/* Sidebar */}
-            <aside className="w-[260px] bg-[#0B1E2D] border-r border-[#1F3A52] flex flex-col z-20 flex-shrink-0 transition-all duration-300">
+            <aside className="w-[260px] bg-black flex flex-col z-20 flex-shrink-0 transition-all duration-300">
                 <div className="p-6 mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-[#FACC15] rounded-lg flex items-center justify-center shadow-lg shadow-[#FACC15]/10">
-                            <Car className="text-[#0B1E2D] w-5 h-5" />
+                        <div className="w-9 h-9 bg-[#FFD700] rounded-lg flex items-center justify-center shadow-lg shadow-[#FFD700]/10">
+                            <Car className="text-[#0A192F] w-5 h-5" />
                         </div>
                         <div>
-                            <h1 className="text-white font-bold leading-none text-lg tracking-tight">Go<span className="text-[#FACC15]">Ride</span></h1>
-                            <p className="text-[10px] font-semibold tracking-wider text-[#6B859E] uppercase">Admin Console</p>
+                            <h1 className="text-white font-black leading-none text-lg tracking-tight uppercase">Go<span className="text-[#FFD700]">Ride</span></h1>
+                            <p className="text-[10px] font-black tracking-widest text-neutral-500 uppercase">Admin Console</p>
                         </div>
                     </div>
                 </div>
 
                 <div className="px-3 flex-1 overflow-y-auto custom-scrollbar">
                     <div className="mb-6">
-                        <p className="text-[11px] font-bold text-[#6B859E] uppercase tracking-wider px-4 mb-2">Main Menu</p>
+                        <p className="text-[11px] font-black text-neutral-500 uppercase tracking-widest px-4 mb-2 opacity-60">Main Menu</p>
                         <nav className="space-y-1">
                             {navItems.map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => router.push(item.href)}
                                     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${pathname === item.href
-                                        ? "bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/20"
-                                        : "text-[#9FB3C8] hover:bg-[#132F44] hover:text-[#E6EDF3]"
+                                        ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20 font-black"
+                                        : "text-neutral-400 hover:bg-white/5 hover:text-white"
                                         }`}
                                 >
-                                    <item.icon className={`w-5 h-5 transition-colors ${pathname === item.href ? "text-[#3B82F6]" : "text-[#6B859E] group-hover:text-[#9FB3C8]"}`} />
-                                    <span className="font-medium text-[13px]">{item.label}</span>
+                                    <item.icon className={`w-5 h-5 transition-colors ${pathname === item.href ? "text-[#FFD700]" : "text-neutral-500 group-hover:text-white"}`} />
+                                    <span className="text-[13px] font-medium">{item.label}</span>
                                 </button>
                             ))}
                         </nav>
                     </div>
 
                     <div className="mb-6">
-                        <p className="text-[11px] font-bold text-[#6B859E] uppercase tracking-wider px-4 mb-2">Operations</p>
+                        <p className="text-[11px] font-black text-neutral-500 uppercase tracking-widest px-4 mb-2 opacity-60">Operations</p>
                         <nav className="space-y-1">
                             {supportItems.map((item) => (
                                 <button
                                     key={item.id}
                                     onClick={() => router.push(item.href)}
                                     className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group ${pathname === item.href
-                                        ? "bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/20"
-                                        : "text-[#9FB3C8] hover:bg-[#132F44] hover:text-[#E6EDF3]"
+                                        ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20 font-black"
+                                        : "text-neutral-400 hover:bg-white/5 hover:text-white"
                                         }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <item.icon className={`w-5 h-5 transition-colors ${pathname === item.href ? "text-[#3B82F6]" : "text-[#6B859E] group-hover:text-[#9FB3C8]"}`} />
-                                        <span className="font-medium text-[13px]">{item.label}</span>
+                                        <item.icon className={`w-5 h-5 transition-colors ${pathname === item.href ? "text-[#FFD700]" : "text-neutral-500 group-hover:text-white"}`} />
+                                        <span className="text-[13px] font-medium">{item.label}</span>
                                     </div>
                                     {item.badge && (
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${pathname === item.href 
-                                            ? "bg-[#3B82F6] text-white" 
-                                            : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
+                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${pathname === item.href 
+                                            ? "bg-[#FFD700] text-[#0A192F]" 
+                                            : "bg-rose-500/10 text-rose-600 border border-rose-500/10"}`}>
                                             {item.badge}
                                         </span>
                                     )}
@@ -115,10 +113,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-[#1F3A52]">
+                <div className="p-4 border-t border-white/5 mt-auto">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[#6B859E] hover:bg-[#EF4444]/10 hover:text-[#EF4444] transition-all duration-200 group font-medium text-[13px]"
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-neutral-500 hover:bg-rose-500/10 hover:text-rose-400 transition-all duration-200 group font-bold text-[13px]"
                     >
                         <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
                         Sign Out
@@ -127,41 +125,44 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </aside>
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-[#0B1E2D]">
-                <header className="h-16 border-b border-[#1F3A52] flex items-center justify-between px-8 flex-shrink-0 z-10">
-                    <h2 className="text-sm font-semibold text-[#E6EDF3] tracking-wide">
-                        {pathname === "/admin/dashboard" ? "Dashboard Overview" : 
-                         pathname.split("/").pop()?.charAt(0).toUpperCase() + pathname.split("/").pop()?.slice(1)}
-                    </h2>
+            <div className="flex-1 flex flex-col overflow-hidden bg-[#F8FAFC]">
+                <header className="h-20 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-8 flex-shrink-0 z-10">
+                    <div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Platform System</span>
+                        <h2 className="text-sm font-black text-[#0A192F] tracking-wide uppercase italic">
+                            {pathname === "/admin/dashboard" ? "Dashboard Overview" : 
+                            (pathname.split("/").pop() || "").charAt(0).toUpperCase() + (pathname.split("/").pop() || "").slice(1)}
+                        </h2>
+                    </div>
 
                     <div className="flex items-center gap-6">
                         <div className="relative group hidden md:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B859E]" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FFD700] transition-colors" />
                             <input
                                 type="text"
-                                placeholder="Search everything..."
-                                className="pl-9 pr-4 py-1.5 bg-[#132F44] border border-[#1F3A52] rounded-lg w-[260px] text-[13px] text-[#E6EDF3] focus:border-[#3B82F6]/50 focus:ring-1 focus:ring-[#3B82F6]/50 transition-all outline-none placeholder-[#6B859E]"
+                                placeholder="Search records..."
+                                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl w-[320px] text-[13px] text-[#0A192F] focus:border-[#FFD700]/50 focus:ring-4 focus:ring-[#FFD700]/5 shadow-sm transition-all outline-none placeholder-slate-400 font-bold"
                             />
                         </div>
 
-                        <div className="flex items-center gap-3 pl-6 border-l border-[#1F3A52]">
-                            <button className="relative p-1.5 text-[#9FB3C8] hover:text-[#E6EDF3] hover:bg-[#132F44] rounded-lg transition-all">
+                        <div className="flex items-center gap-4 pl-6 border-l border-slate-100">
+                            <button className="relative p-2 text-slate-400 hover:text-[#0A192F] hover:bg-slate-50 rounded-xl transition-all">
                                 <Bell className="w-5 h-5" />
-                                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#FACC15] rounded-full border-2 border-[#132F44]"></span>
+                                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>
                             </button>
                             {user && (
                                 <div className="flex items-center gap-3 ml-2 group cursor-pointer">
                                     <div className="text-right hidden sm:block">
-                                        <p className="text-[12px] font-semibold text-[#E6EDF3] leading-tight group-hover:text-[#3B82F6] transition-colors">
+                                        <p className="text-[12px] font-black text-[#0A192F] leading-tight group-hover:text-[#FFD700] transition-colors uppercase tracking-tight">
                                             {user.name}
                                         </p>
-                                        <p className="text-[10px] text-[#6B859E] font-medium uppercase tracking-wider">Super Admin</p>
+                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Administrator</p>
                                     </div>
-                                    <div className="w-8 h-8 rounded-lg bg-[#3B82F6]/10 border border-[#3B82F6]/20 flex items-center justify-center overflow-hidden transition-all group-hover:border-[#3B82F6]/50 shadow-sm">
+                                    <div className="w-10 h-10 rounded-2xl bg-[#0A192F] border border-[#0A192F] flex items-center justify-center overflow-hidden transition-all group-hover:border-[#FFD700] shadow-xl shadow-[#0A192F]/5">
                                         {user.profilePhoto ? (
                                             <img src={user.profilePhoto} alt="Admin profile" className="w-full h-full object-cover" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3B82F6] to-[#1D4ED8] text-white font-bold text-[10px]">
+                                            <div className="w-full h-full flex items-center justify-center bg-[#0A192F] text-[#FFD700] font-black text-[11px]">
                                                 {user.name.charAt(0).toUpperCase()}
                                             </div>
                                         )}
@@ -171,7 +172,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </div>
                     </div>
                 </header>
-                <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#0B1E2D]">
+                <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#F8FAFC]">
                     {children}
                 </main>
             </div>

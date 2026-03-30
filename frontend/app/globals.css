@@ -1,31 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #3B82F6;
-  --color-primary-dark: #2563EB;
-  --color-accent: #FACC15;
-  --color-navy-base: #0B1E2D;
-  --color-navy-surface: #132F44;
-  --color-navy-border: #1F3A52;
-  --color-text-primary: #E6EDF3;
-  --color-text-secondary: #9FB3C8;
-  --color-text-muted: #6B859E;
-  --color-success: #22C55E;
-  --color-pending: #FACC15;
-  --color-error: #EF4444;
+  --color-primary: #FFD700;
+  --color-primary-dark: #DAA520;
+  --color-accent: #FFD700;
+  --color-navy-base: #F8FAFC;
+  --color-navy-surface: #FFFFFF;
+  --color-navy-border: #E2E8F0;
+  --color-text-primary: #0A192F;
+  --color-text-secondary: #475569;
+  --color-text-muted: #94A3B8;
+  --color-success: #10B981;
+  --color-pending: #FFD700;
+  --color-error: #F43F5E;
 }
 
 :root {
   --background: #F8FAFC;
   --foreground: #0A192F;
-  --accent: #FACC15;
-  --admin-bg: #0B1E2D;
-  --admin-surface: #132F44;
-  --admin-border: #1F3A52;
-  --admin-text-primary: #E6EDF3;
-  --admin-text-secondary: #9FB3C8;
-  --admin-text-muted: #6B859E;
-  --admin-primary: #3B82F6;
+  --accent: #FFD700;
+  --admin-bg: #F8FAFC;
+  --admin-surface: #FFFFFF;
+  --admin-border: #E2E8F0;
+  --admin-text-primary: #0A192F;
+  --admin-text-secondary: #475569;
+  --admin-text-muted: #94A3B8;
+  --admin-primary: #FFD700;
   color-scheme: light;
 }
 
