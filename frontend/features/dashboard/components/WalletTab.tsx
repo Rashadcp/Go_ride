@@ -9,12 +9,19 @@ interface WalletTabProps {
 }
 
 export function WalletTab({ user, setShowTopUpModal, transactions = [], loading = false }: WalletTabProps) {
-  // Real stats calculation
-  const spentThisMonth = transactions
-    .filter(t => t.type === 'DEBIT' && new Date(t.createdAt).getMonth() === new Date().getMonth())
+  // Filter only wallet-related transactions (Hide CASH/UPI settlements)
+  // We include all CREDITS (top-ups) because they increase wallet balance
+  // We include only WALLET DEBITS because CASH/UPI debits don't affect wallet balance
+  const walletTransactions = transactions.filter(t => 
+    t.type === 'CREDIT' || (t.type === 'DEBIT' && t.method === 'WALLET')
+  );
+
+  // Real stats calculation based on filtered wallet activity
+  const spentThisMonth = walletTransactions
+    .filter(t => t.type === 'DEBIT' && t.method === 'WALLET' && new Date(t.createdAt).getMonth() === new Date().getMonth())
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalAdded = transactions
+  const totalAdded = walletTransactions
     .filter(t => t.type === 'CREDIT')
     .reduce((acc, t) => acc + t.amount, 0);
 
@@ -99,16 +106,20 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                     <Loader2 className="w-10 h-10 text-[#FFD700] animate-spin" />
                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Deciphering Ledger Data...</p>
                 </div>
-            ) : transactions.length > 0 ? (
-                transactions.map((t, idx) => (
+            ) : walletTransactions.length > 0 ? (
+                walletTransactions.map((t, idx) => (
                     <div key={t._id} className="bg-white p-7 rounded-[40px] border border-slate-100 flex items-center justify-between group hover:shadow-2xl hover:border-[#FFD700]/30 transition-all duration-500">
                         <div className="flex items-center gap-6">
                             <div className={`w-14 h-14 rounded-3xl flex items-center justify-center shadow-inner transition-transform group-hover:rotate-12 duration-500 ${t.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
                                 {t.type === 'CREDIT' ? <ArrowUpRight className="w-7 h-7" /> : <ArrowDownLeft className="w-7 h-7" />}
                             </div>
                             <div>
-                                <p className="font-black text-[#0A192F] text-[15px] tracking-tight mb-1 uppercase italic leading-none">{t.description}</p>
+                                <p className="font-black text-[#0A192F] text-[16px] tracking-tight mb-1 uppercase italic leading-none">
+                                    {t.type === 'CREDIT' ? 'Wallet Credit' : 'Wallet Debit'}
+                                </p>
                                 <div className="flex items-center gap-3">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.description}</p>
+                                    <div className="w-1 h-1 bg-slate-200 rounded-full" />
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                         <Clock className="w-3 h-3" />
                                         {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -136,7 +147,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                         <Wallet className="w-12 h-12 text-slate-200" />
                     </div>
                     <h3 className="text-2xl font-black text-[#0A192F] mb-2 uppercase tracking-tighter italic">Ledger is <span className="text-slate-300">Empty</span></h3>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">Begin your journey or add credits to initialize history logs.</p>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">No wallet-specific transactions found.</p>
                 </div>
             )}
           </div>

@@ -221,7 +221,10 @@ export default function DriverDashboard() {
         const handleStatusUpdate = (data: any) => {
             setActiveTrip((prev: any) => {
                 if (!prev || prev.rideId !== data.rideId) return prev;
-                if (data.status === "COMPLETED" || data.status === "CANCELLED") return null;
+                if (data.status === "COMPLETED" || data.status === "CANCELLED") {
+                    fetchTrips();
+                    return null;
+                }
                 return { ...prev, status: data.status };
             });
         };
@@ -353,6 +356,8 @@ export default function DriverDashboard() {
         if (status === "COMPLETED") {
             toast.success("Ride Completed!");
             setActiveTrip(null);
+            // Proactively refresh history so it's ready when the user switches tabs
+            fetchTrips();
         } else {
             setActiveTrip({ ...activeTrip, status });
             toast.success(status === "ARRIVED" ? "Arrived at Pickup" : "Trip Started");

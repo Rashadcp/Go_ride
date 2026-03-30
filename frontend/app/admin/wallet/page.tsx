@@ -21,6 +21,7 @@ interface Transaction {
     userId: { name: string, email: string };
     amount: number;
     type: string;
+    method?: string;
     status: string;
     createdAt: string;
 }
@@ -136,15 +137,20 @@ export default function AdminWalletPage() {
                 </div>
                 
                 <div className="divide-y divide-white/5 overflow-y-auto flex-1 custom-scrollbar">
-                    {transactions.length > 0 ? (
-                        transactions.map(tx => (
+                    {(() => {
+                        const walletTxs = transactions.filter(tx => tx.type === 'CREDIT' || (tx.type === 'DEBIT' && tx.method === 'WALLET'));
+                        return walletTxs.length > 0 ? (
+                            walletTxs.map(tx => (
                             <div key={tx._id} className="p-6 hover:bg-white/5 transition-all flex items-center justify-between">
                                 <div className="flex items-center gap-6">
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tx.type === 'CREDIT' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-white/5 text-[#FFD700] border border-white/5'}`}>
                                         {tx.type === 'CREDIT' ? <Plus className="w-5 h-5" /> : <Minus className="w-5 h-5" />}
                                     </div>
                                     <div>
-                                        <p className="font-black text-sm text-white mb-0.5">{tx.userId?.name || "System Process"}</p>
+                                        <p className="font-black text-sm text-white mb-0.5">
+                                            {tx.type === 'CREDIT' ? 'Wallet Credit' : 'Wallet Debit'} 
+                                            <span className="text-slate-500 font-bold ml-3 text-[10px] uppercase tracking-widest">— {tx.userId?.name || "System"}</span>
+                                        </p>
                                         <div className="flex items-center gap-2">
                                             <span className="text-[9px] font-black uppercase tracking-widest text-[#FFD700] bg-white/5 border border-[#FFD700]/20 px-2 py-0.5 rounded-md">#{tx._id.slice(-6)}</span>
                                             <span className="text-[10px] font-bold text-slate-500">{new Date(tx.createdAt).toLocaleString()}</span>
@@ -158,12 +164,13 @@ export default function AdminWalletPage() {
                                     <span className="text-[9px] font-black text-emerald-400 uppercase bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/10">{tx.status}</span>
                                 </div>
                             </div>
-                        ))
-                    ) : (
-                        <div className="p-20 text-center">
-                            <p className="text-slate-500 font-bold italic">No transactions found matching your records.</p>
-                        </div>
-                    )}
+                            ))
+                        ) : (
+                            <div className="p-20 text-center">
+                                <p className="text-slate-500 font-bold italic">No wallet-specific transactions found matching your records.</p>
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Modern Pagination Bar */}

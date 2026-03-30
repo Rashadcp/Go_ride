@@ -9,8 +9,9 @@ export const getUserRides = async (req: any, res: Response) => {
     try {
         const rides = await Ride.find({
             $or: [
-                { createdBy: req.user.id },
-                { driverId: req.user.id }
+                { createdBy: req.user._id },
+                { driverId: req.user._id },
+                { "passengers.userId": req.user._id }
             ]
         })
         .populate('createdBy', 'name email phone profilePhoto')
@@ -48,8 +49,9 @@ export const getActiveRide = async (req: any, res: Response) => {
         const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
         const ride = await Ride.findOne({
             $or: [
-                { createdBy: req.user.id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED"] } },
-                { driverId: req.user.id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED"] } }
+                { createdBy: req.user._id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } },
+                { driverId: req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } },
+                { "passengers.userId": req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } }
             ],
             createdAt: { $gte: twelveHoursAgo }
         })

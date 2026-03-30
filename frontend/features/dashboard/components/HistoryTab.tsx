@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import Image from "next/image";
+import api from "@/lib/axios";
+import { toast } from "react-hot-toast";
 
 const AutoRickshawIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 64 64" fill="none" aria-hidden="true" className={className}>
@@ -21,24 +23,58 @@ const AutoRickshawIcon = ({ className }: { className?: string }) => (
 );
 
 export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory: any[]; setActiveTab: (t: string) => void; user: any }) {
+  const [filter, setFilter] = useState<'ALL' | 'TAXI' | 'HOST_POOL' | 'JOIN_POOL'>('ALL');
   const [selectedRide, setSelectedRide] = useState<any>(null);
+  const [showRatingView, setShowRatingView] = useState(false);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingFeedback, setRatingFeedback] = useState("");
   
   const userId = user?.id || user?._id;
+  
+  const handleRateSubmit = async () => {
+    if (ratingValue === 0) return toast.error("Please select a star rating");
+    try {
+      await api.post("/rides/rate", {
+        rideId: selectedRide._id,
+        targetId: selectedRide.driverId?._id || selectedRide.driverId,
+        rating: ratingValue,
+        feedback: ratingFeedback
+      });
+      toast.success("Thank you for your feedback!");
+      setShowRatingView(false);
+      setRatingValue(0);
+      setRatingFeedback("");
+      setSelectedRide(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to submit rating");
+    }
+  };
 
-  const totalSpent = ridesHistory.reduce((acc: number, ride: any) => {
-    if (ride.status !== 'COMPLETED') return acc;
+  const filteredHistory = ridesHistory.filter((r: any) => {
+    if (r.status !== 'COMPLETED') return false;
+    if (filter === 'ALL') return true;
+    
+    if (filter === 'TAXI') return r.type === 'TAXI';
+    
+    const isCreator = String(r.createdBy?._id || r.createdBy) === String(userId);
+    if (filter === 'HOST_POOL') return r.type === 'CARPOOL' && isCreator;
+    if (filter === 'JOIN_POOL') return r.type === 'CARPOOL' && !isCreator;
+    
+    return false;
+  });
+
+  const totalSpent = filteredHistory.reduce((acc: number, ride: any) => {
     const isDriver = (ride.driverId === userId) || (ride.driverId?._id === userId);
     return isDriver ? acc : acc + (ride.price || 0);
   }, 0);
 
-  const totalEarned = ridesHistory.reduce((acc: number, ride: any) => {
-    if (ride.status !== 'COMPLETED') return acc;
+  const totalEarned = filteredHistory.reduce((acc: number, ride: any) => {
     const isDriver = (ride.driverId === userId) || (ride.driverId?._id === userId);
     return isDriver ? acc + (ride.price || 0) : acc;
   }, 0);
 
-  const totalDistance = ridesHistory.reduce((acc: number, ride: any) => {
-    if (ride.status !== 'COMPLETED') return acc;
+  const totalDistance = filteredHistory.reduce((acc: number, ride: any) => {
     return acc + (Number(ride.distance) || 0);
   }, 0);
 
@@ -52,12 +88,12 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
           </div>
           <div className="flex gap-4 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-              <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">Total Spent</span>
+              <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">{filter === 'ALL' ? 'Total Spent' : `${filter} Spent`}</span>
               <span className="text-lg font-black text-[#0A192F]">Rs {totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
             </div>
             {totalEarned > 0 && (
               <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Total Earned</span>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{filter === 'ALL' ? 'Total Earned' : `${filter} Revenue`}</span>
                 <span className="text-lg font-black text-emerald-600">Rs {totalEarned.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
               </div>
             )}
@@ -68,8 +104,32 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
           </div>
         </div>
 
+        {/* Filter Toggle */}
+        <div className="flex justify-center sm:justify-start">
+          <div className="p-1.5 bg-white rounded-[24px] shadow-sm border border-slate-100 flex flex-wrap gap-1">
+            {[
+              { id: 'ALL', label: 'All History' },
+              { id: 'TAXI', label: 'Taxi Bookings' },
+              { id: 'HOST_POOL', label: 'My CarPools' },
+              { id: 'JOIN_POOL', label: 'Joined Pools' }
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setFilter(t.id as any)}
+                className={`px-4 sm:px-6 py-3 rounded-[18px] text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                  filter === t.id 
+                    ? 'bg-[#0A192F] text-[#FFD700] shadow-lg scale-[1.02]' 
+                    : 'text-slate-400 hover:text-[#0A192F] hover:bg-slate-50'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-6">
-          {ridesHistory.filter((r: any) => r.status === 'COMPLETED').length > 0 ? ridesHistory.filter((r: any) => r.status === 'COMPLETED').map((ride: any, i: number) => (
+          {filteredHistory.length > 0 ? filteredHistory.map((ride: any, i: number) => (
             <div key={ride.id || ride._id} 
               onClick={() => setSelectedRide(ride)}
               className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-2xl hover:border-[#FFD700]/50 transition-all group cursor-pointer relative overflow-hidden flex flex-col lg:flex-row gap-8 items-start lg:items-center animate-fade-in" 
@@ -86,11 +146,28 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                     <span className="text-[10px] font-black text-emerald-500 uppercase">Completed</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter ${ride.type === 'CARPOOL' ? 'bg-amber-100 text-amber-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {ride.type === 'CARPOOL' ? 'Ride Share' : 'Private Taxi'}
-                    </span>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md text-[9px] font-black uppercase tracking-tighter flex items-center gap-1">
-                      <CreditCard className="w-2.5 h-2.5" /> Wallet
+                    {ride.type === 'TAXI' ? (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter bg-blue-50 text-blue-600">
+                        Private Taxi
+                      </span>
+                    ) : String(ride.createdBy?._id || ride.createdBy) === String(userId) ? (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter bg-amber-100 text-amber-700">
+                        Car Pool (Host)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter bg-emerald-100 text-emerald-700">
+                        Car Pool (Guest)
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter flex items-center gap-1 ${
+                      (ride.paymentMethod === 'WALLET' || (ride.type === 'CARPOOL' && ride.passengers?.find((p:any) => String(p.userId?._id || p.userId) === String(userId))?.paymentMethod === 'WALLET')) 
+                        ? 'bg-emerald-50 text-emerald-600' 
+                        : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      <CreditCard className="w-2.5 h-2.5" />
+                      {ride.type === 'CARPOOL' && String(ride.createdBy?._id || ride.createdBy) !== String(userId)
+                        ? (ride.passengers?.find((p: any) => String(p.userId?._id || p.userId) === String(userId))?.paymentMethod || 'CASH')
+                        : (ride.paymentMethod || 'CASH')}
                     </span>
                   </div>
                 </div>
@@ -120,7 +197,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
               <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-[160px] gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50">
                 <div className="text-left lg:text-right">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 leading-none">
-                    {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(ride.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <p className="text-[13px] font-black text-[#00838F] mt-1">{ride.distance?.toFixed(1) || '0.0'} KM TRIP</p>
                 </div>
@@ -140,8 +217,8 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                 <Car className="w-12 h-12 text-slate-300" />
               </div>
               <h3 className="text-2xl font-black text-[#0A192F] mb-3 tracking-tight">Accessing Journey Ledger</h3>
-              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto opacity-60">No completed sessions available to display</p>
-              <Button variant="primary" className="mt-10 px-10 py-4 shadow-xl hover:shadow-[#FFD700]/20" onClick={() => setActiveTab('dashboard')}>Begin a new trip</Button>
+              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto opacity-60">No {filter !== 'ALL' ? filter.toLowerCase().replace('_', ' ') : ''} sessions available to display</p>
+              <Button variant="primary" className="mt-10 px-10 py-4 shadow-xl hover:shadow-[#FFD700]/20" onClick={() => { setFilter('ALL'); setActiveTab('dashboard'); }}>Begin a new trip</Button>
             </div>
           )}
         </div>
@@ -204,6 +281,41 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                         </div>
                     </div>
                     
+                    {/* Rating Action */}
+                    {((selectedRide.driverId?._id || selectedRide.driverId) !== userId) && (
+                      <div className="w-full sm:w-auto">
+                        {!showRatingView ? (
+                          <Button 
+                            variant="primary" 
+                            className="w-full px-8 py-3 bg-[#FFD700] text-[#0A192F] font-black uppercase text-[10px] tracking-widest h-auto"
+                            onClick={() => setShowRatingView(true)}
+                          >
+                            Rate this Trip
+                          </Button>
+                        ) : (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <button key={s} onClick={() => setRatingValue(s)}>
+                                  <Star className={`w-6 h-6 ${ratingValue >= s ? 'fill-[#FFD700] text-[#FFD700]' : 'text-slate-200'}`} />
+                                </button>
+                              ))}
+                            </div>
+                            <input 
+                              placeholder="Any feedback? (Optional)" 
+                              className="text-[10px] p-2 border border-slate-100 rounded-lg focus:outline-none focus:border-[#FFD700]"
+                              value={ratingFeedback}
+                              onChange={(e) => setRatingFeedback(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <Button onClick={handleRateSubmit} className="flex-1 py-1.5 h-auto text-[9px] font-black uppercase tracking-widest bg-[#0A192F] text-white">Submit</Button>
+                              <Button onClick={() => setShowRatingView(false)} variant="outline" className="py-1.5 h-auto text-[9px] font-black uppercase tracking-widest border-slate-200">Cancel</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Vehicle Identity */}
                     <div className="bg-slate-50 border border-slate-100 rounded-3xl p-5 flex items-center gap-4 w-full sm:w-auto shadow-inner">
                         <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#0A192F] shadow-sm">
@@ -266,14 +378,20 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                                         <Calendar className="w-4 h-4 text-slate-400" />
                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Session Date</span>
                                     </div>
-                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">{new Date(selectedRide.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">
+                                        {new Date(selectedRide.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} • {new Date(selectedRide.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-3">
                                         <CreditCard className="w-4 h-4 text-slate-400" />
                                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Method</span>
                                     </div>
-                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">Digital Wallet</span>
+                                    <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">
+                                        {selectedRide.type === 'CARPOOL' && String(selectedRide.createdBy?._id || selectedRide.createdBy) !== String(userId)
+                                          ? (selectedRide.passengers?.find((p: any) => String(p.userId?._id || p.userId) === String(userId))?.paymentMethod || 'CASH')
+                                          : (selectedRide.paymentMethod || 'CASH')}
+                                    </span>
                                 </div>
                             </div>
                         </div>

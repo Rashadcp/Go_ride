@@ -111,6 +111,9 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
           status: "COMPLETED",
           driverInfo: prev?.driverInfo || ride?.driverInfo
         }));
+        // Ensure history is fresh
+        queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
         return;
       }
       if (ride) {
@@ -123,9 +126,9 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       } else {
         setActiveRide((prev: any) => ({ ...prev, status }));
       }
-      if (status === "ARRIVED") toast.success("Driver has arrived at pickup!");
-      if (status === "STARTED") toast.success("Trip has started!");
-      if (status === "ACCEPTED") toast.success("Ride request accepted!");
+      if (status === "ARRIVED") toast.success("Driver has arrived at pickup!", { id: 'ride-status' });
+      if (status === "STARTED") toast.success("Trip has started!", { id: 'ride-status' });
+      if (status === "ACCEPTED") toast.success("Ride request accepted!", { id: 'ride-status' });
     };
 
     const handleRideRequestFailed = (data: any) => {
@@ -140,11 +143,14 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     const handleRideCancelled = () => {
       resetRideState();
       toast.error("Ride cancelled.");
+      queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
     };
 
     const handleWalletUpdate = (data: { balance: number }) => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
     };
 
     const handleDriverLocationUpdate = (data: any) => {

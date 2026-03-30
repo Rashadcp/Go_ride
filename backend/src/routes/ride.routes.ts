@@ -37,6 +37,9 @@ router.post("/create-pool", createCarpool);
 // Cancel ride
 router.post("/cancel", cancelRide);
 
+// Rate a ride
+router.post("/rate", rateRide);
+
 // Apply promo code (at paying time)
 router.post("/apply-promo", (req, res, next) => {
     const { applyPromoCode } = require("../controllers/ride.controller");

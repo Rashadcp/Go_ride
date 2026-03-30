@@ -99,7 +99,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          rideState.setActiveRide(response.data);
          setIsDriverTripActive(true);
          socket.emit("join-ride", { driverId: user.id || user._id, rideId: response.data.rideId || response.data._id });
-         toast.success("Trip activated! Looking for riders.");
+         toast.success("Trip activated! Looking for riders.", { id: 'ride-status' });
       } catch (err: any) {
          console.error("❌ Driver trip activation error:", err);
          toast.error(err.response?.data?.message || "Failed to start trip");
@@ -353,7 +353,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               if (!rideId) return toast.error("No active ride found");
                               socket.emit("update-ride-status", { rideId, status: "ARRIVED", driverId: user.id });
                               rideState.setActiveRide((prev: any) => ({ ...prev, status: "ARRIVED" }));
-                              toast.success("Updated: Arrived at Pickup!");
+                              toast.success("Updated: Arrived at Pickup!", { id: 'ride-status' });
                            }}
                            className="w-full py-4 bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-[#FFD700]/10 flex items-center justify-center gap-3 active:scale-95"
                         >
@@ -369,7 +369,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               if (!rideId) return toast.error("No active ride found");
                               socket.emit("update-ride-status", { rideId, status: "STARTED", driverId: user.id });
                               rideState.setActiveRide((prev: any) => ({ ...prev, status: "STARTED" }));
-                              toast.success("Trip officially started!");
+                              toast.success("Trip officially started!", { id: 'ride-status' });
                            }}
                            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
                         >
@@ -386,7 +386,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                               socket.emit("update-ride-status", { rideId, status: "COMPLETED", driverId: user.id });
                               rideState.resetRideState();
                               setIsDriverTripActive(false);
-                              toast.success("Ride completed successfully!");
+                              toast.success("Ride completed successfully!", { id: 'ride-status' });
                            }}
                            className="w-full py-4 bg-white hover:bg-slate-50 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl flex items-center justify-center gap-3 active:scale-95 border border-slate-200"
                         >

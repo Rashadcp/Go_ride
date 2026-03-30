@@ -232,7 +232,7 @@ export default function UserDashboard() {
         )}
 
         {activeTab === "earnings" && (
-          <EarningsTab ridesHistory={dashboardData.ridesHistory} user={user} />
+          <EarningsTab ridesHistory={dashboardData.ridesHistory} user={user} isDriver={isDriverMode} />
         )}
 
         {activeTab === "wallet" && (

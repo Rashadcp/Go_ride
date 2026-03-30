@@ -15,10 +15,10 @@
 - Map & routing: `frontend/components/map/MapComponent.tsx`
 - Sockets (backend): `backend/src/config/socket.ts`
 
-## Run it locally
-1) Backend: `cd backend && npm install && npm run dev`
-2) Frontend: `cd frontend && npm install && npm run dev`
-3) Open http://localhost:3000 and use two tabs (passenger + driver) to exercise both flows.
+## Run it locally (Hybrid Mode)
+1) Start Backend (and Redis) via Docker: `docker compose up -d`
+2) Start Frontend locally: `cd frontend && npm install && npm run dev`
+3) Open http://localhost:3000 to access the platform.
 
 ## Socket events (shared ride)
 - `create-shared-ride` (driver) → `shared-rides` broadcast
