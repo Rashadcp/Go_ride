@@ -2,7 +2,7 @@ import { Response } from "express";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import Razorpay from "razorpay";
-import { createNotification } from "../../controllers/notification.controller";
+import { createNotification } from "../notification/notification.controller";
 import Ride from "../../models/ride";
 import Transaction from "../../models/transaction";
 import User from "../../models/user";

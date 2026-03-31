@@ -242,7 +242,7 @@ export default function EmergencyReportsPage() {
                                             </div>
                                             <div>
                                                 <h3 className="font-black text-[#0A192F] text-sm leading-none">{reporterName}</h3>
-                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{reporterEmail}</p>
+                                                <p className="text-xs text-slate-400 font-bold mt-1 tracking-tight italic">{reporterEmail}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">

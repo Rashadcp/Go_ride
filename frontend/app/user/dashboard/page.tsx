@@ -181,40 +181,43 @@ export default function UserDashboard() {
         handleLogout={handleLogout}
       />
 
-      <main className="flex-1 relative flex flex-col overflow-hidden">
+      <main className="flex-1 relative flex flex-col overflow-y-auto lg:overflow-hidden pt-20 pb-24 lg:pt-0 lg:pb-0 scroll-smooth">
         {activeTab === "dashboard" && (
-          <>
-            <div className="absolute top-8 right-8 z-50 flex items-stretch justify-end gap-4 pointer-events-auto">
-              {!isDriverMode && (
-                <div className="bg-[#FEF3C7]/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-lg border border-white/50 h-[44px]">
-                  <Wallet className="text-[#0A192F] w-5 h-5" />
-                  <div className="flex items-center gap-1 text-[#0A192F] font-black tracking-tight text-sm mt-0.5">
-                    <IndianRupee className="w-3.5 h-3.5 shrink-0" />
-                    <span>{Number((user as any)?.walletBalance ?? 0).toFixed(2)}</span>
+          <div className="flex-1 relative flex flex-col min-h-full">
+            {/* Top Action Overlay - Responsive */}
+            <div className="absolute top-4 lg:top-8 left-4 right-4 lg:relative lg:left-auto lg:right-8 lg:mt-8 z-50 flex flex-col lg:flex-row items-stretch lg:items-center justify-end gap-3 lg:gap-4 pointer-events-auto">
+              <div className="flex items-center justify-between lg:justify-end gap-3 flex-1 lg:flex-initial order-2 lg:order-none">
+                {!isDriverMode && (
+                  <div className="bg-[#FEF3C7]/90 backdrop-blur-md px-3 lg:px-4 py-2 rounded-full flex items-center gap-2 shadow-lg border border-white/50 h-[40px] lg:h-[44px]">
+                    <Wallet className="text-[#0A192F] w-4 h-4 lg:w-5 lg:h-5" />
+                    <div className="flex items-center gap-1 text-[#0A192F] font-black tracking-tight text-[10px] lg:text-sm mt-0.5">
+                      <IndianRupee className="w-3 h-3 lg:w-3.5 lg:h-3.5 shrink-0" />
+                      <span>{Number((user as any)?.walletBalance ?? 0).toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="flex p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden h-[44px]">
-                <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
-                  Passenger
-                </button>
-                <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
-                  Share My Ride
-                </button>
+                <div className="flex items-center gap-2 lg:gap-3 ml-auto">
+                  <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`w-10 h-10 lg:w-11 lg:h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center transition-all border border-white ${isNotificationsOpen ? "text-[#0A192F] bg-white ring-2 ring-[#FFD700]/20" : "text-slate-400 hover:text-[#0A192F]"}`}>
+                    <Bell className="w-4 h-4 lg:w-5 lg:h-5 relative" />
+                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
+                  </button>
+                  <NotificationsPopover 
+                    isOpen={isNotificationsOpen} 
+                    onClose={() => setIsNotificationsOpen(false)} 
+                  />
+                  <button className="hidden sm:flex w-10 h-10 lg:w-11 lg:h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-white">
+                    <HelpCircle className="w-4 h-4 lg:w-5 lg:h-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className={`w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center transition-all border border-white ${isNotificationsOpen ? "text-[#0A192F] bg-white ring-2 ring-[#FFD700]/20" : "text-slate-400 hover:text-[#0A192F]"}`}>
-                  <Bell className="w-5 h-5 relative" />
-                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white" />
+              <div className="flex p-0.5 lg:p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden h-[40px] lg:h-[44px] order-1 lg:order-none">
+                <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`flex-1 lg:flex-initial px-3 lg:px-5 py-2 lg:py-2.5 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
+                  Passenger
                 </button>
-                <NotificationsPopover 
-                  isOpen={isNotificationsOpen} 
-                  onClose={() => setIsNotificationsOpen(false)} 
-                />
-                <button className="w-11 h-11 bg-white/80 backdrop-blur-md rounded-full shadow-xl flex items-center justify-center text-slate-400 hover:text-[#0A192F] transition-all border border-white">
-                  <HelpCircle className="w-5 h-5" />
+                <button onClick={() => { setIsDriverMode(true); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`flex-1 lg:flex-initial px-3 lg:px-5 py-2 lg:py-2.5 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isDriverMode ? "bg-[#FFD700] text-[#0A192F] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
+                  Share My Ride
                 </button>
               </div>
             </div>
@@ -224,7 +227,7 @@ export default function UserDashboard() {
             ) : (
               <DriverView user={user} />
             )}
-          </>
+          </div>
         )}
 
         {activeTab === "history" && (

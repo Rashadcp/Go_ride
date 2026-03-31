@@ -16,6 +16,8 @@ import {
     Activity,
     CreditCard
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Transaction {
     _id: string;
@@ -35,7 +37,7 @@ export default function AdminRevenuePage() {
         setLoading(true);
         try {
             const [txRes, statsRes] = await Promise.all([
-                api.get("/admin/transactions"),
+                api.get("/admin/transactions?type=CREDIT&limit=50"),
                 api.get("/admin/stats")
             ]);
             // Handle paginated or direct array response
@@ -56,6 +58,48 @@ export default function AdminRevenuePage() {
         fetchData();
     }, []);
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        
+        // Add Title
+        doc.setFontSize(22);
+        doc.setTextColor(10, 25, 47); // Navy color from your design
+        doc.text("GoRide - Revenue Ledger", 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+        
+        const tableData = transactions.map(tx => [
+            tx.userId?.name || "System Core",
+            tx.userId?.email || "N/A",
+            tx.type,
+            `INR ${tx.amount.toLocaleString()}`,
+            tx.status,
+            new Date(tx.createdAt).toLocaleDateString(),
+            new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        ]);
+
+        autoTable(doc, {
+            startY: 35,
+            head: [['Actor', 'Email', 'Type', 'Amount', 'Status', 'Date', 'Time']],
+            body: tableData,
+            headStyles: { 
+                fillColor: [10, 25, 47], 
+                textColor: [251, 191, 36], // Gold color from your design 
+                fontStyle: 'bold' 
+            },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            margin: { top: 35 },
+        });
+
+        // Open print dialog instead of direct save
+        doc.autoPrint();
+        const pdfUrl = doc.output('bloburl');
+        window.open(pdfUrl, '_blank');
+        toast.success("Print ledger prepared");
+    };
+
     if (loading) {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
@@ -73,7 +117,10 @@ export default function AdminRevenuePage() {
                     <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Real-time financial tracking and growth metrics</p>
                 </div>
                 <div className="flex gap-4">
-                    <button className="flex items-center gap-2 px-6 py-3 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#0A192F]/10 hover:bg-black transition-all">
+                    <button 
+                        onClick={handleExportPDF}
+                        className="flex items-center gap-2 px-6 py-3 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#0A192F]/10 hover:bg-black transition-all"
+                    >
                         <Download className="w-4 h-4" />
                         Export Ledger
                     </button>
@@ -88,9 +135,9 @@ export default function AdminRevenuePage() {
                     </div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total Revenue</p>
                     <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">₹{stats?.totalRevenue?.toLocaleString()}</h3>
-                    <div className="flex items-center gap-2 text-[#22C55E] font-black text-[10px] uppercase tracking-widest">
-                        <ArrowUpRight className="w-4 h-4" />
-                        +14.5% Performance
+                    <div className={`flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${stats?.revenueTrend >= 0 ? "text-[#22C55E]" : "text-rose-500"}`}>
+                        {stats?.revenueTrend >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                        {stats?.revenueTrend >= 0 ? '+' : ''}{stats?.revenueTrend}% Performance
                     </div>
                 </div>
 

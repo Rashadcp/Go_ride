@@ -42,20 +42,6 @@ export const createCarpool = async (req: any, res: Response) => {
 
         await newRide.save();
         
-        // Fetch user name for the console log
-        const User = require("../../models/user").default;
-        const hostUser = await User.findById(req.user.id).select('name');
-
-        console.log(`-----------------------------------------`);
-        console.log(`🚗 [NEW CARPOOL SHARED]`);
-        console.log(`   Ride ID: ${rideId}`);
-        console.log(`   Host Driver: ${hostUser?.name || 'Unknown'} (${req.user.id})`);
-        console.log(`   Pickup: ${pickup.label || 'Unknown location'}`);
-        console.log(`   Destination: ${drop.label || 'Unknown location'}`);
-        console.log(`   Available Seats: ${availableSeats}`);
-        console.log(`   Price per Seat: ${pricePerSeat}`);
-        console.log(`-----------------------------------------`);
-
         res.status(201).json(newRide);
     } catch (err: any) {
         console.error("❌ Error creating carpool:", err);

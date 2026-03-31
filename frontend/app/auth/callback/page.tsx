@@ -12,35 +12,17 @@ function AuthCallbackContent() {
     const searchParams = useSearchParams();
     const { setAuth } = useAuthStore();
 
-    useEffect(() => {
-        const accessToken = searchParams.get("accessToken");
-        const refreshToken = searchParams.get("refreshToken");
-
-        if (accessToken && refreshToken) {
-            handleSocialLogin(accessToken, refreshToken);
-        } else {
-            console.error("No tokens found in callback URL");
-            router.push("/login?error=no_tokens");
-        }
-    }, [searchParams, router]);
-
-    const handleSocialLogin = async (accessToken: string, refreshToken: string) => {
+    async function handleSocialLogin(accessToken: string, refreshToken: string) {
         try {
-            // 1. Manually set tokens in localStorage so the 'api' instance can use them for 'getMe'
             localStorage.setItem("accessToken", accessToken);
             localStorage.setItem("refreshToken", refreshToken);
 
-            // 2. Fetch user details to sync with store
             const { data: user } = await api.get("/auth/me");
 
-            // 3. Update global store
             setAuth(user, accessToken, refreshToken);
 
             toast.success(`Welcome back, ${user.firstName}!`);
 
-            // 4. Smart Redirect
-            // If they are a driver and need onboarding or are awaiting approval, send to onboarding
-            // 4. Smart Redirect
             if (user.role === "ADMIN") {
                 router.push("/admin/dashboard");
             } else if (user.role === "DRIVER") {
@@ -57,7 +39,19 @@ function AuthCallbackContent() {
             toast.error("Authentication synchronization failed");
             router.push("/login?error=sync_failed");
         }
-    };
+    }
+
+    useEffect(() => {
+        const accessToken = searchParams.get("accessToken");
+        const refreshToken = searchParams.get("refreshToken");
+
+        if (accessToken && refreshToken) {
+            handleSocialLogin(accessToken, refreshToken);
+        } else {
+            console.error("No tokens found in callback URL");
+            router.push("/login?error=no_tokens");
+        }
+    }, [searchParams, router]);
 
     return (
         <div className="h-screen bg-bg-main flex flex-col items-center justify-center gap-6 transition-colors duration-500">

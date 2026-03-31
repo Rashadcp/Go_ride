@@ -13,16 +13,31 @@ import {
     Search,
     TrendingUp,
     AlertTriangle,
-    Ticket
+    Ticket,
+    CreditCard
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "react-hot-toast";
+import api from "@/lib/axios";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const { user, clearAuth } = useAuthStore();
+    const [stats, setStats] = React.useState<any>(null);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await api.get("/admin/stats");
+                setStats(res.data.stats);
+            } catch (error) {
+                console.error("Failed to fetch layout stats");
+            }
+        };
+        fetchStats();
+    }, []);
 
     useEffect(() => {
         if (user && user.role !== "ADMIN") {
@@ -40,11 +55,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { id: "dashboard", href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
         { id: "drivers", href: "/admin/drivers", icon: ShieldCheck, label: "Drivers Management" },
         { id: "users", href: "/admin/users", icon: Users, label: "Users" },
-        { id: "revenue", href: "/admin/revenue", icon: TrendingUp, label: "Revenue" },
+        { id: "revenue", href: "/admin/revenue", icon: CreditCard, label: "Revenue Intelligence" },
+        { id: "notifications", href: "/admin/notifications", icon: Bell, label: "System Alerts" },
     ];
 
     const supportItems = [
-        { id: "emergency", href: "/admin/emergency", icon: AlertTriangle, label: "Emergency Reports", badge: 3 },
+        { id: "emergency", href: "/admin/emergency", icon: AlertTriangle, label: "Emergency Reports", badge: stats?.emergencyAlerts || 0 },
         { id: "discounts", href: "/admin/discounts", icon: Ticket, label: "Discounts" },
     ];
 
@@ -136,14 +152,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <div className="relative group hidden md:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FFD700] transition-colors" />
-                            <input
-                                type="text"
-                                placeholder="Search records..."
-                                className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl w-[320px] text-[13px] text-[#0A192F] focus:border-[#FFD700]/50 focus:ring-4 focus:ring-[#FFD700]/5 shadow-sm transition-all outline-none placeholder-slate-400 font-bold"
-                            />
-                        </div>
 
                         <div className="flex items-center gap-4 pl-6 border-l border-slate-100">
                             <button className="relative p-2 text-slate-400 hover:text-[#0A192F] hover:bg-slate-50 rounded-xl transition-all">

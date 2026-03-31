@@ -1,5 +1,8 @@
 import { Server, Socket } from "socket.io";
 import Ride from "../../models/ride";
+import Vehicle from "../../models/vehicle";
+import { sendBookingConfirmation } from "../../config/mail";
+import User from "../../models/user";
 
 export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Carpool Join Request (Passenger -> Server -> Driver)
@@ -42,7 +45,27 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             // Populate driver info so passenger gets it immediately
             const populatedRide = await Ride.findById(ride._id)
                 .populate('driverId', 'name email phone profilePhoto rating')
-                .populate('passengers.userId', 'name profilePhoto');
+                .populate('passengers.userId', 'name profilePhoto email');
+
+            const passengerUser = await User.findById(data.userId);
+
+            // Trigger Email Booking Confirmation to Passenger (Carpool)
+            try {
+                if (passengerUser && passengerUser.email) {
+                    const driver = populatedRide?.driverId as any;
+                    const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
+                    await sendBookingConfirmation(passengerUser.email, {
+                        rideId: ride.rideId,
+                        pickup: ride.pickup?.label || "Current Location",
+                        destination: ride.drop?.label || "Selected Destination",
+                        fare: ride.pricePerSeat || (ride.price / ride.passengers.length), // Carpool price is usually per seat
+                        driverName: driver?.name || "Your Driver",
+                        vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
+                    });
+                }
+            } catch (emailErr) {
+                console.error("Carpool booking email trigger error:", emailErr);
+            }
 
             const passengerRideView = populatedRide?.toObject
                 ? {

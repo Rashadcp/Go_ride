@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import api from "@/lib/axios";
 import { useRideStore } from "@/features/ride/store/useRideStore";
@@ -13,36 +13,85 @@ export const useMapLogic = () => {
     setIsRouteSearched,
     setSearchStarted,
     setLoadingDrivers,
-    setDashboardStep
+    setDashboardStep,
+    resetRideState,
+    userLoc
   } = useRideStore();
 
   const debounceTimer = useRef<any>(null);
+  const locationInterval = useRef<NodeJS.Timeout | null>(null);
 
   const handleLocate = useCallback(() => {
     if (!("geolocation" in navigator)) {
         toast.error("Geolocation is not supported by your browser.");
-        setUserLoc([40.7128, -74.006]);
+        // We can't check store's userLoc here without adding it to deps, 
+        // but we can just use the setter if it's currently null? 
+        // Better: just let the store handle it.
         return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLoc([pos.coords.latitude, pos.coords.longitude]), 
+      (pos) => {
+        const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setUserLoc(newLoc);
+      }, 
       (err) => {
         let errorMsg = "Could not get live location.";
         if (err.code === err.PERMISSION_DENIED) errorMsg = "Location access denied.";
         else if (err.code === err.TIMEOUT) {
             navigator.geolocation.getCurrentPosition(
               (p) => setUserLoc([p.coords.latitude, p.coords.longitude]), 
-              () => setUserLoc([40.7128, -74.006]), 
+              () => { /* just skip if second attempt fails */ }, 
               { enableHighAccuracy: false, timeout: 10000 }
             );
             return;
         }
         toast.error(errorMsg);
-        setUserLoc([11.072, 76.074]);
       }, 
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }, [setUserLoc]);
+
+  // Automatic Location Update every second
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+
+    // Initial locate
+    handleLocate();
+
+    // Start interval for automatic updates every 3 seconds
+    const intervalId = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLoc([pos.coords.latitude, pos.coords.longitude]);
+        },
+        (err) => {
+          // Log only major errors, ignore minor timeouts in background
+          if (err.code !== err.TIMEOUT) {
+            console.error("Auto-location error:", err);
+          }
+        },
+        // More relaxed settings for the background poll
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
+      );
+    }, 3000);
+
+    // Also use watchPosition for real-time reactivity when moving
+    // This is more efficient for "every second" style movement
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setUserLoc([pos.coords.latitude, pos.coords.longitude]);
+      },
+      (err) => {
+        if (err.code !== err.TIMEOUT) console.error("Watch-location error:", err);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+    );
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [handleLocate, setUserLoc]);
 
   const fetchSuggestions = async (id: string, query: string, biasLat = 11.0720, biasLon = 76.0740) => {
     if (query.length < 3) {
@@ -92,13 +141,26 @@ export const useMapLogic = () => {
       if (!exists) {
         return [...prev, { id, query, coords: null, suggestions: [], showSuggestions: query.length >= 3 }];
       }
-      return prev.map(s => s.id === id ? { ...s, query, showSuggestions: query.length >= 3 } : s);
+      return prev.map(s => s.id === id ? { 
+        ...s, 
+        query, 
+        showSuggestions: query.length >= 3,
+        // If query is cleared, clear the coordinates too
+        coords: query.length === 0 ? null : s.coords 
+      } : s);
     });
-    setIsRouteSearched(false);
-    setSearchStarted(false);
-    setLoadingDrivers(false);
+
+    // Reset map route if the destination query is cleared
+    if (query.length === 0) {
+      setIsRouteSearched(false);
+      setSearchStarted(false);
+      setLoadingDrivers(false);
+    }
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => fetchSuggestions(id, query, biasLat, biasLon), 300);
+    if (query.length >= 3) {
+      debounceTimer.current = setTimeout(() => fetchSuggestions(id, query, biasLat, biasLon), 300);
+    }
   };
 
   const handleDriverInputChange = (query: string, setIsDriverTripActive: (v: boolean) => void, biasLat?: number, biasLon?: number) => {

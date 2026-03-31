@@ -1,4 +1,5 @@
-import { Wallet, Plus, CreditCard, ArrowDownLeft, ArrowUpRight, History as HistoryIcon, Clock, Loader2, Zap } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Wallet, Plus, CreditCard, ArrowDownLeft, ArrowUpRight, History as HistoryIcon, Clock, Loader2, Zap, Search, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface WalletTabProps {
@@ -9,12 +10,24 @@ interface WalletTabProps {
 }
 
 export function WalletTab({ user, setShowTopUpModal, transactions = [], loading = false }: WalletTabProps) {
-  // Filter only wallet-related transactions (Hide CASH/UPI settlements)
-  // We include all CREDITS (top-ups) because they increase wallet balance
-  // We include only WALLET DEBITS because CASH/UPI debits don't affect wallet balance
-  const walletTransactions = transactions.filter(t => 
-    t.type === 'CREDIT' || (t.type === 'DEBIT' && t.method === 'WALLET')
-  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'ALL' | 'CREDIT' | 'DEBIT'>('ALL');
+
+  // Filter only wallet-related transactions (Hide CASH/UPI settlements that don't affect wallet balance)
+  const walletTransactions = useMemo(() => {
+    return transactions.filter(t => 
+        (t.type === 'CREDIT' || (t.type === 'DEBIT' && t.method === 'WALLET'))
+    );
+  }, [transactions]);
+
+  // Apply search and UI filters
+  const filteredTransactions = useMemo(() => {
+    return walletTransactions.filter(t => {
+        const matchesSearch = t.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = filterType === 'ALL' || t.type === filterType;
+        return matchesSearch && matchesFilter;
+    });
+  }, [walletTransactions, searchQuery, filterType]);
 
   // Real stats calculation based on filtered wallet activity
   const spentThisMonth = walletTransactions
@@ -88,15 +101,39 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
         
         {/* Recent Transactions Section */}
         <div className="space-y-8">
-          <div className="flex items-center justify-between px-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-6">
               <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-[#0A192F] text-[#FFD700] rounded-2xl flex items-center justify-center shadow-lg border border-[#FFD700]/20">
                       <HistoryIcon className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="font-black text-[#0A192F] uppercase tracking-widest text-[13px] italic leading-none">Financial <span className="text-slate-300 font-bold">Ledger</span></h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time audit history</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time audit history ({filteredTransactions.length})</p>
                   </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                 <div className="relative w-full sm:w-64 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FFD700] transition-colors" />
+                    <input 
+                       type="text"
+                       placeholder="Search ledger..."
+                       value={searchQuery}
+                       onChange={(e) => setSearchQuery(e.target.value)}
+                       className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-[#FFD700]/20 focus:border-[#FFD700] shadow-sm transition-all"
+                    />
+                 </div>
+                 <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
+                    {(['ALL', 'CREDIT', 'DEBIT'] as const).map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => setFilterType(type)}
+                          className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filterType === type ? 'bg-[#0A192F] text-[#FFD700] shadow-lg shadow-black/10' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                          {type}
+                        </button>
+                    ))}
+                 </div>
               </div>
           </div>
 
@@ -106,8 +143,8 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                     <Loader2 className="w-10 h-10 text-[#FFD700] animate-spin" />
                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Deciphering Ledger Data...</p>
                 </div>
-            ) : walletTransactions.length > 0 ? (
-                walletTransactions.map((t, idx) => (
+            ) : filteredTransactions.length > 0 ? (
+                filteredTransactions.map((t) => (
                     <div key={t._id} className="bg-white p-7 rounded-[40px] border border-slate-100 flex items-center justify-between group hover:shadow-2xl hover:border-[#FFD700]/30 transition-all duration-500">
                         <div className="flex items-center gap-6">
                             <div className={`w-14 h-14 rounded-3xl flex items-center justify-center shadow-inner transition-transform group-hover:rotate-12 duration-500 ${t.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
@@ -117,7 +154,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                                 <p className="font-black text-[#0A192F] text-[16px] tracking-tight mb-1 uppercase italic leading-none">
                                     {t.type === 'CREDIT' ? 'Wallet Credit' : 'Wallet Debit'}
                                 </p>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.description}</p>
                                     <div className="w-1 h-1 bg-slate-200 rounded-full" />
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
@@ -147,7 +184,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                         <Wallet className="w-12 h-12 text-slate-200" />
                     </div>
                     <h3 className="text-2xl font-black text-[#0A192F] mb-2 uppercase tracking-tighter italic">Ledger is <span className="text-slate-300">Empty</span></h3>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">No wallet-specific transactions found.</p>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">No transactions found matching your criteria.</p>
                 </div>
             )}
           </div>

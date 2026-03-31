@@ -21,8 +21,12 @@ import {
     Calendar,
     Clock,
     CreditCard,
-    Plus
+    Plus,
+    Activity,
+    Printer
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useRouter } from "next/navigation";
 
 interface DashboardStats {
@@ -58,14 +62,16 @@ export default function AdminDashboardPage() {
     const [dailyRides, setDailyRides] = useState<{ day: string, count: number }[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [typeFilter, setTypeFilter] = useState<"ALL" | "CREDIT" | "DEBIT">("ALL");
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     const fetchDashboardData = async () => {
         try {
+            const typeParam = typeFilter === "ALL" ? "" : `&type=${typeFilter}`;
             const [statsRes, transRes] = await Promise.all([
                 api.get("/admin/stats"),
-                api.get("/admin/transactions?limit=10")
+                api.get(`/admin/transactions?limit=50${typeParam}`)
             ]);
             setStats(statsRes.data.stats);
             setRevenueData(statsRes.data.monthlyRevenue || []);
@@ -92,7 +98,40 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         fetchDashboardData();
-    }, []);
+    }, [typeFilter]);
+
+    const handlePrintAudit = () => {
+        const doc = new jsPDF();
+        
+        doc.setFontSize(22);
+        doc.setTextColor(10, 25, 47);
+        doc.text(`GoRide - ${typeFilter !== 'ALL' ? typeFilter : 'Full'} Audit Ledger`, 14, 20);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
+        
+        const tableData = filteredTransactions.map(tx => [
+            tx.userId?.name || "Unknown",
+            tx.userId?.email || "N/A",
+            tx.type,
+            `${tx.type === "CREDIT" ? "+" : "-"} INR ${tx.amount.toLocaleString()}`,
+            tx.status,
+            new Date(tx.createdAt).toLocaleDateString()
+        ]);
+
+        autoTable(doc, {
+            startY: 35,
+            head: [['Member', 'Email', 'Type', 'Amount', 'Status', 'Timestamp']],
+            body: tableData,
+            headStyles: { fillColor: [10, 25, 47], textColor: [251, 191, 36], fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+        });
+
+        doc.autoPrint();
+        window.open(doc.output('bloburl'), '_blank');
+        toast.success("Transaction audit prepared for printing");
+    };
 
     if (loading) {
         return (
@@ -141,7 +180,7 @@ export default function AdminDashboardPage() {
             FAILED: "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/20",
         };
         return (
-            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${styles[status]}`}>
+            <span className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest border ${styles[status]}`}>
                 {status}
             </span>
         );
@@ -154,16 +193,6 @@ export default function AdminDashboardPage() {
                 <div>
                     <h1 className="text-xl font-black text-[#0A192F] uppercase tracking-tight italic">Platform <span className="text-[#FFD700]">Overview</span></h1>
                     <p className="text-xs text-slate-400 mt-1 font-bold uppercase tracking-widest">Real-time metrics and system performance</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-[11px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-50 hover:text-[#0A192F] transition-all shadow-sm">
-                        <Download className="w-4 h-4" />
-                        Export Data
-                    </button>
-                    <button className="flex items-center gap-2 px-6 py-2.5 bg-[#F5C800] rounded-xl text-[11px] font-black uppercase tracking-widest text-[#0A192F] hover:bg-[#e6ba00] transition-all shadow-lg shadow-[#F5C800]/20">
-                        <Plus className="w-4 h-4" />
-                        Create Promo
-                    </button>
                 </div>
             </div>
 
@@ -229,7 +258,13 @@ export default function AdminDashboardPage() {
                                             className={`absolute bottom-0 left-0 right-0 ${idx === revenueData.length - 1 ? 'bg-[#FFD700]' : 'bg-[#0A192F]/10'} rounded-t-xl transition-all duration-700 hover:bg-[#FFD700] hover:shadow-lg hover:shadow-[#FFD700]/20`}
                                             style={{ height: `${height}%` }}
                                         >
-                                            <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-[#0A192F] text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap transition-all z-10 uppercase tracking-widest">
+                                            {/* Permanent Label */}
+                                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[#0A192F] text-[9px] font-black whitespace-nowrap">
+                                                ₹{m.amount >= 1000 ? `${(m.amount / 1000).toFixed(1)}K` : m.amount}
+                                            </div>
+                                            
+                                            {/* Tooltip on Hover */}
+                                            <div className="opacity-0 group-hover:opacity-100 absolute -top-12 left-1/2 -translate-x-1/2 bg-[#0A192F] text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap transition-all z-10 uppercase tracking-widest pointer-events-none">
                                                 ₹{m.amount.toLocaleString()}
                                             </div>
                                         </div>
@@ -279,80 +314,105 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* Transaction Ledger Table */}
-            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+            {/* Transaction Auditing Ledger */}
+            <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden flex flex-col min-h-[600px] transition-all duration-500">
                 <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-[10px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1">Audit Trail</h3>
-                        <h2 className="text-base font-black text-[#0A192F] uppercase tracking-tight">Transaction Ledger</h2>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 flex items-center gap-3 focus-within:ring-2 ring-[#FFD700]/10 transition-all">
-                            <Search className="w-4 h-4 text-slate-400" />
-                            <input 
-                                type="text" 
-                                placeholder="Search ledger..." 
-                                className="bg-transparent border-none outline-none text-[12px] text-[#0A192F] font-bold w-48 placeholder-slate-400" 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                    <h2 className="font-black text-[#0A192F] uppercase tracking-widest text-[13px] flex items-center gap-4 italic lg:text-[15px]">
+                        <div className="w-10 h-10 bg-[#FFD700]/10 rounded-xl flex items-center justify-center border border-[#FFD700]/20">
+                            <Activity className="w-6 h-6 text-[#FFD700]" />
+                        </div>
+                        Transaction Auditing Layer
+                    </h2>
+                    <div className="flex gap-4">
+                        <button 
+                            onClick={handlePrintAudit}
+                            className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:text-[#0A192F] hover:bg-slate-100 transition-all border border-slate-100 flex items-center gap-2 group"
+                            title="Print Current Audit"
+                        >
+                            <Printer className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Print Audit</span>
+                        </button>
+                        <div className="relative group">
+                            <div className="hidden group-hover:block absolute right-0 top-1/2 -translate-y-1/2 mr-14">
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 flex items-center gap-3 w-64 shadow-xl">
+                                    <Search className="w-4 h-4 text-slate-400" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Filter records..." 
+                                        className="bg-transparent border-none outline-none text-[12px] text-[#0A192F] font-bold w-full placeholder-slate-400" 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setTypeFilter(prev => prev === "ALL" ? "CREDIT" : prev === "CREDIT" ? "DEBIT" : "ALL")}
+                                className={`p-3 rounded-xl transition-all border flex items-center gap-2 ${typeFilter !== "ALL" ? "bg-[#FFD700] text-[#0A192F] border-[#FFD700] font-black scale-105" : "bg-slate-50 text-slate-400 border-slate-100 hover:text-[#0A192F] hover:bg-slate-100"}`}
+                                title={`Currently filtering by: ${typeFilter}`}
+                            >
+                                <Filter className="w-5 h-5" />
+                                {typeFilter !== "ALL" && <span className="text-[10px] uppercase">{typeFilter}</span>}
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50">
+                <div className="flex-1 w-full overflow-x-auto overflow-y-auto min-h-[500px] max-h-[1000px] custom-scrollbar">
+                    <table className="w-full min-w-[920px] text-left border-collapse">
+                        <thead className="bg-[#F8FAFC] sticky top-0 z-10 shadow-sm">
                             <tr className="border-b border-slate-100">
-                                <th className="px-6 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Origin / Member</th>
-                                <th className="px-6 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Tx Type</th>
-                                <th className="px-6 py-3.5 text-[10px] font-black text-[#0A192F] uppercase tracking-widest italic text-right">Impact</th>
-                                <th className="px-6 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
-                                <th className="px-6 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Audit Timestamp</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Origin / Member</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Tx Type</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-[#0A192F] uppercase tracking-widest italic text-right">Impact</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Status</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Audit Timestamp</th>
+                                <th className="px-6 py-4"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {filteredTransactions.length > 0 ? (
                                 filteredTransactions.map((tx) => (
-                                    <tr key={tx._id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer">
-                                        <td className="px-6 py-3.5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg bg-[#0A192F] flex items-center justify-center text-[#FFD700] font-black text-[10px] border border-[#0A192F] shadow-sm group-hover:border-[#FFD700] transition-all">
+                                    <tr key={tx._id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer border-b border-slate-50 last:border-0 font-bold">
+                                        <td className="px-8 py-7">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-[#0A192F] flex items-center justify-center text-[#FFD700] font-black text-sm border border-[#0A192F] shadow-sm group-hover:border-[#FFD700] transition-all shrink-0">
                                                     {tx.userId?.name?.charAt(0) || "U"}
                                                 </div>
-                                                <div>
-                                                    <p className="text-[12px] font-black text-[#0A192F] tracking-tight">{tx.userId?.name || "Unknown Target"}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold">{tx.userId?.email || ""}</p>
+                                                <div className="min-w-0">
+                                                    <p className="text-[14px] font-black text-[#0A192F] tracking-tight truncate">{tx.userId?.name || "Unknown Target"}</p>
+                                                    <p className="text-[11px] text-slate-400 font-bold truncate opacity-80 uppercase tracking-widest">{tx.userId?.email || ""}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3.5">
+                                        <td className="px-8 py-7">
                                             <div className="flex items-center gap-2">
                                                 {tx.type === "CREDIT" ? (
-                                                    <div className="p-1 rounded bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/10">
+                                                    <div className="p-1.5 rounded-xl bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/10">
                                                         <ArrowUpRight className="w-3 h-3" />
                                                     </div>
                                                 ) : (
-                                                    <div className="p-1 rounded bg-rose-50 text-rose-500 border border-rose-100">
+                                                    <div className="p-1.5 rounded-xl bg-rose-50 text-rose-500 border border-rose-100">
                                                         <ArrowDownRight className="w-3 h-3" />
                                                     </div>
                                                 )}
-                                                <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{tx.type}</span>
+                                                <span className="text-[12px] font-black text-slate-400 uppercase tracking-widest">{tx.type}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3.5 text-right font-black text-[#0A192F] text-[12px]">
-                                            {tx.type === "CREDIT" ? "+" : "-"} ₹{tx.amount.toLocaleString()}
+                                        <td className="px-8 py-7 text-right font-black text-[15px] tabular-nums">
+                                            <span className={tx.type === "CREDIT" ? "text-[#22C55E]" : "text-rose-500"}>
+                                                {tx.type === "CREDIT" ? "+" : "-"} ₹{tx.amount.toLocaleString()}
+                                            </span>
                                         </td>
-                                        <td className="px-6 py-3.5">
+                                        <td className="px-8 py-7">
                                             <StatusBadge status={tx.status} />
                                         </td>
-                                        <td className="px-6 py-3.5">
+                                        <td className="px-8 py-7">
                                             <div className="flex flex-col">
                                                 <span className="text-[11px] font-black text-[#0A192F] tracking-tighter italic">{new Date(tx.createdAt).toLocaleDateString()}</span>
                                                 <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-3.5 text-right">
+                                        <td className="px-8 py-7 text-right">
                                             <button className="p-1.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-lg transition-all opacity-0 group-hover:opacity-100">
                                                 <MoreHorizontal className="w-4 h-4" />
                                             </button>
@@ -386,4 +446,3 @@ export default function AdminDashboardPage() {
         </div>
     );
 }
-

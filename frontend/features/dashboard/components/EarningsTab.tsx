@@ -40,7 +40,7 @@ export function EarningsTab({ ridesHistory = [], user, isDriver = false }: { rid
   const topRouteRide = currentModeRides[0];
 
   return (
-    <div className="flex-1 bg-slate-50 p-12 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 bg-slate-50 p-6 sm:p-12 overflow-y-auto custom-scrollbar">
       <div className="max-w-5xl mx-auto space-y-10">
         <div className="flex items-center justify-between">
           <div>

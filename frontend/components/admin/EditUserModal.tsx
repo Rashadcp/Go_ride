@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, User as UserIcon, Mail, Phone, Shield, Save, Loader2 } from "lucide-react";
+import { X, User as UserIcon, Mail, Phone, Shield, Save, Loader2, Activity } from "lucide-react";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 
@@ -78,13 +78,13 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                 <form onSubmit={handleSubmit} className="p-10 space-y-8 bg-slate-50/30">
                     <div className="space-y-6">
                         <div className="group">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Unit Designation</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-blue-500 transition-colors">Unit Designation</label>
                             <div className="relative">
-                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
+                                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 group-focus-within:scale-110 transition-all" />
                                 <input
                                     type="text"
                                     required
-                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] uppercase tracking-tight focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none italic-none shadow-sm"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] uppercase tracking-tight focus:ring-4 ring-blue-500/5 border-blue-500/20 transition-all outline-none shadow-sm"
                                     placeholder="Enter full name"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -93,13 +93,13 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                         </div>
 
                         <div className="group">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Registry Communication</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-indigo-500 transition-colors">Registry Communication</label>
                             <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-500 group-focus-within:scale-110 transition-all" />
                                 <input
                                     type="email"
                                     required
-                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] lowercase tracking-tight focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none shadow-sm"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] lowercase tracking-tight focus:ring-4 ring-indigo-500/5 border-indigo-500/20 transition-all outline-none shadow-sm"
                                     placeholder="Enter email address"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -108,12 +108,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                         </div>
 
                         <div className="group">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Contact Protocol (Phone)</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-emerald-500 transition-colors">Contact Protocol (Phone)</label>
                             <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
+                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 group-focus-within:scale-110 transition-all" />
                                 <input
                                     type="text"
-                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none shadow-sm"
+                                    className="w-full pl-12 pr-4 py-4 bg-white border border-slate-100 rounded-2xl text-[13px] font-black text-[#0A192F] tracking-widest focus:ring-4 ring-emerald-500/5 border-emerald-500/20 transition-all outline-none shadow-sm"
                                     placeholder="Enter contact number"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -124,28 +124,34 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user, on
                         <div className="grid grid-cols-2 gap-6">
                             <div className="group">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">Access Level</label>
-                                <select 
-                                    className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
-                                    value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                >
-                                    <option value="USER">User (Standard)</option>
-                                    <option value="DRIVER">Driver (Operator)</option>
-                                    <option value="ADMIN">Admin (Executive)</option>
-                                </select>
+                                <div className="relative">
+                                    <Shield className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#FFD700] pointer-events-none" />
+                                    <select 
+                                        className="w-full pl-11 pr-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
+                                        value={formData.role}
+                                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    >
+                                        <option value="USER">User (Standard)</option>
+                                        <option value="DRIVER">Driver (Operator)</option>
+                                        <option value="ADMIN">Admin (Executive)</option>
+                                    </select>
+                                </div>
                             </div>
                             <div className="group">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-[#FFD700] transition-colors">System Status</label>
-                                <select 
-                                    className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-[#FFD700]/5 border-[#FFD700]/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                >
-                                    <option value="ACTIVE">Status: Operational</option>
-                                    <option value="INACTIVE">Status: Suspended</option>
-                                    <option value="APPROVED">Status: Verified</option>
-                                    <option value="REJECTED">Status: Denied</option>
-                                </select>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block italic group-focus-within:text-violet-500 transition-colors">System Status</label>
+                                <div className="relative">
+                                    <Activity className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-violet-500 pointer-events-none" />
+                                    <select 
+                                        className="w-full pl-11 pr-5 py-4 bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-[#0A192F] uppercase tracking-widest focus:ring-4 ring-violet-500/5 border-violet-500/20 transition-all outline-none appearance-none shadow-sm cursor-pointer"
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    >
+                                        <option value="ACTIVE">Status: Operational</option>
+                                        <option value="INACTIVE">Status: Suspended</option>
+                                        <option value="APPROVED">Status: Verified</option>
+                                        <option value="REJECTED">Status: Denied</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>

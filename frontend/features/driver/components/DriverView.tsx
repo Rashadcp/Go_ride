@@ -48,19 +48,31 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
    }, [userLoc]);
 
    useEffect(() => {
-      if (!user || !userLoc) return;
+      const dId = user?.id || user?._id;
+      if (!dId || !userLoc) return;
 
+      const locPayload = { lat: userLoc[0], lng: userLoc[1] };
+
+      // General availability update (so nearby passengers see them moving)
       socket.emit("driver-online", {
-         driverId: user.id || user._id,
-         location: { lat: userLoc[0], lng: userLoc[1] },
+         driverId: dId,
+         location: locPayload,
          name: user.name,
          profilePhoto: user.profilePhoto,
-         rating: user?.rating ,
+         rating: user?.rating,
          vehicleType: (user as any).vehicleType || rideState.vehicleType || "go",
          isCarpool: true
       });
 
-   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType]);
+      // Specific live trip tracking update (so current passenger sees them moving)
+      if (rideState.activeRide) {
+         socket.emit("driver:location:update", {
+            driverId: dId,
+            location: locPayload
+         });
+      }
+
+   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType, rideState.activeRide]);
 
    const handleStartDriverTrip = async () => {
       if (!driverDest.coords || !user) {
@@ -109,16 +121,16 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
    return (
       <>
          <div className="absolute inset-0 z-0">
-            <MapComponent 
-               userLoc={userLoc} 
-               passengerLoc={userLoc} 
-               stops={driverDest.coords ? [driverDest.coords] : []} 
-               onLocate={mapLogic.handleLocate} 
-               onRouteInfo={(dist: number, dur: number) => rideState.setRouteInfo({ distance: dist, duration: dur })} 
+            <MapComponent
+               userLoc={userLoc}
+               passengerLoc={userLoc}
+               stops={driverDest.coords ? [driverDest.coords] : []}
+               onLocate={mapLogic.handleLocate}
+               onRouteInfo={(dist: number, dur: number) => rideState.setRouteInfo({ distance: dist, duration: dur })}
             />
          </div>
 
-         <div className="absolute top-10 left-10 z-30 w-[440px] pointer-events-none flex flex-col gap-6">
+         <div className="absolute top-20 lg:top-10 left-4 lg:left-10 right-4 lg:right-auto z-30 lg:w-[440px] pointer-events-none flex flex-col gap-6">
             <div className="bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-100 overflow-hidden flex flex-col relative z-20 pointer-events-auto transition-all p-7">
                <h3 className="text-[28px] font-black text-[#0A192F] mb-6 tracking-tight">Share My Ride</h3>
 
@@ -188,7 +200,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          </div>
 
          {isDriverTripActive && (
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[440px] pointer-events-none flex flex-col justify-end">
+            <div className="absolute bottom-24 lg:bottom-10 left-4 lg:left-1/2 right-4 lg:right-auto lg:-translate-x-1/2 z-30 lg:w-[440px] pointer-events-none flex flex-col justify-end">
                <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.5)] p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/10 rounded-full blur-3xl -mr-10 -mt-20" />
                   <div className="flex items-center gap-5 mb-8 relative z-10 border-b border-white/10 pb-6">
@@ -219,7 +231,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                        const rawPhoto = p.photo || p.profilePhoto;
                                        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
                                        let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || "P")}&background=FFD700&color=0A192F&bold=true`;
-                                       
+
                                        if (rawPhoto) {
                                           if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
                                              finalSrc = rawPhoto;
@@ -238,25 +250,25 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                  </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                 <button 
-                                   onClick={() => {
-                                     setChatReceiver({ id: p.userId?._id || p.userId, name: p.name });
-                                     setIsChatOpen(true);
-                                   }}
-                                   className="w-10 h-10 bg-[#FFD700] text-[#0A192F] rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 relative"
+                                 <button
+                                    onClick={() => {
+                                       setChatReceiver({ id: p.userId?._id || p.userId, name: p.name });
+                                       setIsChatOpen(true);
+                                    }}
+                                    className="w-10 h-10 bg-[#FFD700] text-[#0A192F] rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 relative"
                                  >
-                                   <MessageCircle className="w-5 h-5" />
-                                   {(() => {
-                                      const passengerId = p.userId?._id || p.userId;
-                                      const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(passengerId)].sort().join("_")}`;
-                                      const unreadCount = unreadChatMessages[chatKey] || 0;
-                                      if (unreadCount > 0) return (
-                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">
-                                          {unreadCount}
-                                        </span>
-                                      );
-                                      return null;
-                                   })()}
+                                    <MessageCircle className="w-5 h-5" />
+                                    {(() => {
+                                       const passengerId = p.userId?._id || p.userId;
+                                       const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(passengerId)].sort().join("_")}`;
+                                       const unreadCount = unreadChatMessages[chatKey] || 0;
+                                       if (unreadCount > 0) return (
+                                          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">
+                                             {unreadCount}
+                                          </span>
+                                       );
+                                       return null;
+                                    })()}
                                  </button>
                                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
                                     <ShieldCheck className="w-4 h-4" />
@@ -270,27 +282,27 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            <div key={`req-${idx}`} className="bg-white/5 border border-white/10 rounded-[24px] p-5 flex flex-col gap-4 group transition-all hover:bg-white/10 active:scale-[0.98]">
                               <div className="flex items-center justify-between">
                                  <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#FFD700]/30 shadow-lg">
-                                    {(() => {
-                                       const rawPhoto = req.passengerPhoto || req.photo || req.profilePhoto;
-                                       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
-                                       let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.name || "P")}&background=FFD700&color=0A192F&bold=true`;
-                                       
-                                       if (rawPhoto) {
-                                          if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
-                                             finalSrc = rawPhoto;
-                                          } else {
-                                             finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#FFD700]/30 shadow-lg">
+                                       {(() => {
+                                          const rawPhoto = req.passengerPhoto || req.photo || req.profilePhoto;
+                                          const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+                                          let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+
+                                          if (rawPhoto) {
+                                             if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
+                                                finalSrc = rawPhoto;
+                                             } else {
+                                                finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+                                             }
                                           }
-                                       }
-                                       return <img src={finalSrc} alt="Req" className="w-full h-full object-cover" />;
-                                    })()}
-                                 </div>
+                                          return <img src={finalSrc} alt="Req" className="w-full h-full object-cover" />;
+                                       })()}
+                                    </div>
                                     <div className="text-left">
                                        <p className="font-black text-white text-base leading-tight">{req.name || "New Passenger"}</p>
                                        <div className="flex items-center gap-1.5 mt-1">
                                           <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
-                                          <span className="text-[10px] font-black text-[#FFD700]">4.9 • {req.seats} Seat{req.seats > 1 ? 's' : ''}</span>
+                                          <span className="text-[10px] font-black text-[#FFD700]">{(req.rating || 4.8).toFixed(1)} • {req.seats} Seat{req.seats > 1 ? 's' : ''}</span>
                                        </div>
                                     </div>
                                  </div>
@@ -344,7 +356,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      </div>
                   )}
 
-                                 {/* Status Control Buttons - Premium Implementation */}
+                  {/* Status Control Buttons - Premium Implementation */}
                   <div className="flex flex-col gap-3 mt-6 relative z-10 font-sans">
                      {(!rideState.activeRide?.status || ["OPEN", "ACCEPTED", "CONFIRMED", "MATCHED", "FULL"].includes(rideState.activeRide.status)) && (
                         <button
@@ -405,17 +417,17 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                </div>
             </div>
          )}
-       {isChatOpen && chatReceiver && (
-         <ChatModal 
-           isOpen={isChatOpen}
-           onClose={() => setIsChatOpen(false)}
-           rideId={rideState.activeRide?.rideId || rideState.activeRide?._id || ""}
-           userId={user?.id || user?._id || ""}
-           receiverId={chatReceiver.id}
-           receiverName={chatReceiver.name}
-           senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Driver")}
-         />
-       )}
+         {isChatOpen && chatReceiver && (
+            <ChatModal
+               isOpen={isChatOpen}
+               onClose={() => setIsChatOpen(false)}
+               rideId={rideState.activeRide?.rideId || rideState.activeRide?._id || ""}
+               userId={user?.id || user?._id || ""}
+               receiverId={chatReceiver.id}
+               receiverName={chatReceiver.name}
+               senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Driver")}
+            />
+         )}
       </>
    );
 }

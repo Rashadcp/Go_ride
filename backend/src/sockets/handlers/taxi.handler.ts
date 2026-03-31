@@ -5,6 +5,8 @@ import Ride from "../../models/ride";
 import User from "../../models/user";
 import Transaction from "../../models/transaction";
 import Discount from "../../models/discount";
+import Vehicle from "../../models/vehicle";
+import { sendBookingConfirmation } from "../../config/mail";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
@@ -227,9 +229,28 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 driverId: finalDriverId,
                 status: 'ACCEPTED',
                 acceptedAt: new Date()
-            }, { new: true });
+            }, { new: true }).populate('createdBy').populate('driverId');
 
             if (!updatedRide) return;
+
+            // Trigger Email Booking Confirmation to Passenger
+            try {
+                const passenger = updatedRide.createdBy as any;
+                const driver = updatedRide.driverId as any;
+                if (passenger && passenger.email) {
+                    const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
+                    await sendBookingConfirmation(passenger.email, {
+                        rideId: updatedRide.rideId,
+                        pickup: updatedRide.pickup?.label || "Current Location",
+                        destination: updatedRide.drop?.label || "Selected Destination",
+                        fare: updatedRide.price,
+                        driverName: driver?.name || "Your Driver",
+                        vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
+                    });
+                }
+            } catch (emailErr) {
+                console.error("Booking email trigger error:", emailErr);
+            }
 
             // ✅ Notify the accepted user
             io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {

@@ -7,9 +7,7 @@ const s3Hostname =
   process.env.NEXT_PUBLIC_S3_HOSTNAME || `${bucketName}.s3.${bucketRegion}.amazonaws.com`;
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: path.join(__dirname),
-  },
+
   images: {
     remotePatterns: [
       {

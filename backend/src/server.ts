@@ -2,18 +2,18 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth.routes";
-import adminRoutes from "./routes/admin.routes";
-import vehicleRoutes from "./routes/vehicle.routes";
-import mapRoutes from "./routes/map.routes";
-import rideRoutes from "./routes/ride.routes";
+import authRoutes from "./modules/auth/auth.routes";
+import adminRoutes from "./modules/admin/admin.routes";
+import vehicleRoutes from "./modules/vehicle/vehicle.routes";
+import mapRoutes from "./modules/map/map.routes";
+import rideRoutes from "./modules/ride/ride.routes";
 
 import taxiRoutes from "./modules/taxi/taxi.routes";
 import carpoolRoutes from "./modules/carpool/carpool.routes";
 import paymentRoutes from "./modules/payment/payment.routes";
 import emergencyRoutes from "./modules/emergency/emergency.routes";
 import ratingRoutes from "./modules/rating/rating.routes";
-import notificationRoutes from "./routes/notification.routes";
+import notificationRoutes from "./modules/notification/notification.routes";
 
 import passport from "./config/passport";
 import { closeRedisConnections, connectRedis } from "./config/redis";
@@ -52,9 +52,14 @@ app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use(passport.initialize());
 
-mongoose.connect(process.env.MONGO_URI!)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+const connectMongo = async () => {
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI is not configured");
+  }
+
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log("MongoDB connected");
+};
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
@@ -88,6 +93,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const PORT = Number(process.env.PORT) || 5000;
 
 const bootstrap = async () => {
+  await connectMongo();
   await connectRedis();
   await initSocket(httpServer);
 

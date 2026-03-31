@@ -109,9 +109,9 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
           <div className="p-1.5 bg-white rounded-[24px] shadow-sm border border-slate-100 flex flex-wrap gap-1">
             {[
               { id: 'ALL', label: 'All History' },
-              { id: 'TAXI', label: 'Taxi Bookings' },
-              { id: 'HOST_POOL', label: 'My CarPools' },
-              { id: 'JOIN_POOL', label: 'Joined Pools' }
+              { id: 'TAXI', label: user?.role === 'DRIVER' ? 'Professional Taxi' : 'Taxi Bookings' },
+              { id: 'HOST_POOL', label: user?.role === 'DRIVER' ? 'Member CarPools' : 'Hosted Pools' },
+              ...(user?.role !== 'DRIVER' ? [{ id: 'JOIN_POOL', label: 'Joined Pools' }] : [])
             ].map((t) => (
               <button
                 key={t.id}
@@ -229,7 +229,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#0A192F]/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-2xl overflow-hidden relative animate-in slide-in-from-bottom-8 duration-500">
             {/* Header with status map/background */}
-            <div className="h-40 bg-[#0A192F] relative flex items-center px-10 overflow-hidden">
+            <div className="h-32 sm:h-40 bg-[#0A192F] relative flex items-center px-6 sm:px-10 overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-[#FFD700]/10 rounded-full blur-3xl -mr-20 -mt-20" />
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full blur-2xl -ml-10 -mb-10" />
                 
@@ -238,9 +238,9 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                         <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.4em] mb-2 block">
                           {((selectedRide.driverId === userId) || (selectedRide.driverId?._id === userId) || (selectedRide.driverId?._id === userId)) ? 'Trip Revenue' : 'Trip Receipt'}
                         </span>
-                        <h2 className="text-4xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-3">
+                        <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-2 sm:gap-3">
                           Rs {selectedRide.price}
-                          <span className={`text-[10px] py-1 px-3 rounded-full border border-white/20 font-black tracking-widest ${selectedRide.type === 'CARPOOL' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'}`}>
+                          <span className={`text-[8px] sm:text-[10px] py-0.5 sm:py-1 px-2 sm:px-3 rounded-full border border-white/20 font-black tracking-widest ${selectedRide.type === 'CARPOOL' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'}`}>
                             {selectedRide.type === 'CARPOOL' ? 'Ride Share' : 'Private Taxi'}
                           </span>
                         </h2>
@@ -255,7 +255,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
             </div>
 
             {/* Content Body */}
-            <div className="p-8 sm:p-10 space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
+            <div className="p-6 sm:p-10 space-y-8 sm:space-y-10 overflow-y-auto max-h-[70vh] custom-scrollbar">
                 {/* Driver Section */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-10 border-b border-slate-100">
                     <div className="flex items-center gap-5">

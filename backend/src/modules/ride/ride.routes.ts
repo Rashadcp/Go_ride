@@ -1,0 +1,47 @@
+import { Router } from "express";
+import { protect } from "../../middleware/auth.middleware";
+import {
+    getUserRides,
+    getActiveRide,
+    updateRideStatus,
+    cancelRide,
+    rateRide,
+    getActiveDiscounts,
+    validatePromoCode,
+    applyPromoCode
+} from "./ride.controller";
+import { createCarpool } from "../carpool/carpool.controller";
+
+const router = Router();
+
+// All ride routes require authentication
+router.use(protect);
+
+// Get user's ride history
+router.get("/history", getUserRides);
+
+// Get active promotions
+router.get("/promotions", getActiveDiscounts);
+
+// Validate promo code
+router.get("/promotions/validate/:code", validatePromoCode);
+
+// Get active ride for user
+router.get("/active", getActiveRide);
+
+// Update ride status
+router.put("/status", updateRideStatus);
+
+// Create Carpool (Driver)
+router.post("/create-pool", createCarpool);
+
+// Cancel ride
+router.post("/cancel", cancelRide);
+
+// Rate a ride
+router.post("/rate", rateRide);
+
+// Apply promo code (at paying time)
+router.post("/apply-promo", applyPromoCode);
+
+export default router;

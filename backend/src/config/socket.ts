@@ -55,6 +55,8 @@ export const initSocket = async (server: HttpServer) => {
             if (data.role === "DRIVER") {
                 socket.join(`driver:${data.userId}`);
                 socket.join("drivers-pool");
+            } else if (data.role === "USER") {
+                socket.join("passengers-pool");
             }
         });
 

@@ -187,14 +187,14 @@ export default function AdminUsersPage() {
                                         </div>
                                     </td>
                                     <td className="px-8 py-6">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2 text-[11px] text-[#0A192F] font-black tracking-tight">
-                                                <Mail className="w-3.5 h-3.5 text-[#FFD700]" />
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-2 text-sm text-[#0A192F] font-black tracking-tight">
+                                                <Mail className="w-4 h-4 text-[#FFD700]" />
                                                 {user.email}
                                             </div>
                                             {user.phone && (
-                                                <div className="flex items-center gap-2 text-[11px] text-slate-400 font-bold uppercase tracking-widest">
-                                                    <Phone className="w-3.5 h-3.5" />
+                                                <div className="flex items-center gap-2 text-[13px] text-slate-400 font-bold uppercase tracking-widest">
+                                                    <Phone className="w-4 h-4" />
                                                     {user.phone}
                                                 </div>
                                             )}
@@ -210,35 +210,35 @@ export default function AdminUsersPage() {
                                         <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => handleEditUser(user)}
-                                                className="p-2.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+                                                className="p-2.5 text-blue-500 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-xl transition-all shadow-sm"
                                                 title="Edit User"
                                             >
                                                 <Edit2 className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => viewRideHistory(user._id)}
-                                                className="p-2.5 text-slate-300 hover:text-[#0A192F] hover:bg-slate-100 rounded-xl transition-all border border-transparent hover:border-slate-200"
+                                                className="p-2.5 text-violet-500 bg-violet-50 border border-violet-100 hover:bg-violet-100 rounded-xl transition-all shadow-sm"
                                                 title="Ride History"
                                             >
                                                 <History className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => toggleFlagUser(user._id, !!user.isSuspicious)}
-                                                className={`p-2.5 rounded-xl transition-all border ${user.isSuspicious ? 'text-orange-500 bg-orange-50 border-orange-100' : 'text-slate-300 hover:text-orange-500 hover:bg-orange-50 hover:border-orange-100'}`}
+                                                className={`p-2.5 rounded-xl transition-all border shadow-sm ${user.isSuspicious ? 'text-amber-600 bg-amber-100 border-amber-200' : 'text-amber-500 bg-amber-50 border-amber-100 hover:bg-amber-100'}`}
                                                 title={user.isSuspicious ? "Unflag Suspicious" : "Flag Suspicious"}
                                             >
                                                 <AlertTriangle className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => toggleBlockUser(user._id, !!user.isBlocked)}
-                                                className={`p-2.5 rounded-xl transition-all border ${user.isBlocked ? 'text-rose-500 bg-rose-50 border-rose-100' : 'text-slate-300 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-100'}`}
+                                                className={`p-2.5 rounded-xl transition-all border shadow-sm ${user.isBlocked ? 'text-rose-600 bg-rose-100 border-rose-200' : 'text-rose-500 bg-rose-50 border-rose-100 hover:bg-rose-100'}`}
                                                 title={user.isBlocked ? "Unblock User" : "Block User"}
                                             >
                                                 {user.isBlocked ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                                             </button>
                                             <button
                                                 onClick={() => handleSoftDeleteUser(user._id)}
-                                                className="p-2.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-transparent hover:border-rose-100"
+                                                className="p-2.5 text-slate-400 bg-slate-50 border border-slate-100 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100 rounded-xl transition-all shadow-sm"
                                                 title="Soft Delete Account"
                                             >
                                                 <Trash2 className="w-4 h-4" />
