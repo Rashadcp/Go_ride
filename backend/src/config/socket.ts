@@ -12,7 +12,8 @@ import {
     removeActiveDriver,
     removeSocketDriver,
     setActiveDriver,
-    setSocketDriver
+    setSocketDriver,
+    DriverPresence
 } from "../sockets/state";
 
 let io: Server;
@@ -72,28 +73,41 @@ export const initSocket = async (server: HttpServer) => {
 
         socket.on("driver-online", (data: any) => {
             void (async () => {
-                await setActiveDriver(data.driverId, {
+                const driverId = data.driverId;
+                if (!driverId) return;
+
+                const presence: DriverPresence = {
                     ...data,
-                    driverId: data.driverId,
+                    driverId,
                     socketId: socket.id,
                     lastSeen: Date.now(),
                     status: "available"
-                });
-                await setSocketDriver(socket.id, data.driverId);
-                socket.join(`driver:${data.driverId}`);
+                };
+
+                // Track if this is a fresh online notification for this socket
+                const isNewSession = !(socket as any).isDriverOnline;
+                
+                await setActiveDriver(driverId, presence);
+                await setSocketDriver(socket.id, driverId);
+                
+                socket.join(`driver:${driverId}`);
                 socket.join("drivers-pool");
 
-                const availableDrivers = await getAvailableDrivers();
-
-                console.log("-----------------------------------------");
-                console.log("[DRIVER ONLINE]");
-                console.log(`   Driver ID: ${data.driverId}`);
-                console.log(`   Socket ID: ${socket.id}`);
-                console.log(`   Vehicle: ${data.vehicleType || "Not specified"}`);
-                console.log(`   Total Active Drivers: ${availableDrivers.length}`);
-                console.log("-----------------------------------------");
-
-                io.emit("active-drivers", availableDrivers);
+                // Only log when first going online or reconnecting
+                if (isNewSession) {
+                    (socket as any).isDriverOnline = true;
+                    const availableDrivers = await getAvailableDrivers();
+                    console.log(`✅ [DRIVER ONLINE] ${data.name || driverId} (${socket.id}). Total: ${availableDrivers.length}`);
+                    io.emit("active-drivers", availableDrivers);
+                } else {
+                    // Just broadcast the individual update instead of full list to save bandwidth
+                    // Most clients only need to know who moved, not the full list every 500ms
+                    io.emit("driver:location:updated", {
+                        driverId,
+                        location: data.location,
+                        vehicleType: data.vehicleType
+                    });
+                }
             })().catch((error) => {
                 console.error("Driver online state sync failed:", error);
             });

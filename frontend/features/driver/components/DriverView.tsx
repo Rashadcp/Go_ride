@@ -47,9 +47,22 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       }
    }, [userLoc]);
 
+   // Throttling socket updates for general availability
+   const [lastSentLoc, setLastSentLoc] = useState<[number, number] | null>(null);
+
    useEffect(() => {
       const dId = user?.id || user?._id;
       if (!dId || !userLoc) return;
+
+      // Distance check (threshold: 5 meters approx)
+      if (lastSentLoc) {
+         const dist = Math.sqrt(
+            Math.pow(userLoc[0] - lastSentLoc[0], 2) + 
+            Math.pow(userLoc[1] - lastSentLoc[1], 2)
+         );
+         // 0.00005 deg is roughly 5-6 meters
+         if (dist < 0.00005 && rideState.activeRide?.status === "OPEN") return;
+      }
 
       const locPayload = { lat: userLoc[0], lng: userLoc[1] };
 
@@ -64,6 +77,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          isCarpool: true
       });
 
+      setLastSentLoc(userLoc);
+
       // Specific live trip tracking update (so current passenger sees them moving)
       if (rideState.activeRide) {
          socket.emit("driver:location:update", {
@@ -72,7 +87,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          });
       }
 
-   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType, rideState.activeRide]);
+   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType, rideState.activeRide, lastSentLoc]);
 
    const handleStartDriverTrip = async () => {
       if (!driverDest.coords || !user) {

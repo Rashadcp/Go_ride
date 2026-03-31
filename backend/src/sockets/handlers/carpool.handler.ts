@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import Ride from "../../models/ride";
 import Vehicle from "../../models/vehicle";
 import { sendBookingConfirmation } from "../../config/mail";
+import { sendWhatsAppConfirmation } from "../../config/twilio";
 import User from "../../models/user";
 
 export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
@@ -51,17 +52,25 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
 
             // Trigger Email Booking Confirmation to Passenger (Carpool)
             try {
-                if (passengerUser && passengerUser.email) {
+                if (passengerUser && (passengerUser.email || passengerUser.phone)) {
                     const driver = populatedRide?.driverId as any;
                     const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
-                    await sendBookingConfirmation(passengerUser.email, {
+                    const details = {
                         rideId: ride.rideId,
                         pickup: ride.pickup?.label || "Current Location",
                         destination: ride.drop?.label || "Selected Destination",
-                        fare: ride.pricePerSeat || (ride.price / ride.passengers.length), // Carpool price is usually per seat
+                        fare: ride.pricePerSeat || (ride.price / (ride.passengers.length || 1)), // Carpool price is usually per seat
                         driverName: driver?.name || "Your Driver",
                         vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
-                    });
+                    };
+
+                    if (passengerUser.email) {
+                        await sendBookingConfirmation(passengerUser.email, details);
+                    }
+
+                    if (passengerUser.phone) {
+                        await sendWhatsAppConfirmation(passengerUser.phone, details);
+                    }
                 }
             } catch (emailErr) {
                 console.error("Carpool booking email trigger error:", emailErr);

@@ -189,6 +189,7 @@ export const useRideStore = create<RideState>()(
         ],
         routeInfo: { distance: 0, duration: 0 },
         visibleNearbyDrivers: [],
+        driverDest: { id: 'driver-dest', query: '', coords: null, suggestions: [], showSuggestions: false },
         chatHistory: {}, // Clear all chats on reset
         unreadChatMessages: {}, // Clear all unreads
       }),

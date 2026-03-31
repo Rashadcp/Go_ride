@@ -5,6 +5,7 @@ import Rating from "../../models/rating";
 import Discount from "../../models/discount";
 import Vehicle from "../../models/vehicle";
 import { sendBookingConfirmation } from "../../config/mail";
+import { sendWhatsAppConfirmation } from "../../config/twilio";
 
 // Get user's ride history
 export const getUserRides = async (req: any, res: Response) => {
@@ -130,16 +131,24 @@ export const updateRideStatus = async (req: any, res: Response) => {
                 if (populatedRide) {
                     const passenger = populatedRide.createdBy as any;
                     const driver = populatedRide.driverId as any;
-                    if (passenger && passenger.email) {
+                    if (passenger && (passenger.email || passenger.phone)) {
                         const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
-                        await sendBookingConfirmation(passenger.email, {
+                        const details = {
                             rideId: populatedRide.rideId,
                             pickup: populatedRide.pickup?.label || "Current Location",
                             destination: populatedRide.drop?.label || "Selected Destination",
                             fare: populatedRide.price,
                             driverName: driver?.name || "Your Driver",
                             vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
-                        });
+                        };
+
+                        if (passenger.email) {
+                            await sendBookingConfirmation(passenger.email, details);
+                        }
+
+                        if (passenger.phone) {
+                            await sendWhatsAppConfirmation(passenger.phone, details);
+                        }
                     }
                 }
             } catch (emailErr) {

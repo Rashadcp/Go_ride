@@ -7,6 +7,7 @@ import Transaction from "../../models/transaction";
 import Discount from "../../models/discount";
 import Vehicle from "../../models/vehicle";
 import { sendBookingConfirmation } from "../../config/mail";
+import { sendWhatsAppConfirmation } from "../../config/twilio";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
@@ -237,16 +238,24 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             try {
                 const passenger = updatedRide.createdBy as any;
                 const driver = updatedRide.driverId as any;
-                if (passenger && passenger.email) {
+                if (passenger && (passenger.email || passenger.phone)) {
                     const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
-                    await sendBookingConfirmation(passenger.email, {
+                    const details = {
                         rideId: updatedRide.rideId,
                         pickup: updatedRide.pickup?.label || "Current Location",
                         destination: updatedRide.drop?.label || "Selected Destination",
                         fare: updatedRide.price,
                         driverName: driver?.name || "Your Driver",
                         vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
-                    });
+                    };
+
+                    if (passenger.email) {
+                        await sendBookingConfirmation(passenger.email, details);
+                    }
+
+                    if (passenger.phone) {
+                        await sendWhatsAppConfirmation(passenger.phone, details);
+                    }
                 }
             } catch (emailErr) {
                 console.error("Booking email trigger error:", emailErr);
