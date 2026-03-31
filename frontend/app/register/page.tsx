@@ -23,6 +23,7 @@ export default function RegisterPage() {
         firstName: "",
         lastName: "",
         email: "",
+        phone: "",
         password: "",
         confirmPassword: "",
     });
@@ -42,6 +43,7 @@ export default function RegisterPage() {
             data.append("firstName", formData.firstName);
             data.append("lastName", formData.lastName);
             data.append("email", formData.email);
+            data.append("phone", formData.phone);
             data.append("password", formData.password);
             data.append("confirmPassword", formData.confirmPassword);
             data.append("role", role);
@@ -208,6 +210,18 @@ export default function RegisterPage() {
                                 autoComplete="email"
                                 className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
                                 placeholder="name@example.com"
+                                onChange={handleChange}
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A] ml-1">Phone Number (with Country Code)</label>
+                            <input
+                                type="tel"
+                                name="phone"
+                                required
+                                className="w-full px-5 py-3.5 bg-white border border-[#E5E5E0] rounded-xl text-[#1A1A1A] text-sm font-bold focus:outline-none focus:border-[#FFD700] transition-all"
+                                placeholder="+918888888888"
                                 onChange={handleChange}
                             />
                         </div>

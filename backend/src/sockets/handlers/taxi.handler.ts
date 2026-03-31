@@ -238,6 +238,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             try {
                 const passenger = updatedRide.createdBy as any;
                 const driver = updatedRide.driverId as any;
+                console.log(`[Ride Acceptance Notice] Passenger ${passenger?.name}, Email: ${passenger?.email}, Phone: ${passenger?.phone}`);
                 if (passenger && (passenger.email || passenger.phone)) {
                     const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
                     const details = {

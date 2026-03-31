@@ -45,7 +45,7 @@ export const getProfilePhoto = async (req: Request, res: Response) => {
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, password, confirmPassword, role } = req.body;
+    const { firstName, lastName, email, password, confirmPassword, role, phone } = req.body;
     const normalizedEmail = email.trim().toLowerCase();
     console.log(`🚀 Registration attempt: ${normalizedEmail} as ${role}`);
 
@@ -65,6 +65,7 @@ export const register = async (req: Request, res: Response) => {
       lastName,
       name: `${firstName} ${lastName}`.trim(),
       email: normalizedEmail,
+      phone: phone ? phone.trim() : undefined,
       password: hashedPassword,
       role,
       status: role === "DRIVER" ? "PENDING" : "ACTIVE",
