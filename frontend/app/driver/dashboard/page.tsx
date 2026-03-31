@@ -147,6 +147,27 @@ export default function DriverDashboard() {
         }
     }, [isOnline]);
 
+    const reverseGeocode = async (lat: number, lon: number) => {
+        try {
+            const { data } = await api.get(`/map/reverse-geocode`, {
+                params: { lat: lat, lon: lon }
+            });
+            const name = data.locality || data.city || data.principalSubdivision || "Unknown Location";
+            setLocationName(name);
+            return name;
+        } catch (err) {
+            console.error("Reverse geocode failed:", err);
+            setLocationName("Live Location");
+            return "Live Location";
+        }
+    };
+
+    useEffect(() => {
+      if (userLoc && locationName === "Searching Location...") {
+          reverseGeocode(userLoc[0], userLoc[1]);
+      }
+    }, [userLoc, locationName]);
+
     const handleLocateLive = async () => {
         setIsLocating(true);
         if (!navigator.geolocation) {
@@ -160,10 +181,7 @@ export default function DriverDashboard() {
                 const { latitude, longitude } = position.coords;
                 setUserLoc([latitude, longitude]);
                 localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
-                const { data } = await api.get(`/map/reverse-geocode`, {
-                    params: { lat: latitude, lon: longitude }
-                });
-                setLocationName(data.locality || data.city || data.principalSubdivision || "Unknown Location");
+                await reverseGeocode(latitude, longitude);
             } catch (err) {
                 setLocationName("Live Location");
             } finally {

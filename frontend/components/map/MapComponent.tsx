@@ -323,18 +323,20 @@ export default function MapComponent({
 
                 {/* Waypoints/Stops Markers */}
                 {stops.map((stop, idx) => {
+                    if (!stop || stop.length < 2 || (stop[0] === 0 && stop[1] === 0)) return null;
+
                     if (idx === 0 && userLoc && stop[0] === userLoc[0] && stop[1] === userLoc[1]) {
-                        return null; // Avoid rendering a redundant 'Pick-up' pin explicitly over the active 'Your Location' pulse pin
+                        return null; // Avoid rendering a redundant 'Pick-up' pin
                     }
 
                     return (
                         <Marker
                             key={`stop-${idx}-${stop.join('-')}`}
                             position={stop}
-                            icon={idx === stops.length - 1 ? DestIcon : StopIcon}
+                            icon={StopIcon}
                         >
                             <Popup className="font-bold">
-                                {idx === stops.length - 1 ? `Final Destination` : (idx === 0 ? "Pick-up Location" : `Stop ${idx}`)}
+                                {idx === stops.length - 1 ? `Destination` : (idx === 0 ? "Pick-up Point" : `Stop ${idx}`)}
                             </Popup>
                         </Marker>
                     );

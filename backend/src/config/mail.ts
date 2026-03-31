@@ -84,11 +84,11 @@ export const sendBookingConfirmation = async (userEmail: string, rideDetails: an
         </div>
         
         <div style="background: #111827; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
-          <h3 style="margin-top: 0; color: #fbbf24; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Ride Summary</h3>
+          <h3 style="margin-top: 0; color: #fbed24ff; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Ride Summary</h3>
           <div style="display: flex; flex-direction: column; gap: 5px;">
             <p style="margin: 4px 0; color: #9ca3af; font-size: 13px;">Ride ID: <span style="font-family: monospace; color: #ffffff;">${rideDetails.rideId}</span></p>
             <p style="margin: 8px 0 0 0; color: #ffffff; font-weight: 300;">Estimated Fare</p>
-            <p style="margin: 0; color: #fbbf24; font-weight: 900; font-size: 28px;">₹${rideDetails.fare}</p>
+            <p style="margin: 0; color: #f5e620ff; font-weight: 900; font-size: 28px;">₹${rideDetails.fare}</p>
           </div>
         </div>
 

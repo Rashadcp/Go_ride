@@ -24,15 +24,26 @@ export const useMapLogic = () => {
   const handleLocate = useCallback(() => {
     if (!("geolocation" in navigator)) {
         toast.error("Geolocation is not supported by your browser.");
-        // We can't check store's userLoc here without adding it to deps, 
-        // but we can just use the setter if it's currently null? 
-        // Better: just let the store handle it.
         return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         setUserLoc(newLoc);
+
+        // Fetch location name for the "Current Location" field
+        try {
+          const { data } = await api.get(`/map/reverse-geocode`, {
+            params: { lat: pos.coords.latitude, lon: pos.coords.longitude }
+          });
+          const address = data.locality || data.city || data.principalSubdivision || "Current Location";
+          
+          setStops((prev: any[]) => prev.map(s => 
+            s.id === 'pickup' ? { ...s, query: address, coords: newLoc } : s
+          ));
+        } catch (e) {
+          console.error("Reverse geocoding failed", e);
+        }
       }, 
       (err) => {
         let errorMsg = "Could not get live location.";
@@ -49,7 +60,7 @@ export const useMapLogic = () => {
       }, 
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
-  }, [setUserLoc]);
+  }, [setUserLoc, setStops]);
 
   // Automatic Location Update every second
   useEffect(() => {
