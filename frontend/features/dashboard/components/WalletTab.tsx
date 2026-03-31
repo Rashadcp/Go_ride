@@ -43,16 +43,16 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
       <div className="max-w-4xl mx-auto space-y-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
-            <h1 className="text-4xl font-black text-[#0A192F] mb-1 tracking-tighter uppercase italic">Secure <span className="text-[#FFD700]">Wallet</span></h1>
-            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Real-time Financial Audit & Credit Management</p>
+            <h1 className="text-4xl font-black text-[#0A192F] mb-1 tracking-tighter uppercase italic">My <span className="text-[#FFD700]">Wallet</span></h1>
+            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Manage your money and see past payments</p>
           </div>
           <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto justify-center sm:justify-end">
              <div className="px-5 py-2.5 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] leading-none mb-1.5">Total Spent</span>
+                <span className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] leading-none mb-1.5">Money Spent</span>
                 <span className="text-base font-black text-[#0A192F] tracking-tighter italic">₹{spentThisMonth.toLocaleString('en-IN')}</span>
              </div>
              <div className="px-5 py-2.5 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] leading-none mb-1.5">Lifetime Add</span>
+                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] leading-none mb-1.5">Total Added</span>
                 <span className="text-base font-black text-emerald-600 tracking-tighter italic">₹{totalAdded.toLocaleString('en-IN')}</span>
              </div>
              <Button 
@@ -61,7 +61,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                 onClick={() => setShowTopUpModal(true)}
              >
                 <Plus className="w-5 h-5 shrink-0" />
-                Add Credits
+                Add Money
              </Button>
           </div>
         </div>
@@ -76,7 +76,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                 <div>
                     <p className="text-[#FFD700] font-black uppercase tracking-[0.4em] text-[10px] mb-4 opacity-80 flex items-center gap-3">
                         <Zap className="w-3.5 h-3.5 fill-[#FFD700]" />
-                        Liquid Assets
+                        Current Balance
                     </p>
                     <h2 className="text-7xl lg:text-8xl font-black tracking-tighter flex items-center gap-5 italic">
                         <span className="text-4xl lg:text-5xl text-[#FFD700]/30 not-italic font-light">₹</span>
@@ -87,13 +87,13 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-3 px-5 py-2.5 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
                         <CreditCard className="w-4 h-4 text-[#FFD700]" />
-                        <span className="font-black uppercase tracking-widest text-[9px] text-[#FFD700]/70">Secured Digital Vault</span>
+                        <span className="font-black uppercase tracking-widest text-[9px] text-[#FFD700]/70">Safe & Secure</span>
                     </div>
                 </div>
             </div>
 
             <div className="lg:text-right space-y-3 opacity-60 text-[#FFD700]/80">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em]">Account Identifier</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em]">User ID</p>
                 <p className="text-xs font-black tracking-[0.2em] bg-white/5 px-4 py-2 rounded-xl border border-[#FFD700]/10">USER-{user?._id?.slice(-8).toUpperCase() || 'VOID'}</p>
             </div>
           </div>
@@ -107,8 +107,8 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                       <HistoryIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-black text-[#0A192F] uppercase tracking-widest text-[13px] italic leading-none">Financial <span className="text-slate-300 font-bold">Ledger</span></h3>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time audit history ({filteredTransactions.length})</p>
+                    <h3 className="font-black text-[#0A192F] uppercase tracking-widest text-[13px] italic leading-none">Recent <span className="text-slate-300 font-bold">Payments</span></h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">List of all your transactions ({filteredTransactions.length})</p>
                   </div>
               </div>
 
@@ -117,7 +117,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#FFD700] transition-colors" />
                     <input 
                        type="text"
-                       placeholder="Search ledger..."
+                       placeholder="Search payments..."
                        value={searchQuery}
                        onChange={(e) => setSearchQuery(e.target.value)}
                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-2xl text-[11px] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-[#FFD700]/20 focus:border-[#FFD700] shadow-sm transition-all"
@@ -130,7 +130,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                           onClick={() => setFilterType(type)}
                           className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${filterType === type ? 'bg-[#0A192F] text-[#FFD700] shadow-lg shadow-black/10' : 'text-slate-400 hover:text-slate-600'}`}
                         >
-                          {type}
+                          {type === 'CREDIT' ? 'Added' : type === 'DEBIT' ? 'Spent' : 'All'}
                         </button>
                     ))}
                  </div>
@@ -141,7 +141,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
             {loading ? (
                 <div className="py-24 flex flex-col items-center justify-center gap-6 bg-white rounded-[48px] border border-slate-100 shadow-inner">
                     <Loader2 className="w-10 h-10 text-[#FFD700] animate-spin" />
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Deciphering Ledger Data...</p>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Loading payments...</p>
                 </div>
             ) : filteredTransactions.length > 0 ? (
                 filteredTransactions.map((t) => (
@@ -152,7 +152,7 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                             </div>
                             <div>
                                 <p className="font-black text-[#0A192F] text-[16px] tracking-tight mb-1 uppercase italic leading-none">
-                                    {t.type === 'CREDIT' ? 'Wallet Credit' : 'Wallet Debit'}
+                                    {t.type === 'CREDIT' ? 'Money Added' : 'Money Spent'}
                                 </p>
                                 <div className="flex flex-wrap items-center gap-3">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t.description}</p>
@@ -183,8 +183,8 @@ export function WalletTab({ user, setShowTopUpModal, transactions = [], loading 
                     <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 border border-slate-100">
                         <Wallet className="w-12 h-12 text-slate-200" />
                     </div>
-                    <h3 className="text-2xl font-black text-[#0A192F] mb-2 uppercase tracking-tighter italic">Ledger is <span className="text-slate-300">Empty</span></h3>
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">No transactions found matching your criteria.</p>
+                    <h3 className="text-2xl font-black text-[#0A192F] mb-2 uppercase tracking-tighter italic">History is <span className="text-slate-300">Empty</span></h3>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] max-w-xs mx-auto opacity-60">No payments found yet.</p>
                 </div>
             )}
           </div>

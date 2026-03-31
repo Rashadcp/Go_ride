@@ -23,7 +23,8 @@ import {
     CreditCard,
     Plus,
     Activity,
-    Printer
+    Printer,
+    Loader2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -145,7 +146,10 @@ export default function AdminDashboardPage() {
                     <div className="lg:col-span-2 h-[400px] bg-white rounded-3xl border border-slate-100"></div>
                     <div className="h-[400px] bg-white rounded-3xl border border-slate-100"></div>
                 </div>
-                <div className="h-64 bg-white rounded-3xl border border-slate-100"></div>
+                <div className="py-24 flex flex-col items-center justify-center gap-6 bg-white rounded-[48px] border border-slate-100 shadow-inner">
+                    <Loader2 className="w-10 h-10 text-[#FFD700] animate-spin" />
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Loading dashboard...</p>
+                </div>
             </div>
         );
     }
@@ -166,7 +170,7 @@ export default function AdminDashboardPage() {
                             {trend >= 0 ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
                             {Math.abs(trend)}%
                         </span>
-                        <span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">Term Growth</span>
+                        <span className="text-[10px] text-slate-400 font-bold ml-1 uppercase">Growth</span>
                     </div>
                 )}
             </div>
@@ -191,15 +195,15 @@ export default function AdminDashboardPage() {
             {/* Header / Actions Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-xl font-black text-[#0A192F] uppercase tracking-tight italic">Platform <span className="text-[#FFD700]">Overview</span></h1>
-                    <p className="text-xs text-slate-400 mt-1 font-bold uppercase tracking-widest">Real-time metrics and system performance</p>
+                    <h1 className="text-xl font-black text-[#0A192F] uppercase tracking-tight italic">GoRide <span className="text-[#FFD700]">Status</span></h1>
+                    <p className="text-xs text-slate-400 mt-1 font-bold uppercase tracking-widest">See how the platform is doing right now</p>
                 </div>
             </div>
 
             {/* Stat Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Total Revenue"
+                    title="Money Earned"
                     value={`₹${stats?.totalRevenue.toLocaleString()}`}
                     icon={DollarSign}
                     trend={stats?.revenueTrend}
@@ -207,7 +211,7 @@ export default function AdminDashboardPage() {
                     colorClass="text-[#FFD700]"
                 />
                 <StatCard
-                    title="Active Rides"
+                    title="Live Rides"
                     value={stats?.activeRides}
                     icon={TrendingUp}
                     trend={stats?.ridesTrend}
@@ -222,7 +226,7 @@ export default function AdminDashboardPage() {
                     colorClass="text-emerald-500"
                 />
                 <StatCard
-                    title="Pending Verifications"
+                    title="Waiting for Approval"
                     value={stats?.pendingApprovals}
                     icon={ShieldCheck}
                     borderHighlight={stats?.pendingApprovals && stats.pendingApprovals > 0 ? "border-l-[#FFD700]" : "border-l-[#FFD700]/30"}
@@ -236,8 +240,8 @@ export default function AdminDashboardPage() {
                 <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col h-[420px]">
                     <div className="flex items-center justify-between mb-8">
                         <div>
-                            <h3 className="text-[11px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1">Financial Efficiency</h3>
-                            <h2 className="text-lg font-black text-[#0A192F] uppercase tracking-tight">Revenue Trends</h2>
+                            <h3 className="text-[11px] font-black text-slate-400 tracking-[0.2em] uppercase mb-1">Money Growth</h3>
+                            <h2 className="text-lg font-black text-[#0A192F] uppercase tracking-tight">Earnings History</h2>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2">
@@ -278,8 +282,8 @@ export default function AdminDashboardPage() {
 
                 {/* Ride Stats Bar Chart */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[400px]">
-                    <h3 className="text-sm font-black text-[#0A192F] tracking-wide mb-1">Ride Volume</h3>
-                    <p className="text-[11px] text-slate-400 mb-6 font-medium uppercase tracking-widest">Weekly activity breakdown</p>
+                    <h3 className="text-sm font-black text-[#0A192F] tracking-wide mb-1">Total Rides</h3>
+                    <p className="text-[11px] text-slate-400 mb-6 font-medium uppercase tracking-widest">Rides this week</p>
 
                     <div className="flex-1 flex flex-col gap-4 justify-center">
                         {dailyRides.map((d, i) => {
@@ -321,7 +325,7 @@ export default function AdminDashboardPage() {
                         <div className="w-10 h-10 bg-[#FFD700]/10 rounded-xl flex items-center justify-center border border-[#FFD700]/20">
                             <Activity className="w-6 h-6 text-[#FFD700]" />
                         </div>
-                        Transaction Auditing Layer
+                        Transaction History
                     </h2>
                     <div className="flex gap-4">
                         <button 
@@ -330,7 +334,7 @@ export default function AdminDashboardPage() {
                             title="Print Current Audit"
                         >
                             <Printer className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Print Audit</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">Download Report</span>
                         </button>
                         <div className="relative group">
                             <div className="hidden group-hover:block absolute right-0 top-1/2 -translate-y-1/2 mr-14">
@@ -437,7 +441,7 @@ export default function AdminDashboardPage() {
                 {transactions.length > 0 && (
                     <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-center text-center">
                         <button className="text-[11px] font-black text-[#0A192F] hover:text-[#FFD700] transition-colors uppercase tracking-widest flex items-center gap-3 mx-auto group" onClick={() => router.push('/admin/revenue')}>
-                            Analyze Full Ledger
+                            See All Transactions
                             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </button>
                     </div>

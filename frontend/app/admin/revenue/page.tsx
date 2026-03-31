@@ -104,7 +104,7 @@ export default function AdminRevenuePage() {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
                 <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
-                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Synchronizing Financial Records...</p>
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Loading payments...</p>
             </div>
         );
     }
@@ -113,8 +113,8 @@ export default function AdminRevenuePage() {
         <div className="p-8 max-w-[1600px] mx-auto h-full flex flex-col bg-[#F8FAFC] min-h-screen">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                 <div>
-                    <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Revenue <span className="text-[#FFD700]">Intelligence</span></h1>
-                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Real-time financial tracking and growth metrics</p>
+                    <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Money & <span className="text-[#FFD700]">Earnings</span></h1>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Track your income and growth in real-time</p>
                 </div>
                 <div className="flex gap-4">
                     <button 
@@ -122,7 +122,7 @@ export default function AdminRevenuePage() {
                         className="flex items-center gap-2 px-6 py-3 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#0A192F]/10 hover:bg-black transition-all"
                     >
                         <Download className="w-4 h-4" />
-                        Export Ledger
+                        Download Report
                     </button>
                 </div>
             </div>
@@ -133,36 +133,36 @@ export default function AdminRevenuePage() {
                     <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
                         <TrendingUp className="w-20 h-20 text-[#0A192F]" />
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total Revenue</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total Earned</p>
                     <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">₹{stats?.totalRevenue?.toLocaleString()}</h3>
                     <div className={`flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${stats?.revenueTrend >= 0 ? "text-[#22C55E]" : "text-rose-500"}`}>
                         {stats?.revenueTrend >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                        {stats?.revenueTrend >= 0 ? '+' : ''}{stats?.revenueTrend}% Performance
+                        {stats?.revenueTrend >= 0 ? '+' : ''}{stats?.revenueTrend}% Growth
                     </div>
                 </div>
 
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 group">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Transaction Volume</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Total Payments</p>
                     <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">{stats?.totalTransactions?.toLocaleString() || 0}</h3>
                     <div className="flex items-center gap-2 text-[#22C55E] font-black text-[10px] uppercase tracking-widest">
                         <Activity className="w-4 h-4" />
-                        High Integrity
+                        Verified
                     </div>
                 </div>
 
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 group">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Average Trip Value</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Average Trip Price</p>
                     <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">₹{stats?.avgTripValue?.toLocaleString() || 0}</h3>
                     <div className="flex items-center gap-2 text-[#FFD700] font-black text-[10px] uppercase tracking-widest">
                         <Activity className="w-4 h-4" />
-                        Real-time Stat
+                        Live Data
                     </div>
                 </div>
 
                 <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100 group">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Active Promotions</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Coupons Used</p>
                     <h3 className="text-4xl font-black text-[#0A192F] tracking-tighter mb-2">{stats?.activePromotions || 0}</h3>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">System Discount Layer</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-60">Discounts applied</span>
                 </div>
             </div>
 
@@ -171,7 +171,7 @@ export default function AdminRevenuePage() {
                 <div className="p-8 border-b border-slate-50 flex items-center justify-between">
                     <h2 className="font-black text-[#0A192F] uppercase tracking-widest text-[11px] flex items-center gap-3 italic">
                         <Activity className="w-5 h-5 text-[#FFD700]" />
-                        Transaction Auditing Layer
+                        Payment History
                     </h2>
                     <div className="flex gap-4">
                         <button className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:text-[#0A192F] hover:bg-slate-100 transition-all border border-slate-100">
@@ -184,11 +184,11 @@ export default function AdminRevenuePage() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50">
                             <tr className="border-b border-slate-100">
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Source / Actor</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Sequence</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Who Paid</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">ID</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-[#0A192F] uppercase tracking-widest italic">Impact</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-center">Status</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Audit Timestamp</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic text-right">Date & Time</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -200,8 +200,8 @@ export default function AdminRevenuePage() {
                                                 {tx.userId?.name?.charAt(0) || "S"}
                                             </div>
                                             <div>
-                                                <p className="font-black text-sm text-[#0A192F] tracking-tight">{tx.userId?.name || "System Core"}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{tx.type} AUDIT</p>
+                                                <p className="font-black text-sm text-[#0A192F] tracking-tight">{tx.userId?.name || "System"}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{tx.type} RECORD</p>
                                             </div>
                                         </div>
                                     </td>

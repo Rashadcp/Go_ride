@@ -62,7 +62,7 @@ export default function LoginPage() {
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Welcome Back</span>
                         <h1 className="text-4xl sm:text-5xl font-black mb-3 tracking-tighter uppercase leading-tight">Sign <br /> <span className="text-[#B8860B]">In</span></h1>
                         <p className="text-[#4A4A48] font-semibold text-sm leading-relaxed border-l-2 border-[#FFD700] pl-4 font-[family-name:var(--font-roboto)] text-left">
-                            Good to see you again! Log in to continue your journey.
+                            Welcome back! Log in to start your ride.
                         </p>
                     </div>
 
@@ -120,8 +120,8 @@ export default function LoginPage() {
 
                     <div className="mt-12 text-center sm:text-left pt-6 border-t border-[#E5E5E0]">
                         <p className="text-[#4A4A48] text-[11px] font-black uppercase tracking-widest leading-tight">
-                            New here?{" "}
-                            <a href="/register" className="text-[#FFD700] hover:text-[#B8860B] transition-colors ml-2 underline decoration-2 underline-offset-4">Create an Account</a>
+                            New to GoRide?{" "}
+                            <a href="/register" className="text-[#FFD700] hover:text-[#B8860B] transition-colors ml-2 underline decoration-2 underline-offset-4">Sign Up Now</a>
                         </p>
                     </div>
                 </div>
@@ -140,7 +140,7 @@ export default function LoginPage() {
                         Welcome <br /> <span className="text-[#FFD700]">Back.</span>
                     </h2>
                     <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                        Your rides, your way. Sign in to book trips, track rides, and get where you need to go.
+                        Ready for your next trip? Log in to book a ride or start driving.
                     </p>
                 </div>
 

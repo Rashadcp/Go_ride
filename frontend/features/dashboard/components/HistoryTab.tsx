@@ -84,16 +84,16 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black text-[#0A192F] mb-1 tracking-tight">Ride History</h1>
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">Track your journeys and expenses</p>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">See your past rides and spending</p>
           </div>
           <div className="flex gap-4 w-full sm:w-auto">
             <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-              <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">{filter === 'ALL' ? 'Total Spent' : `${filter} Spent`}</span>
+              <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">{filter === 'ALL' ? 'Total Spent' : `Spent on ${filter}`}</span>
               <span className="text-lg font-black text-[#0A192F]">Rs {totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
             </div>
             {totalEarned > 0 && (
               <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
-                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{filter === 'ALL' ? 'Total Earned' : `${filter} Revenue`}</span>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{filter === 'ALL' ? 'Total Earned' : `Earned from ${filter}`}</span>
                 <span className="text-lg font-black text-emerald-600">Rs {totalEarned.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
               </div>
             )}
@@ -108,10 +108,10 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
         <div className="flex justify-center sm:justify-start">
           <div className="p-1.5 bg-white rounded-[24px] shadow-sm border border-slate-100 flex flex-wrap gap-1">
             {[
-              { id: 'ALL', label: 'All History' },
-              { id: 'TAXI', label: user?.role === 'DRIVER' ? 'Professional Taxi' : 'Taxi Bookings' },
-              { id: 'HOST_POOL', label: user?.role === 'DRIVER' ? 'Member CarPools' : 'Hosted Pools' },
-              ...(user?.role !== 'DRIVER' ? [{ id: 'JOIN_POOL', label: 'Joined Pools' }] : [])
+              { id: 'ALL', label: 'All Rides' },
+              { id: 'TAXI', label: user?.role === 'DRIVER' ? 'My Taxi Work' : 'Taxi Rides' },
+              { id: 'HOST_POOL', label: user?.role === 'DRIVER' ? 'My Shared Rides' : 'Shared Rides' },
+              ...(user?.role !== 'DRIVER' ? [{ id: 'JOIN_POOL', label: 'Joined Rides' }] : [])
             ].map((t) => (
               <button
                 key={t.id}
@@ -183,12 +183,12 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                   </div>
                   <div className="space-y-4 flex-1">
                     <div className="max-w-md">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Pickup Information</p>
-                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.pickup?.label || 'Pickup Location'}</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Start Location</p>
+                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.pickup?.label || 'Start Location'}</p>
                     </div>
                     <div className="max-w-md">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Final Destination</p>
-                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.drop?.label || 'Destination'}</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">End Location</p>
+                      <p className="text-[13px] font-bold text-[#0A192F] truncate leading-tight">{ride.drop?.label || 'End Location'}</p>
                     </div>
                   </div>
                 </div>
@@ -216,9 +216,9 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
               <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8 opacity-40">
                 <Car className="w-12 h-12 text-slate-300" />
               </div>
-              <h3 className="text-2xl font-black text-[#0A192F] mb-3 tracking-tight">Accessing Journey Ledger</h3>
-              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto opacity-60">No {filter !== 'ALL' ? filter.toLowerCase().replace('_', ' ') : ''} sessions available to display</p>
-              <Button variant="primary" className="mt-10 px-10 py-4 shadow-xl hover:shadow-[#FFD700]/20" onClick={() => { setFilter('ALL'); setActiveTab('dashboard'); }}>Begin a new trip</Button>
+              <h3 className="text-2xl font-black text-[#0A192F] mb-3 tracking-tight">No Rides Found</h3>
+              <p className="text-slate-400 text-sm font-bold uppercase tracking-widest max-w-xs mx-auto opacity-60">You haven't taken any {filter !== 'ALL' ? filter.toLowerCase().replace('_', ' ') : ''} rides yet.</p>
+              <Button variant="primary" className="mt-10 px-10 py-4 shadow-xl hover:shadow-[#FFD700]/20" onClick={() => { setFilter('ALL'); setActiveTab('dashboard'); }}>Start your first trip</Button>
             </div>
           )}
         </div>
@@ -236,12 +236,12 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                 <div className="relative z-10 w-full flex justify-between items-center">
                     <div>
                         <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-[0.4em] mb-2 block">
-                          {((selectedRide.driverId === userId) || (selectedRide.driverId?._id === userId) || (selectedRide.driverId?._id === userId)) ? 'Trip Revenue' : 'Trip Receipt'}
+                          {((selectedRide.driverId === userId) || (selectedRide.driverId?._id === userId) || (selectedRide.driverId?._id === userId)) ? 'Payment Received' : 'Trip Summary'}
                         </span>
                         <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tighter uppercase leading-none flex items-center gap-2 sm:gap-3">
                           Rs {selectedRide.price}
                           <span className={`text-[8px] sm:text-[10px] py-0.5 sm:py-1 px-2 sm:px-3 rounded-full border border-white/20 font-black tracking-widest ${selectedRide.type === 'CARPOOL' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'}`}>
-                            {selectedRide.type === 'CARPOOL' ? 'Ride Share' : 'Private Taxi'}
+                            {selectedRide.type === 'CARPOOL' ? 'Shared' : 'Private'}
                           </span>
                         </h2>
                     </div>
@@ -269,14 +269,14 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                             )}
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Driver Profile</p>
-                            <h4 className="text-xl font-black text-[#0A192F] uppercase tracking-tighter">{selectedRide.driverId?.name || "Independent Partner"}</h4>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Driver</p>
+                            <h4 className="text-xl font-black text-[#0A192F] uppercase tracking-tighter">{selectedRide.driverId?.name || "GoRide Driver"}</h4>
                             <div className="flex items-center gap-2 mt-1.5">
                                 <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 rounded-lg">
                                     <Star className="w-3.5 h-3.5 fill-[#FFA000] text-[#FFA000]" />
                                     <span className="text-[11px] font-black text-[#FFA000]">{selectedRide.driverId?.rating || "5.0"}</span>
                                 </span>
-                                <span className="text-[11px] font-bold text-slate-400 ml-2 uppercase">Verified Member</span>
+                                <span className="text-[11px] font-bold text-slate-400 ml-2 uppercase">Safe Driver</span>
                             </div>
                         </div>
                     </div>
@@ -322,10 +322,10 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                             {selectedRide.requestedVehicleType === 'car' ? <Car className="w-6 h-6" /> : selectedRide.requestedVehicleType === 'bike' ? <Bike className="w-6 h-6" /> : <AutoRickshawIcon className="w-7 h-7" />}
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Status</p>
-                            <p className="text-sm font-black text-[#0A192F] uppercase">{selectedRide.driverId?.vehicleNumber || "KL 10 BG 1122"}</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vehicle Info</p>
+                            <p className="text-sm font-black text-[#0A192F] uppercase">{selectedRide.driverId?.vehicleNumber || "Verified Vehicle"}</p>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                {selectedRide.requestedVehicleType || "Sedan"} • {selectedRide.type === 'CARPOOL' ? 'Shared Ride' : 'Private Trip'}
+                                {selectedRide.requestedVehicleType || "Car"} • {selectedRide.type === 'CARPOOL' ? 'Shared' : 'Private'}
                             </p>
                         </div>
                     </div>
@@ -337,7 +337,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                         <div>
                             <div className="flex items-center gap-2 mb-4">
                                 <Navigation className="w-4 h-4 text-[#FFD700]" />
-                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Route Details</h5>
+                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Trip Path</h5>
                             </div>
                             <div className="flex gap-4">
                                 <div className="flex flex-col items-center gap-1 mt-1.5">
@@ -363,7 +363,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                         <div>
                             <div className="flex items-center gap-2 mb-4">
                                 <Info className="w-4 h-4 text-[#FFD700]" />
-                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Journey Metrics</h5>
+                                <h5 className="text-[11px] font-black text-[#0A192F] uppercase tracking-[0.2em]">Trip Info</h5>
                             </div>
                             <div className="bg-slate-50/50 rounded-3xl p-6 border border-slate-100 space-y-5 shadow-inner">
                                 <div className="flex justify-between items-center">
@@ -376,7 +376,7 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-3">
                                         <Calendar className="w-4 h-4 text-slate-400" />
-                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Session Date</span>
+                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Date & Time</span>
                                     </div>
                                     <span className="text-sm font-black text-[#0A192F] uppercase tracking-tighter">
                                         {new Date(selectedRide.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} • {new Date(selectedRide.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}

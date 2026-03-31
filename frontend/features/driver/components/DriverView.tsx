@@ -197,8 +197,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
                      <div className="flex items-center justify-between mb-6">
                         <div>
-                           <p className="font-black text-[#0A192F] text-[17px]">Available Seats</p>
-                           <p className="text-[13px] font-bold text-slate-400 mt-0.5">Maximize your earnings</p>
+                           <p className="font-black text-[#0A192F] text-[17px]">Empty Seats</p>
+                           <p className="text-[13px] font-bold text-slate-400 mt-0.5">Fill your car to earn more</p>
                         </div>
                         <div className="flex items-center gap-4 bg-slate-100 rounded-2xl px-2 py-1.5 border border-slate-200">
                            <button onClick={() => setSeatsAvailable(Math.max(1, seatsAvailable - 1))} className="w-10 h-10 flex items-center justify-center text-[#0A192F] hover:bg-white rounded-[10px] transition-colors shadow-sm"><span className="text-2xl font-black mt-[-4px]">-</span></button>
@@ -207,7 +207,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                         </div>
                      </div>
                      <button onClick={handleStartDriverTrip} className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50">
-                        Start Shared Ride
+                        Start Driving Now
                      </button>
                   </div>
                )}
@@ -225,9 +225,9 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      </div>
                      <div>
                         <h3 className="text-2xl font-black text-white tracking-tight mb-1">
-                           {rideState.activeRide?.status === "ARRIVED" ? "At Pickup Point" :
-                              rideState.activeRide?.status === "STARTED" ? "Trip in Progress" :
-                                 (rideState.activeRide?.passengers?.length > 0) ? "Heading to Pickup" : "Looking for riders"}
+                           {rideState.activeRide?.status === "ARRIVED" ? "I Have Arrived" :
+                              rideState.activeRide?.status === "STARTED" ? "Trip Started" :
+                                 (rideState.activeRide?.passengers?.length > 0) ? "Going to Pick Up" : "Waiting for Riders"}
                         </h3>
                         <p className="font-black text-[#FFD700] text-[12px] tracking-widest uppercase">
                            {rideState.activeRide?.availableSeats !== undefined ? rideState.activeRide.availableSeats : seatsAvailable} SEAT{(rideState.activeRide?.availableSeats ?? seatsAvailable) > 1 ? 'S' : ''} AVAILABLE
@@ -385,7 +385,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            className="w-full py-4 bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-[#FFD700]/10 flex items-center justify-center gap-3 active:scale-95"
                         >
                            <MapPin className="w-5 h-5" />
-                           Im at Pickup Point
+                           I am at Pickup
                         </button>
                      )}
 
@@ -401,7 +401,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
                         >
                            <Zap className="w-5 h-5" />
-                           Begin Journey
+                           Start Trip
                         </button>
                      )}
 
@@ -418,7 +418,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            className="w-full py-4 bg-white hover:bg-slate-50 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl flex items-center justify-center gap-3 active:scale-95 border border-slate-200"
                         >
                            <ShieldCheck className="w-5 h-5" />
-                           Complete Ride
+                           Finish Trip
                         </button>
                      )}
                   </div>
@@ -427,7 +427,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      onClick={() => { setIsDriverTripActive(false); rideState.resetRideState(); }}
                      className="w-full mt-4 py-4 relative z-10 bg-transparent hover:bg-rose-500/10 border border-white/10 text-slate-400 hover:text-rose-500 rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] transition-all active:scale-95"
                   >
-                     Cancel Entire Trip
+                     End Trip
                   </button>
                </div>
             </div>

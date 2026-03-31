@@ -32,9 +32,9 @@ const TYPE_CONFIG = {
 };
 
 const STATUS_CONFIG = {
-    PENDING:      { label: "Pending",      color: "bg-rose-100 text-rose-700 border-rose-200",       dot: "bg-rose-500"    },
-    INVESTIGATING:{ label: "Investigating",color: "bg-amber-100 text-amber-700 border-amber-200",     dot: "bg-amber-500"   },
-    RESOLVED:     { label: "Resolved",     color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+    PENDING:      { label: "Waiting",      color: "bg-rose-100 text-rose-700 border-rose-200",       dot: "bg-rose-500"    },
+    INVESTIGATING:{ label: "Checking",     color: "bg-amber-100 text-amber-700 border-amber-200",     dot: "bg-amber-500"   },
+    RESOLVED:     { label: "Fixed",        color: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
 };
 
 export default function EmergencyReportsPage() {
@@ -129,7 +129,7 @@ export default function EmergencyReportsPage() {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC] min-h-screen">
                 <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
-                <p className="text-[#0A192F] font-black uppercase tracking-widest italic text-sm">Loading incident reports...</p>
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic text-sm">Loading reports...</p>
             </div>
         );
     }
@@ -145,10 +145,10 @@ export default function EmergencyReportsPage() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">
-                            Safety <span className="text-[#FFD700]">Reports</span>
+                            Safety <span className="text-[#FFD700]">Alerts</span>
                         </h1>
                         <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">
-                            Real-time passenger incident monitoring
+                            Watch for passenger alerts in real-time
                         </p>
                     </div>
                 </div>
@@ -158,7 +158,7 @@ export default function EmergencyReportsPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#FFD700] transition-colors" />
                         <input 
                             type="text" 
-                            placeholder="Search reports..." 
+                            placeholder="Search alerts..." 
                             className="pl-11 pr-4 py-3 bg-white border border-slate-100 rounded-xl text-sm font-bold text-[#0A192F] focus:ring-2 ring-[#FFD700]/10 transition-all outline-none w-64 shadow-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -182,10 +182,10 @@ export default function EmergencyReportsPage() {
             {/* Stats Row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 {[
-                    { label: "Total Reports", value: reports.length, color: "text-[#0A192F]" },
-                    { label: "Pending Action", value: reports.filter(r=>r.status==="PENDING").length, color: "text-rose-600" },
-                    { label: "Investigating", value: reports.filter(r=>r.status==="INVESTIGATING").length, color: "text-amber-600" },
-                    { label: "Resolved", value: reports.filter(r=>r.status==="RESOLVED").length, color: "text-emerald-600" },
+                    { label: "Total Alerts", value: reports.length, color: "text-[#0A192F]" },
+                    { label: "Waiting", value: reports.filter(r=>r.status==="PENDING").length, color: "text-rose-600" },
+                    { label: "Checking", value: reports.filter(r=>r.status==="INVESTIGATING").length, color: "text-amber-600" },
+                    { label: "Fixed", value: reports.filter(r=>r.status==="RESOLVED").length, color: "text-emerald-600" },
                 ].map((stat, i) => (
                     <div key={i} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
@@ -308,7 +308,7 @@ export default function EmergencyReportsPage() {
                     
                     {/* Incident Types Summary */}
                     <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-                        <h3 className="text-sm font-black text-[#0A192F] uppercase tracking-widest mb-4">By Incident Type</h3>
+                        <h3 className="text-sm font-black text-[#0A192F] uppercase tracking-widest mb-4">Alert Types</h3>
                         <div className="space-y-3">
                             {(["HARASSMENT", "ACCIDENT", "THEFT", "OTHER"] as const).map(type => {
                                 const count = reports.filter(r => r.type === type).length;
@@ -387,7 +387,7 @@ export default function EmergencyReportsPage() {
                                 disabled={!resNotes.trim()}
                                 className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-xl font-black text-[11px] uppercase tracking-widest transition-all hover:bg-black disabled:opacity-30 shadow-lg shadow-[#0A192F]/10"
                             >
-                                Mark as Resolved
+                                Mark as Fixed
                             </button>
                         </div>
                     )}

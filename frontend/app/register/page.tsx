@@ -99,10 +99,10 @@ export default function RegisterPage() {
                         <UserPlus className="w-8 h-8 text-[#FFD700]" strokeWidth={1} />
                     </div>
                     <h2 className="text-6xl font-black text-white leading-[1] mb-8 uppercase tracking-tighter">
-                        Start Your <br /> <span className="text-[#FFD700]">Journey.</span>
+                        Join <br /> <span className="text-[#FFD700]">GoRide.</span>
                     </h2>
                     <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                        Whether you need a ride or want to drive, GoRide makes it easy. Sign up and get started today.
+                        Want to travel or earn? Join GoRide today. It's fast and easy!
                     </p>
                 </div>
             </div>
@@ -118,10 +118,10 @@ export default function RegisterPage() {
 
                 <div className="max-w-xl w-full mx-auto lg:ml-0 my-auto pb-10">
                     <div className="mb-8 font-[family-name:var(--font-montserrat)]">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Get Started</span>
-                        <h1 className="text-4xl font-black mb-3 tracking-tighter uppercase leading-tight">Create <br /> <span className="text-[#B8860B]">Account</span></h1>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Join Us</span>
+                        <h1 className="text-4xl font-black mb-3 tracking-tighter uppercase leading-tight">Create <br /> <span className="text-[#B8860B]">Profile</span></h1>
                         <p className="text-[#4A4A48] font-semibold text-sm leading-relaxed border-l-2 border-[#FFD700] pl-4 font-[family-name:var(--font-roboto)]">
-                            Choose how you want to use GoRide and fill in your details below.
+                            Tell us who you are and fill in your details below.
                         </p>
                     </div>
 
@@ -134,14 +134,14 @@ export default function RegisterPage() {
                             onClick={() => setRole("USER")}
                             className={`relative flex-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all duration-300 z-10 ${role === "USER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
                         >
-                            Passenger
+                            I am a Passenger
                         </button>
                         <button
                             type="button"
                             onClick={() => setRole("DRIVER")}
                             className={`relative flex-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all duration-300 z-10 ${role === "DRIVER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
                         >
-                            Driver
+                            I am a Driver
                         </button>
                     </div>
 
@@ -215,7 +215,7 @@ export default function RegisterPage() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A] ml-1">Phone Number (with Country Code)</label>
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A] ml-1">Phone Number (include +xx)</label>
                             <input
                                 type="tel"
                                 name="phone"
@@ -277,7 +277,7 @@ export default function RegisterPage() {
                             loading={loading}
                             className="w-full py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none font-[family-name:var(--font-montserrat)]"
                         >
-                            Create Account <ArrowLeft className="w-4 h-4 rotate-180" />
+                            Sign Up <ArrowLeft className="w-4 h-4 rotate-180" />
                         </Button>
                     </form>
 

@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC]">
                 <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
-                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Accessing User Database...</p>
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Loading users...</p>
             </div>
         );
     }
@@ -131,7 +131,7 @@ export default function AdminUsersPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
                     <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Go<span className="text-[#FFD700]">Ride</span> Users</h1>
-                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Manage platform users and account security</p>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Update users and keep accounts safe</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
@@ -159,9 +159,9 @@ export default function AdminUsersPage() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50">
                             <tr className="border-b border-slate-100">
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">User Identity</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Contact Info</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Registered Date</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">User</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Email & Phone</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest italic">Joined On</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-[#0A192F] uppercase tracking-widest italic text-right">Actions</th>
                             </tr>
                         </thead>
@@ -181,7 +181,7 @@ export default function AdminUsersPage() {
                                                 <p className="font-black text-[#0A192F] tracking-tight">{user.name}</p>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
                                                     <Shield className="w-3 h-3 text-emerald-500" />
-                                                    <span className="text-[10px] font-black uppercase text-emerald-600 tracking-tighter">Verified Account</span>
+                                                    <span className="text-[10px] font-black uppercase text-emerald-600 tracking-tighter">Safe User</span>
                                                 </div>
                                             </div>
                                         </div>

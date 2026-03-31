@@ -115,7 +115,7 @@ export default function DriverVerificationPage() {
         return (
             <div className="h-full flex flex-col items-center justify-center gap-4 bg-[#F8FAFC] min-h-screen">
                 <Loader2 className="w-12 h-12 text-[#FFD700] animate-spin" />
-                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Synchronizing Driver Audits...</p>
+                <p className="text-[#0A192F] font-black uppercase tracking-widest italic">Loading drivers...</p>
             </div>
         );
     }
@@ -125,8 +125,8 @@ export default function DriverVerificationPage() {
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
                 <div>
-                    <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Driver <span className="text-[#FFD700]">Intelligence</span></h1>
-                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Review and manage elite driver registrations</p>
+                    <h1 className="text-3xl font-black text-[#0A192F] tracking-tight italic uppercase">Manage <span className="text-[#FFD700]">Drivers</span></h1>
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mt-1">Approve new drivers and update profiles</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
@@ -139,7 +139,7 @@ export default function DriverVerificationPage() {
                                 : "text-slate-400 hover:text-[#0A192F] hover:bg-slate-50"
                                 }`}
                         >
-                            {f === "PENDING" ? "Auditing" : f}
+                            {f === "PENDING" ? "Waiting" : f}
                         </button>
                     ))}
                 </div>
@@ -160,7 +160,7 @@ export default function DriverVerificationPage() {
                     </div>
                     <div className="flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 italic">
                         <Users className="w-4 h-4 text-[#FFD700]" />
-                        {filteredDrivers.length} Professional Units
+                        {filteredDrivers.length} Drivers Found
                     </div>
                 </div>
 

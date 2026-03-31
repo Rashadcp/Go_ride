@@ -139,11 +139,11 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     return () => clearInterval(interval);
   }, [isRequestingRide, activeRide]);
   const CAR_STYLES = [
-    { id: 'bike', name: 'Bike', baseFare: 20, ratePerKm: 6, icon: Bike, desc: 'Fast & Affordable', time: '2 min', person: 1 },
-    { id: 'auto', name: 'Auto Riksha', baseFare: 40, ratePerKm: 10, icon: Users, desc: 'Quick rides, no bargaining', time: '3 min', person: 3 },
-    { id: 'go', name: 'Go', baseFare: 60, ratePerKm: 15, icon: Car, desc: 'Affordable, everyday rides', time: '5 min', person: 4 },
-    { id: 'sedan', name: 'Sedan', baseFare: 80, ratePerKm: 20, icon: Car, desc: 'Extra legroom, premium', time: '6 min', person: 4 },
-    { id: 'xl', name: 'XL', baseFare: 110, ratePerKm: 28, icon: Users, desc: 'Comfortable SUVs for groups', time: '8 min', person: 6 }
+    { id: 'bike', name: 'Bike', baseFare: 20, ratePerKm: 6, icon: Bike, desc: 'Fast & Cheap', time: '2 min', person: 1 },
+    { id: 'auto', name: 'Auto Rickshaw', baseFare: 40, ratePerKm: 10, icon: Users, desc: 'Fast local rides', time: '3 min', person: 3 },
+    { id: 'go', name: 'Go', baseFare: 60, ratePerKm: 15, icon: Car, desc: 'Budget rides for every day', time: '5 min', person: 4 },
+    { id: 'sedan', name: 'Sedan', baseFare: 80, ratePerKm: 20, icon: Car, desc: 'More space & comfort', time: '6 min', person: 4 },
+    { id: 'xl', name: 'XL', baseFare: 110, ratePerKm: 28, icon: Users, desc: 'Big cars for groups', time: '8 min', person: 6 }
   ];
 
   const calculateFare = (vType: string) => {
@@ -537,10 +537,10 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
         {/* Ride Choices Panel */}
         {isRouteSearched && !activeRide && (
           <div className="bg-white/95 backdrop-blur-3xl rounded-[32px] shadow-[0_30px_70px_rgba(0,0,0,0.3)] p-4 sm:p-5 border border-white/50 pointer-events-auto flex flex-col h-fit max-h-[80vh] lg:max-h-[92vh] overflow-hidden w-full lg:w-[400px]">
-            <h3 className="text-xl font-black text-[#0A192F] mb-3 tracking-tight text-center shrink-0 uppercase">Choose a ride</h3>
+            <h3 className="text-xl font-black text-[#0A192F] mb-3 tracking-tight text-center shrink-0 uppercase">Pick your ride</h3>
             <div className="flex bg-slate-100 p-1 rounded-xl mb-3 shadow-inner mx-2 shrink-0">
-              <button onClick={() => { rideState.setIsSharedRide(false); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${!isSharedRide ? 'bg-white shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Private</button>
-              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Shared (-40%)</button>
+              <button onClick={() => { rideState.setIsSharedRide(false); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${!isSharedRide ? 'bg-white shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Solo Ride</button>
+              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Share & Save 40%</button>
             </div>
 
             <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto px-2 custom-scrollbar">
@@ -637,9 +637,9 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-5 shadow-sm">
                         <Users className="text-slate-200 w-10 h-10" />
                       </div>
-                      <h4 className="text-[#0A192F] font-black text-[18px] mb-2 tracking-tight">No active carpools matched.</h4>
+                      <h4 className="text-[#0A192F] font-black text-[18px] mb-2 tracking-tight">No shared rides nearby.</h4>
                       <p className="text-slate-500 font-medium text-[13px] leading-relaxed">
-                        Don't see a ride that fits? Start a new shared session and let others join you for <span className="text-emerald-600 font-bold">40% less</span>.
+                        Don't see a match? Start a shared ride yourself and <span className="text-emerald-600 font-bold">save 40%</span>.
                       </p>
                     </div>
                   )}
@@ -673,7 +673,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                         </div>
                         <div className="text-right relative z-10">
                           <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
-                          <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Minimum ₹{style.baseFare}</p>
+                          <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Starts at ₹{style.baseFare}</p>
                         </div>
                       </button>
                     );
@@ -684,7 +684,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
             {/* Payment Selection Section */}
             <div className="mt-3 px-2 space-y-2 shrink-0 border-t border-slate-100 pt-3">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">Payment Method</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2">How to Pay</p>
               <div className="flex gap-2 p-1 bg-slate-100 rounded-[22px]">
                 <button
                   onClick={() => setPaymentMethod("WALLET")}
@@ -702,8 +702,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                 >
                   <QrCode className="w-4 h-4" />
                   <div className="flex flex-col items-start leading-none gap-1">
-                    <span className="text-[10px] font-black uppercase">UPI</span>
-                    <span className="text-[8px] font-bold opacity-60">Settlement</span>
+                    <span className="text-[10px] font-black uppercase">Online</span>
+                    <span className="text-[8px] font-bold opacity-60">Pay now</span>
                   </div>
                 </button>
                 <button
@@ -713,7 +713,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   <Banknote className="w-4 h-4" />
                   <div className="flex flex-col items-start leading-none gap-1">
                     <span className="text-[10px] font-black uppercase">Cash</span>
-                    <span className="text-[8px] font-bold opacity-60">Pay Driver</span>
+                    <span className="text-[8px] font-bold opacity-60">Pay in car</span>
                   </div>
                 </button>
               </div>
@@ -728,7 +728,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                     <Tag className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                     <input
                       type="text"
-                      placeholder="Apply Secret Code"
+                      placeholder="Got a coupon?"
                       className="bg-transparent border-none outline-none text-[9px] font-black uppercase text-[#0A192F] w-full placeholder:text-slate-400 placeholder:normal-case min-w-0"
                       value={manualPromoCode}
                       onChange={(e) => setManualPromoCode(e.target.value.toUpperCase())}
