@@ -13,6 +13,7 @@ import { useRideSocket } from "@/features/ride/hooks/useRideSocket";
 import { socket } from "@/lib/socket";
 import toast from "react-hot-toast";
 import { ChatModal } from "@/features/chat/components/ChatModal";
+import { RideSummaryPage } from "./RideSummaryPage";
 import { MessageCircle } from "lucide-react";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
@@ -719,54 +720,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
               </div>
             </div>
 
-            {/* Super Compact Promotions Section */}
-            {promotions.length > 0 && (
-              <div className="mt-2 px-2 bg-slate-50/50 py-2 rounded-[22px] border border-slate-200/50">
-                <div className="flex items-center gap-2">
-                  {/* Compact Manual Input */}
-                  <div className="flex-1 flex items-center gap-1.5 bg-white border border-slate-200 rounded-full pl-3 pr-1 py-1 transition-all focus-within:ring-2 focus-within:ring-[#0A192F]/5 min-w-0">
-                    <Tag className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="Got a coupon?"
-                      className="bg-transparent border-none outline-none text-[9px] font-black uppercase text-[#0A192F] w-full placeholder:text-slate-400 placeholder:normal-case min-w-0"
-                      value={manualPromoCode}
-                      onChange={(e) => setManualPromoCode(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handleVerifyManualPromo()}
-                    />
-                    <button
-                      onClick={handleVerifyManualPromo}
-                      disabled={isVerifyingPromo || !manualPromoCode.trim()}
-                      className="h-5 px-2 bg-[#0A192F] text-[#FFD700] rounded-full text-[8px] font-black uppercase tracking-tighter disabled:opacity-30 flex items-center justify-center shrink-0"
-                    >
-                      {isVerifyingPromo ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <span>Apply</span>}
-                    </button>
-                  </div>
-
-                  {/* Remove Button if active */}
-                  {selectedPromo && (
-                    <button onClick={() => setSelectedPromo(null)} className="shrink-0 p-1.5 bg-rose-50 text-rose-500 rounded-full hover:bg-rose-100 transition-colors">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-1.5 mt-2 overflow-x-auto no-scrollbar scroll-smooth">
-                  {promotions.map((promo) => (
-                    <button
-                      key={promo._id}
-                      onClick={() => setSelectedPromo(selectedPromo?._id === promo._id ? null : promo)}
-                      className={`shrink-0 py-1.5 px-3 rounded-full transition-all border ${selectedPromo?._id === promo._id ? 'bg-[#0A192F] border-[#0A192F] text-[#FFD700] shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-white'}`}
-                    >
-                      <span className="text-[9px] font-black uppercase tracking-tight">{promo.code}</span>
-                      <span className="text-[8px] font-bold ml-1.5 opacity-80">
-                        {promo.type === 'PERCENTAGE' ? `${promo.value}%` : `₹${promo.value}`}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="px-2 mt-3 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
@@ -904,7 +857,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   <div className="flex-1">
                     <div className="inline-flex items-center gap-2 mb-1">
                       <h4 className="font-extrabold text-xl text-[#0A192F] tracking-tight truncate max-w-[180px]">
-                        {activeRide.driverInfo?.name || activeRide.driverName || "Jasir o"}
+                        {activeRide.driverInfo?.name || activeRide.driverName || "Driver"}
                       </h4>
                       <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded-md border border-slate-200">
                         <Star className="w-3 h-3 fill-slate-900 text-slate-900" />
@@ -1048,257 +1001,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                 )}
               </div>
             </div>
-
-
-            {/* Bottom Safe Area Decoration */}
             <div className="h-2 bg-[#0A192F]" />
-
-            {/* Multi-Step Rating & Feedback UI (Compact & Scrollable) */}
-            {activeRide.status === "COMPLETED" && (
-              <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 sm:p-6 pointer-events-auto">
-                <div className="absolute inset-0 bg-[#0A192F]/95 backdrop-blur-3xl animate-fade-in pointer-events-auto" />
-
-                <div className="relative w-full max-w-[420px] h-full sm:h-auto max-h-screen sm:max-h-[92vh] flex flex-col bg-white rounded-none sm:rounded-[32px] shadow-[0_45px_120px_rgba(0,0,0,0.7)] text-center animate-slide-up pointer-events-auto overflow-hidden">
-                  {/* FIXED HEADER: Driver Profile */}
-                  <div className="bg-slate-50 p-4 border-b border-slate-100 flex items-center gap-4 relative overflow-hidden text-left shrink-0">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />
-                    <div className="relative z-10 w-14 h-14 shrink-0 bg-white rounded-2xl overflow-hidden border-2 border-white shadow-lg">
-                      {(() => {
-                        const rawPhoto = activeRide.driverInfo?.profilePhoto || activeRide.driverInfo?.photo;
-                        const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
-                        let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(activeRide.driverInfo?.name || "D")}&background=0A192F&color=FFD700&bold=true`;
-
-                        if (rawPhoto) {
-                          if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
-                            finalSrc = `${baseUrl}/api/auth/profile-photo/${rawPhoto.split('/').pop()}`;
-                          } else if (!rawPhoto.startsWith('http')) {
-                            finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
-                          } else {
-                            finalSrc = rawPhoto;
-                          }
-                        }
-                        return <img src={finalSrc} alt="Driver" className="w-full h-full object-cover" />;
-                      })()}
-                    </div>
-                    <div className="relative z-10 flex-1 min-w-0">
-                      <h3 className="text-xl font-black text-[#0A192F] tracking-tight truncate leading-tight">
-                        {activeRide.driverInfo?.name || "Driver"}
-                      </h3>
-                      <div className="flex flex-col gap-0.5 mt-0.5">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                          {activeRide.driverInfo?.vehicleModel || "Premium Transport"}
-                        </p>
-                        <div className="inline-flex mt-1 px-3 py-1 bg-[#0A192F] text-[#FFD700] rounded-full w-max text-[8px] font-bold uppercase tracking-widest shadow-sm">
-                          {activeRide.driverInfo?.vehicleType || "Ride"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SCROLLABLE BODY: Rating Steps */}
-                  <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-                    {/* Stepper Dots */}
-                    <div className="flex justify-center gap-2 mb-2">
-                      <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 1 ? 'w-12 bg-[#FFD700]' : 'w-2 bg-[#0A192F]/10'}`} />
-                      <div className={`h-1 rounded-full transition-all duration-500 ${ratingStep === 2 ? 'w-12 bg-[#FFD700]' : 'w-2 bg-[#0A192F]/10'}`} />
-                    </div>
-
-                    {ratingStep === 1 ? (
-                      <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        {activeRide.paymentMethod === 'UPI' && !isPaymentDone ? (
-                          <div className="bg-slate-50 p-6 rounded-[24px] border border-slate-100 flex flex-col items-center gap-4">
-                            <div className="w-full flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-200 text-left">
-                              <div className="w-9 h-9 rounded-xl bg-[#0A192F] text-[#FFD700] flex items-center justify-center shrink-0">
-                                <QrCode className="w-4 h-4" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-[#0A192F]">Complete Your UPI Payment Now</p>
-                                <p className="text-xs font-semibold text-slate-600 mt-1">Your trip is finished, but payment is still pending. Tap below to complete the fare.</p>
-                              </div>
-                            </div>
-
-                            <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-full flex items-center justify-center shadow-lg">
-                              <IndianRupee className="w-8 h-8" />
-                            </div>
-
-                            <div className="text-center">
-                              <h4 className="text-[#0A192F] font-black uppercase tracking-tight text-xl italic leading-none">Complete Payment</h4>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest mt-2">Outstanding Balance: ₹{getRideSettlementAmount(activeRide)}</p>
-                            </div>
-
-                            {/* Apply Offer at Settlement */}
-                            <div className="w-full flex flex-col gap-3 mt-4">
-                              <div className="flex items-center justify-between px-2">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Apply Offer</p>
-                                {activeRide.promoCode && (
-                                  <span className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 uppercase tracking-tighter">Applied: {activeRide.promoCode}</span>
-                                )}
-                              </div>
-
-                              {!activeRide.promoCode && (
-                                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                                  {promotions.slice(0, 3).map((p) => (
-                                    <button
-                                      key={p._id}
-                                      onClick={async () => {
-                                        try {
-                                          const { data } = await api.post("/rides/apply-promo", { rideId: activeRide.rideId || activeRide._id, code: p.code });
-                                          toast.success(data.message);
-                                          const resp = await api.get("/rides/active");
-                                          rideState.setActiveRide(resp.data);
-                                        } catch (err: any) {
-                                          toast.error(err?.response?.data?.message || "Failed");
-                                        }
-                                      }}
-                                      className="shrink-0 flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 hover:border-[#0A192F] hover:bg-slate-50 transition-all min-w-[95px] shadow-sm active:scale-95"
-                                    >
-                                      <Tag className="w-3 h-3 text-[#0A192F] mb-1" />
-                                      <span className="text-[10px] font-black text-[#0A192F] uppercase">{p.code}</span>
-                                      <span className="text-[8px] font-bold text-emerald-600">-{p.type === 'PERCENTAGE' ? `${p.value}%` : `₹${p.value}`}</span>
-                                    </button>
-                                  ))}
-                                  <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 min-w-[140px] shadow-sm">
-                                    <input
-                                      type="text"
-                                      placeholder="Code"
-                                      className="bg-transparent border-none outline-none text-[10px] font-black uppercase text-[#0A192F] px-1 w-full"
-                                      value={promoCodeInput}
-                                      onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
-                                    />
-                                    <button
-                                      onClick={async () => {
-                                        if (!promoCodeInput) return;
-                                        try {
-                                          const { data } = await api.post("/rides/apply-promo", { rideId: activeRide.rideId || activeRide._id, code: promoCodeInput });
-                                          toast.success(data.message);
-                                          const resp = await api.get("/rides/active");
-                                          rideState.setActiveRide(resp.data);
-                                          setPromoCodeInput("");
-                                        } catch (err: any) {
-                                          toast.error(err?.response?.data?.message || "Invalid");
-                                        }
-                                      }}
-                                      className="w-7 h-7 bg-[#0A192F] text-[#FFD700] rounded-xl flex items-center justify-center shrink-0 shadow-md active:scale-90"
-                                    >
-                                      <CheckCircle2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            <button
-                              onClick={async () => {
-                                const fare = getRideSettlementAmount(activeRide);
-                                const rId = activeRide.rideId || activeRide._id;
-                                const dId = activeRide.driverId?._id || activeRide.driverId;
-                                const success = await processPayment(fare, rId, dId);
-                                if (success) setIsPaymentDone(true);
-                              }}
-                              disabled={isProcessingPayment}
-                              className="w-full py-4 mt-2 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all hover:bg-black shadow-xl hover:shadow-[#0A192F]/20"
-                            >
-                              {isProcessingPayment ? <Loader2 className="w-5 h-5 animate-spin" /> : <QrCode className="w-5 h-5" />}
-                              {isProcessingPayment ? "Opening UPI..." : `Pay ₹${getRideSettlementAmount(activeRide)} Now`}
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="space-y-2">
-                              <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
-                                Rate <span className="text-[#FFD700]">Experience</span>
-                              </h1>
-                              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
-                                How was your trip?
-                              </p>
-                            </div>
-
-                            <div className="flex justify-center gap-3 py-2">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  onClick={() => setRating(star)}
-                                  className={`group transition-all duration-300 transform p-2 rounded-2xl bg-slate-50/50 ${star <= rating ? 'scale-110 bg-amber-50' : 'hover:scale-105 active:scale-95 grayscale opacity-40 hover:opacity-100'}`}
-                                >
-                                  <div className="w-10 h-10 flex items-center justify-center">
-                                    <Star
-                                      className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]' : 'text-slate-300'}`}
-                                      strokeWidth={2}
-                                    />
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </>
-                        )}
-
-                        <button
-                          onClick={() => setRatingStep(2)}
-                          disabled={rating === 0 || (activeRide.paymentMethod === 'UPI' && !isPaymentDone)}
-                          className="w-full py-5 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-[13px] uppercase tracking-[0.3em] shadow-xl hover:bg-black hover:scale-[1.01] transition-all disabled:opacity-20"
-                        >
-                          Next Step
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-                        <div className="space-y-2">
-                          <h1 className="text-3xl font-black text-[#0A192F] tracking-tighter leading-none italic uppercase">
-                            Final <span className="text-[#FFD700]">Thoughts</span>
-                          </h1>
-                          <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.3em]">
-                            Add your comment
-                          </p>
-                        </div>
-
-                        <div className="relative">
-                          <textarea
-                            placeholder="Optional feedback..."
-                            value={feedback}
-                            onChange={(e) => setFeedback(e.target.value)}
-                            className="w-full h-32 bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-[#0A192F] text-sm font-bold outline-none focus:border-[#FFD700] transition-all placeholder:text-slate-300 resize-none shadow-inner"
-                          />
-                        </div>
-
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setRatingStep(1)}
-                            className="flex-1 py-4 bg-slate-100 text-[#0A192F] rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all"
-                          >
-                            Back
-                          </button>
-                          <button
-                            onClick={async () => {
-                              try {
-                                if (rating > 0) {
-                                  await api.post('/rating', {
-                                    rideId: activeRide._id || activeRide.id || activeRide.rideId,
-                                    targetId: activeRide.driverId?._id || activeRide.driverId,
-                                    rating,
-                                    feedback
-                                  });
-                                }
-                                rideState.resetRideState();
-                                setRating(0);
-                                setFeedback("");
-                                setRatingStep(1);
-                                setIsPaymentDone(false);
-                                toast.success("Feedback submitted!");
-                              } catch (err) {
-                                toast.error("Failed to submit rating");
-                              }
-                            }}
-                            className="flex-[2] py-4 bg-[#FFD700] text-[#0A192F] rounded-2xl font-black text-[12px] uppercase tracking-[0.3em] shadow-lg hover:bg-yellow-400 transition-all"
-                          >
-                            Complete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -1312,6 +1015,34 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
         receiverName={activeRide?.driverInfo?.name || "Driver"}
         senderName={user.firstName ? `${user.firstName} ${user.lastName}` : (user.name || "Passenger")}
       />
+
+      {/* Ride Summary Page (Full Screen after completion) */}
+      {activeRide?.status === "COMPLETED" && (activeRide.driverId !== (user?.id || user?._id)) && (
+        <RideSummaryPage
+          user={user}
+          activeRide={activeRide}
+          onComplete={async (rating, feedback) => {
+            try {
+              if (rating > 0) {
+                await api.post('/rating', {
+                  rideId: activeRide._id || activeRide.id || activeRide.rideId,
+                  targetId: activeRide.driverId?._id || activeRide.driverId,
+                  rating,
+                  feedback
+                });
+              }
+              rideState.resetRideState();
+              toast.success("Feedback submitted!");
+            } catch (err) {
+              toast.error("Failed to submit rating");
+            }
+          }}
+          getRideSettlementAmount={getRideSettlementAmount}
+          processPayment={processPayment}
+          promotions={promotions}
+          setActiveRide={rideState.setActiveRide}
+        />
+      )}
 
       {/* 🚨 Emergency Report Modal */}
       {isReportOpen && (

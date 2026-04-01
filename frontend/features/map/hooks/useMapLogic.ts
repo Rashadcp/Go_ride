@@ -62,29 +62,13 @@ export const useMapLogic = () => {
     );
   }, [setUserLoc, setStops]);
 
-  // Automatic Location Update every second
+  // Automatic Location Update
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
-
-    // Initial locate
-    handleLocate();
-
-    // Start interval for automatic updates every 3 seconds
-    const intervalId = setInterval(() => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserLoc([pos.coords.latitude, pos.coords.longitude]);
-        },
-        (err) => {
-          // Log only major errors, ignore minor timeouts in background
-          if (err.code !== err.TIMEOUT) {
-            console.error("Auto-location error:", err);
-          }
-        },
-        // More relaxed settings for the background poll
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
-      );
-    }, 3000);
+    
+    // We don't force a high-accuracy current position on mount
+    // to avoid "User Gesture" policy violations in some browsers.
+    // The explicit 'Locate Me' button still uses high-accuracy handleLocate.
 
     // Also use watchPosition for real-time reactivity when moving
     // This is more efficient for "every second" style movement
@@ -97,9 +81,8 @@ export const useMapLogic = () => {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
     );
-
+    
     return () => {
-      if (intervalId) clearInterval(intervalId);
       if (watchId) navigator.geolocation.clearWatch(watchId);
     };
   }, [handleLocate, setUserLoc]);

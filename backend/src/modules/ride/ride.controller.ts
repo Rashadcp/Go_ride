@@ -4,8 +4,10 @@ import User from "../../models/user";
 import Rating from "../../models/rating";
 import Discount from "../../models/discount";
 import Vehicle from "../../models/vehicle";
+import Transaction from "../../models/transaction";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
+import mongoose from "mongoose";
 
 // Get user's ride history
 export const getUserRides = async (req: any, res: Response) => {
@@ -23,10 +25,8 @@ export const getUserRides = async (req: any, res: Response) => {
 
         // Add vehicle info for each ride if it has a driver
         const ridesWithVehicle = await Promise.all(rides.map(async (ride) => {
-            const rideObj = ride.toObject();
+            const rideObj: any = ride.toObject();
             if (ride.driverId) {
-                // Fixed path for modular structure
-                const Vehicle = require("../../models/vehicle").default;
                 const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
                 if (vehicle) {
                     rideObj.driverId = {
@@ -37,6 +37,11 @@ export const getUserRides = async (req: any, res: Response) => {
                     };
                 }
             }
+            // Add financial context for UI
+            rideObj.originalPrice = rideObj.originalPrice || rideObj.price;
+            rideObj.discount = (rideObj.originalPrice && rideObj.originalPrice > rideObj.price) 
+                ? (rideObj.originalPrice - rideObj.price) 
+                : 0;
             return rideObj;
         }));
 
@@ -53,9 +58,9 @@ export const getActiveRide = async (req: any, res: Response) => {
         const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
         const ride = await Ride.findOne({
             $or: [
-                { createdBy: req.user._id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } },
-                { driverId: req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } },
-                { "passengers.userId": req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL"] } }
+                { createdBy: req.user._id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } },
+                { driverId: req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } },
+                { "passengers.userId": req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } }
             ],
             createdAt: { $gte: twelveHoursAgo }
         })
@@ -63,10 +68,15 @@ export const getActiveRide = async (req: any, res: Response) => {
         .populate('driverId', 'name email phone profilePhoto');
 
         if (ride) {
-            const rideObj = ride.toObject();
+            const rideObj: any = ride.toObject();
+            
+            // Helpful fields for frontend
+            rideObj.discount = (rideObj.originalPrice && rideObj.originalPrice > rideObj.price) 
+                ? (rideObj.originalPrice - rideObj.price) 
+                : 0;
+            rideObj.fare = rideObj.price; // Alias for UI
+
             if (ride.driverId) {
-                // Fixed path for modular structure
-                const Vehicle = require("../../models/vehicle").default;
                 const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
                 if (vehicle) {
                     rideObj.driverId = {
@@ -75,6 +85,7 @@ export const getActiveRide = async (req: any, res: Response) => {
                         vehicleType: vehicle.vehicleType,
                         vehicleModel: vehicle.vehicleModel
                     };
+                    rideObj.driverInfo = rideObj.driverId; // Legacy alias
                 }
             }
             return res.json(rideObj);
@@ -192,41 +203,49 @@ export const cancelRide = async (req: any, res: Response) => {
     }
 };
 
-// Rate ride
 export const rateRide = async (req: any, res: Response) => {
     try {
         const { rideId, targetId, rating, feedback } = req.body;
         
-        // Basic validation
-        if (!rideId || !targetId || !rating) {
-            return res.status(400).json({ message: "Missing required rating fields" });
+        // Find ride by user-friendly rideId or database _id
+        const ride = await Ride.findOne({ 
+            $or: [
+                { rideId }, 
+                { _id: (rideId && rideId.length === 24) ? rideId : undefined }
+            ].filter(q => q._id !== undefined || q.rideId !== undefined) 
+        });
+
+        if (!ride) return res.status(404).json({ message: "Ride not found" });
+
+        // Final resolution for targetId (Driver to be rated)
+        const finalTargetId = targetId || ride.driverId;
+        
+        if (!finalTargetId) {
+            return res.status(400).json({ message: "Drive info is missing for this trip" });
         }
 
-        // Save rating record
         const newRating = new Rating({
-            rideId,
+            rideId: ride._id,
             userId: req.user.id,
-            targetId,
+            targetId: finalTargetId,
             rating: Number(rating),
             feedback: feedback || ""
         });
         await newRating.save();
 
-        // Update target's average rating (the person being rated)
-        const user = await User.findById(targetId);
-        if (user) {
-            // Recalculate average rating using the database truth
-            const ratings = await Rating.find({ targetId });
+        // Update target's average rating
+        const targetUser = await User.findById(finalTargetId);
+        if (targetUser) {
+            const ratings = await Rating.find({ targetId: finalTargetId });
             const totalScore = ratings.reduce((acc, curr) => acc + curr.rating, 0);
             const avgRating = totalScore / ratings.length;
             
-            user.rating = Math.round(avgRating * 10) / 10;
-            // totalRides should represent actual trips, not just ratings counts, 
-            // but for simple apps we often count these interchangeably.
-            await user.save();
+            targetUser.rating = Math.round(avgRating * 10) / 10;
+            targetUser.totalRides = (targetUser.totalRides || 0) + 1;
+            await targetUser.save();
         }
 
-        res.json({ message: "Thank you for your feedback!", avgRating: user?.rating });
+        res.json({ message: "Thank you for your feedback!", avgRating: targetUser?.rating });
     } catch (err: any) {
         console.error("Rate ride error:", err);
         res.status(500).json({ message: "Error saving rating" });
@@ -273,7 +292,12 @@ export const validatePromoCode = async (req: any, res: Response) => {
 export const applyPromoCode = async (req: any, res: Response) => {
     try {
         const { rideId, code } = req.body;
-        const ride = await Ride.findOne({ rideId });
+        // Search by user-friendly rideId or MongoDB _id for better reliability
+        let ride = await Ride.findOne({ rideId });
+        if (!ride && /^[a-f\d]{24}$/i.test(rideId)) {
+            ride = await Ride.findById(rideId);
+        }
+
         if (!ride) return res.status(404).json({ message: "Ride not found" });
         if (ride.promoCode) return res.status(400).json({ message: "A promo code is already applied to this ride" });
 
@@ -292,14 +316,31 @@ export const applyPromoCode = async (req: any, res: Response) => {
         }
 
         // Apply discount to price
-        let newPrice = ride.price;
-        if (discount.type === "PERCENTAGE") {
-            newPrice = ride.price * (1 - discount.value / 100);
-        } else if (discount.type === "FLAT") {
-            newPrice = Math.max(0, ride.price - discount.value);
+        const originalPrice = ride.originalPrice || ride.price;
+        if (!ride.originalPrice) {
+            ride.originalPrice = originalPrice;
         }
 
+        let newPrice = originalPrice;
+        let ratio = 1;
+
+        if (discount.type === "PERCENTAGE") {
+            ratio = 1 - (discount.value / 100);
+            newPrice = originalPrice * ratio;
+        } else if (discount.type === "FLAT") {
+            newPrice = Math.max(0, originalPrice - discount.value);
+            ratio = originalPrice > 0 ? newPrice / originalPrice : 0;
+        }
+
+        const discountedAmount = originalPrice - newPrice;
         ride.price = Math.round(newPrice);
+        
+        // Also update pricePerSeat if it exists (for shared rides) 
+        // to ensure the passenger sees the discount on their seat price
+        if (ride.pricePerSeat) {
+            ride.pricePerSeat = Math.round(ride.pricePerSeat * ratio);
+        }
+
         ride.promoCode = discount.code;
         ride.discountId = discount._id;
         await ride.save();
@@ -307,9 +348,35 @@ export const applyPromoCode = async (req: any, res: Response) => {
         // Increment usage in background
         Discount.findByIdAndUpdate(discount._id, { $inc: { currentUsage: 1 } }).catch(console.error);
 
+        // ✅ HANDLE REFUND IF ALREADY PAID VIA WALLET (on completed rides)
+        if (ride.status === 'COMPLETED' && ride.paymentMethod === 'WALLET' && discountedAmount > 0) {
+            try {
+                const passenger = await User.findById(ride.createdBy);
+                if (passenger) {
+                    passenger.walletBalance = (passenger.walletBalance || 0) + Math.round(discountedAmount);
+                    await passenger.save();
+
+                    await new Transaction({
+                        userId: passenger._id,
+                        rideId: ride._id,
+                        type: 'CREDIT',
+                        amount: Math.round(discountedAmount),
+                        description: `Discount refund for Ride ${ride.rideId} (Promo: ${discount.code})`,
+                        status: 'SUCCESS',
+                        method: 'WALLET'
+                    }).save();
+
+                    console.log(`[PROMO REFUND] Credited ₹${Math.round(discountedAmount)} back to passenger ${passenger.name}`);
+                }
+            } catch (refundErr) {
+                console.error("Promo refund error:", refundErr);
+            }
+        }
+
         res.json({ 
             message: "Promo code applied successfully", 
             price: ride.price,
+            originalPrice: ride.originalPrice,
             discountValue: discount.value,
             discountType: discount.type
         });

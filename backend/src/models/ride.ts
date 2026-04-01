@@ -118,6 +118,10 @@ const rideSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        originalPrice: {
+            type: Number,
+            required: false,
+        },
         promoCode: {
             type: String,
             default: null,

@@ -45,7 +45,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization", "x-rtb-fingerprint-id", "request-id"],
+  exposedHeaders: ["x-rtb-fingerprint-id", "request-id"]
 }));
 
 app.use(express.json());

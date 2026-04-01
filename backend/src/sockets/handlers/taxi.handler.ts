@@ -263,15 +263,25 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             }
 
             // ✅ Notify the accepted user
+            const driver = updatedRide.driverId as any;
+            const fullDriverInfo = {
+                name: driver?.name || "Driver",
+                profilePhoto: driver?.profilePhoto,
+                rating: driver?.rating || 4.9,
+                vehicleModel: driverInfo?.vehicleModel || "Premium Transport",
+                vehiclePlate: driverInfo?.vehiclePlate || "TN 01 AB 1234",
+                location: driverInfo?.location
+            };
+
             io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
                 driverId: finalDriverId,
-                driverInfo,
+                driverInfo: fullDriverInfo,
                 status: 'ACCEPTED',
                 ride: {
                     ...updatedRide.toObject(),
                     driverId: finalDriverId,
-                    driverInfo
+                    driverInfo: fullDriverInfo
                 }
             });
 

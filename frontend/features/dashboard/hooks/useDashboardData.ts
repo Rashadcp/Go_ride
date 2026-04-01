@@ -11,6 +11,8 @@ export const useDashboardData = () => {
       const { data } = await api.get('/rides/active');
       return data;
     },
+    // Only run if token exists
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
     // Don't retry since it throws 404 naturally when no active ride
     retry: false, 
   });
@@ -21,6 +23,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/rides/history');
       return data;
     },
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
   });
 
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
@@ -29,6 +32,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/auth/transactions');
       return data;
     },
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
   });
 
   const { data: stats, isLoading: loadingStats } = useQuery({
@@ -37,6 +41,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/auth/stats');
       return data;
     },
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
   });
 
   // Mutations
