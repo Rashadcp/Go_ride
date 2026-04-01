@@ -264,16 +264,18 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             // ✅ Notify the accepted user
             const driver = updatedRide.driverId as any;
+            const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
+            
             const fullDriverInfo = {
                 name: driver?.name || "Driver",
                 profilePhoto: driver?.profilePhoto,
                 rating: driver?.rating || 4.9,
-                vehicleModel: driverInfo?.vehicleModel || "Premium Transport",
-                vehiclePlate: driverInfo?.vehiclePlate || "TN 01 AB 1234",
+                vehicleModel: vehicle?.vehicleModel || driverInfo?.vehicleModel || "Premium Transport",
+                vehiclePlate: vehicle?.numberPlate || driverInfo?.vehiclePlate || "TN 01 AB 1234",
                 location: driverInfo?.location
             };
 
-            io.to(`user:${updatedRide.createdBy}`).emit("ride-accepted", {
+            io.to(`user:${updatedRide.createdBy._id || updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
                 driverId: finalDriverId,
                 driverInfo: fullDriverInfo,
@@ -358,6 +360,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                     const person = await User.findById(pId);
                     if (!person) return false;
                     
+                    let paymentSuccessful = false;
+
                     if (paymentMethod === 'WALLET') {
                         if ((person.walletBalance || 0) < amount) {
                             io.to(`user:${pId}`).emit("ride-request-failed", { reason: "Insufficient wallet balance to complete payment." });
@@ -377,28 +381,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                         }).save();
 
                         io.to(`user:${pId}`).emit("wallet-update", { balance: person.walletBalance });
+                        paymentSuccessful = true;
 
-                        if (driverIdFromRide) {
-                            const driver = await User.findById(driverIdFromRide);
-                            if (driver) {
-                                const finalEarned = Math.round(amount * 0.75); // 25% platform fee
-                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
-                                await driver.save();
-
-                                await new Transaction({
-                                    userId: driverIdFromRide,
-                                    rideId: updatedRide._id,
-                                    type: 'CREDIT',
-                                    amount: finalEarned,
-                                    description: `Earnings for Ride ${rideId} (from passenger payment)`,
-                                    status: 'SUCCESS',
-                                    method: 'WALLET'
-                                }).save();
-
-                                io.to(`user:${driverIdFromRide}`).emit("wallet-update", { balance: driver.walletBalance });
-                            }
-                        }
-                        return true;
                     } else if (paymentMethod === 'CASH') {
                         await new Transaction({
                             userId: pId,
@@ -409,11 +393,53 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                             status: 'SUCCESS',
                             method: 'CASH'
                         }).save();
-                        return true;
+                        paymentSuccessful = true;
                     } else if (paymentMethod === 'UPI') {
-                        return true;
+                        paymentSuccessful = true;
                     }
-                    return false;
+
+                    // ✅ Process Driver Earnings & Platform Commission
+                    if (paymentSuccessful && driverIdFromRide) {
+                        const driver = await User.findById(driverIdFromRide);
+                        if (driver) {
+                            const platformFee = Math.round(amount * 0.25); // 25% platform commission
+                            let description = '';
+                            let txType = 'CREDIT';
+                            let txAmount = 0;
+
+                            if (paymentMethod === 'WALLET') {
+                                // Driver gets fare directly via platform, minus fee
+                                const finalEarned = amount - platformFee;
+                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+                                description = `Earnings for Ride ${rideId} (Platform fee ₹${platformFee} deducted)`;
+                                txType = 'CREDIT';
+                                txAmount = finalEarned;
+                            } else {
+                                // Passenger paid driver directly (CASH/UPI)
+                                // We MUST deduct the platform fee from the driver's platform wallet
+                                driver.walletBalance = (driver.walletBalance || 0) - platformFee;
+                                description = `Platform fee deducted for Ride ${rideId} (Paid via ${paymentMethod})`;
+                                txType = 'DEBIT';
+                                txAmount = platformFee;
+                            }
+
+                            await driver.save();
+
+                            await new Transaction({
+                                userId: driverIdFromRide,
+                                rideId: updatedRide._id,
+                                type: txType,
+                                amount: txAmount,
+                                description,
+                                status: 'SUCCESS',
+                                method: 'WALLET'
+                            }).save();
+
+                            io.to(`user:${driverIdFromRide}`).emit("wallet-update", { balance: driver.walletBalance });
+                        }
+                    }
+
+                    return paymentSuccessful;
                 };
 
                 if (isCarpool) {

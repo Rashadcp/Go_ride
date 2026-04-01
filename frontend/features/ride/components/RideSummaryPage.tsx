@@ -204,12 +204,47 @@ export function RideSummaryPage({
 
                   {!activeRide.promoCode && (
                     <div className="pt-6 border-t border-slate-100 space-y-4">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Offers</p>
-                      <div className="flex gap-2">
-                        <div className="flex-1 flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-4 py-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Offers</p>
+                        {promotions && promotions.length > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-md">{promotions.length} Active</span>
+                        )}
+                      </div>
+                      
+                      {/* Available Promotions List */}
+                      {promotions && promotions.length > 0 && (
+                        <div className="flex flex-col gap-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-1">
+                          {promotions.map((promo, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => handleApplyPromo(promo.code)}
+                              disabled={isProcessing}
+                              className="w-full flex items-center justify-between p-3 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 transition-colors group text-left shrink-0 disabled:opacity-50"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                                  <Tag className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-xs font-black text-[#0A192F] uppercase tracking-wider">{promo.code}</p>
+                                  <p className="text-[10px] font-bold text-slate-500 truncate mt-0.5">
+                                    {promo.type === 'PERCENTAGE' ? `${promo.value}% OFF on this ride` : `Flat ₹${promo.value} OFF`}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-black uppercase text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+                                Apply
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <div className="flex-1 flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-4 py-1 transition-colors focus-within:border-slate-300">
                           <input 
                             type="text" 
-                            placeholder="CODE"
+                            placeholder="HAVE A CUSTOM CODE?"
                             className="bg-transparent border-none outline-none text-[11px] font-black uppercase text-[#0A192F] w-full"
                             value={promoCodeInput}
                             onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
@@ -218,7 +253,7 @@ export function RideSummaryPage({
                         <button 
                           onClick={() => handleApplyPromo(promoCodeInput)}
                           disabled={isProcessing || !promoCodeInput.trim()}
-                          className="h-10 px-6 bg-[#0A192F] text-[#FFD700] rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-30"
+                          className="h-11 px-6 bg-[#0A192F] text-[#FFD700] rounded-xl text-[10px] font-black uppercase tracking-widest disabled:opacity-30 hover:bg-black transition-colors"
                         >
                           Apply
                         </button>
@@ -249,55 +284,55 @@ export function RideSummaryPage({
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full animate-in zoom-in-95 duration-500">
-            <div className="bg-white rounded-[60px] p-12 border border-slate-100 shadow-[0_50px_100px_rgba(0,0,0,0.08)] w-full flex flex-col items-center text-center space-y-12">
-              <div className="space-y-4">
-                <div className="inline-flex bg-slate-50 px-6 py-2 rounded-full border border-slate-100">
-                  <ThumbsUp className="w-4 h-4 text-amber-500 mr-2" />
-                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">Rate your driver</span>
+          <div className="flex-1 flex flex-col items-center justify-center max-w-sm mx-auto w-full animate-in zoom-in-95 duration-500">
+            <div className="bg-white rounded-[32px] p-8 border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.08)] w-full flex flex-col items-center text-center space-y-8">
+              <div className="space-y-2">
+                <div className="inline-flex items-center bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100 mb-2">
+                  <ThumbsUp className="w-3.5 h-3.5 text-amber-500 mr-1.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Rate your driver</span>
                 </div>
-                <h3 className="text-5xl font-black text-[#0A192F] tracking-tighter italic uppercase leading-tight">
+                <h3 className="text-2xl font-black text-[#0A192F] tracking-tight leading-tight">
                   How was your <br/> <span className="text-[#FFD700]">Experience?</span>
                 </h3>
               </div>
 
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-2.5">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     onClick={() => setRating(star)}
-                    className={`group transition-all duration-300 transform p-2 rounded-3xl ${star <= rating ? 'bg-amber-50 scale-110 shadow-lg' : 'hover:scale-105 active:scale-95 grayscale opacity-20 hover:opacity-100 hover:bg-slate-50'}`}
+                    className={`group transition-all duration-300 transform p-1.5 rounded-2xl ${star <= rating ? 'bg-amber-50 scale-110 shadow-sm' : 'hover:scale-105 active:scale-95 grayscale opacity-30 hover:opacity-100 hover:bg-slate-50'}`}
                   >
                     <Star 
-                      className={`w-14 h-14 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.6)]' : 'text-slate-200'}`}
+                      className={`w-9 h-9 transition-all duration-500 ${star <= rating ? 'fill-[#FFD700] text-[#FFD700] drop-shadow-[0_0_10px_rgba(255,215,0,0.6)]' : 'text-slate-300'}`}
                       strokeWidth={2.5}
                     />
                   </button>
                 ))}
               </div>
 
-              <div className="w-full space-y-3">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center px-4">Would you like to share more?</p>
+              <div className="w-full space-y-2.5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Would you like to share more?</p>
                 <textarea 
-                  placeholder="Everything was perfect..."
-                  className="w-full h-40 bg-slate-50 border-2 border-slate-100 rounded-[40px] p-8 text-[#0A192F] text-lg font-bold outline-none focus:border-[#FFD700] transition-all placeholder:text-slate-200 resize-none shadow-inner"
+                  placeholder="Leave a comment (optional)"
+                  className="w-full h-24 bg-slate-50 border border-slate-200 rounded-2xl p-4 text-[#0A192F] text-sm outline-none focus:border-[#FFD700] transition-all placeholder:text-slate-400 resize-none shadow-inner"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
                 />
               </div>
 
-              <div className="w-full flex flex-col gap-4">
+              <div className="w-full flex flex-col gap-3">
                 <button 
                    onClick={handleFinish}
                    disabled={rating === 0 || isProcessing}
-                   className="w-full py-6 bg-[#0A192F] text-[#FFD700] rounded-[32px] font-black text-[15px] uppercase tracking-[0.2em] shadow-2xl transition-all hover:bg-black hover:scale-[1.01] active:scale-95 disabled:opacity-20 flex items-center justify-center"
+                   className="w-full py-4 bg-[#0A192F] text-[#FFD700] rounded-2xl font-black text-sm uppercase tracking-wide shadow-lg transition-all hover:bg-black hover:scale-[1.02] active:scale-95 disabled:opacity-30 disabled:hover:scale-100 flex items-center justify-center gap-2"
                 >
-                  {isProcessing ? <Loader2 className="w-6 h-6 animate-spin" /> : "Complete & Close"}
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Complete & Close"}
                 </button>
                 
                 <button 
                   onClick={() => setCurrentStep("SUMMARY")}
-                  className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-[#0A192F] transition-colors"
+                  className="text-slate-400 font-bold text-xs hover:text-[#0A192F] transition-colors"
                 >
                   Back to Summary
                 </button>

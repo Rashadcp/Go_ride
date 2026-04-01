@@ -308,7 +308,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       disconnectSocket();
       clearInterval(pollInterval);
     };
-  }, [user, enableListeners, isDriverMode]);
+  }, [user?.id, user?._id, enableListeners, isDriverMode]);
 
   useEffect(() => {
     if (!enableListeners || !user || !isSharedRide) return;
@@ -326,7 +326,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       }
     };
     fetchPools();
-  }, [isSharedRide, stops, userLoc, enableListeners, user]);
+  }, [isSharedRide, stops, userLoc, enableListeners, user?.id, user?._id]);
 
   const handleCancelRide = () => {
     const { activeRide, pendingRideId } = useRideStore.getState();

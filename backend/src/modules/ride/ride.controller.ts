@@ -307,20 +307,11 @@ export const applyPromoCode = async (req: any, res: Response) => {
             expiryDate: { $gt: new Date() } 
         });
         
-        if (!discount) {
-            return res.status(400).json({ message: "Invalid or expired promo code" });
-        }
-        
-        if (discount.currentUsage >= discount.maxUsage) {
-            return res.status(400).json({ message: "Promo code limit reached" });
-        }
+        if (!discount) return res.status(400).json({ message: "Invalid or expired promo code" });
+        if (discount.currentUsage >= discount.maxUsage) return res.status(400).json({ message: "Promo code limit reached" });
 
         // Apply discount to price
         const originalPrice = ride.originalPrice || ride.price;
-        if (!ride.originalPrice) {
-            ride.originalPrice = originalPrice;
-        }
-
         let newPrice = originalPrice;
         let ratio = 1;
 
@@ -332,41 +323,54 @@ export const applyPromoCode = async (req: any, res: Response) => {
             ratio = originalPrice > 0 ? newPrice / originalPrice : 0;
         }
 
-        const discountedAmount = originalPrice - newPrice;
-        ride.price = Math.round(newPrice);
-        
-        // Also update pricePerSeat if it exists (for shared rides) 
-        // to ensure the passenger sees the discount on their seat price
-        if (ride.pricePerSeat) {
-            ride.pricePerSeat = Math.round(ride.pricePerSeat * ratio);
-        }
+        const discountedAmount = originalPrice - Math.round(newPrice);
+        const finalPrice = Math.round(newPrice);
+        const finalPricePerSeat = ride.pricePerSeat ? Math.round(ride.pricePerSeat * ratio) : undefined;
 
-        ride.promoCode = discount.code;
-        ride.discountId = discount._id;
-        await ride.save();
+        // ✅ ATOMIC UPDATE to prevent race conditions (double application refund abuse)
+        const updatedRide = await Ride.findOneAndUpdate(
+            { 
+               _id: ride._id, 
+               $or: [{ promoCode: null }, { promoCode: { $exists: false } }] 
+            },
+            {
+               $set: {
+                   price: finalPrice,
+                   originalPrice: originalPrice,
+                   promoCode: discount.code,
+                   discountId: discount._id,
+                   ...(finalPricePerSeat !== undefined && { pricePerSeat: finalPricePerSeat })
+               }
+            },
+            { new: true }
+        );
+
+        if (!updatedRide) {
+            return res.status(400).json({ message: "A promo code was already applied during this transaction." });
+        }
 
         // Increment usage in background
         Discount.findByIdAndUpdate(discount._id, { $inc: { currentUsage: 1 } }).catch(console.error);
 
         // ✅ HANDLE REFUND IF ALREADY PAID VIA WALLET (on completed rides)
-        if (ride.status === 'COMPLETED' && ride.paymentMethod === 'WALLET' && discountedAmount > 0) {
+        if (updatedRide.status === 'COMPLETED' && updatedRide.paymentMethod === 'WALLET' && discountedAmount > 0) {
             try {
-                const passenger = await User.findById(ride.createdBy);
+                const passenger = await User.findById(updatedRide.createdBy);
                 if (passenger) {
-                    passenger.walletBalance = (passenger.walletBalance || 0) + Math.round(discountedAmount);
+                    passenger.walletBalance = (passenger.walletBalance || 0) + discountedAmount;
                     await passenger.save();
 
                     await new Transaction({
                         userId: passenger._id,
-                        rideId: ride._id,
+                        rideId: updatedRide._id,
                         type: 'CREDIT',
-                        amount: Math.round(discountedAmount),
-                        description: `Discount refund for Ride ${ride.rideId} (Promo: ${discount.code})`,
+                        amount: discountedAmount,
+                        description: `Discount refund for Ride ${updatedRide.rideId} (Promo: ${discount.code})`,
                         status: 'SUCCESS',
                         method: 'WALLET'
                     }).save();
 
-                    console.log(`[PROMO REFUND] Credited ₹${Math.round(discountedAmount)} back to passenger ${passenger.name}`);
+                    console.log(`[PROMO REFUND] Credited ₹${discountedAmount} back to passenger ${passenger.name}`);
                 }
             } catch (refundErr) {
                 console.error("Promo refund error:", refundErr);
@@ -375,8 +379,8 @@ export const applyPromoCode = async (req: any, res: Response) => {
 
         res.json({ 
             message: "Promo code applied successfully", 
-            price: ride.price,
-            originalPrice: ride.originalPrice,
+            price: updatedRide.price,
+            originalPrice: updatedRide.originalPrice,
             discountValue: discount.value,
             discountType: discount.type
         });
