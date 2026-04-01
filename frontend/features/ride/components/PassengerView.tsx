@@ -14,6 +14,7 @@ import { socket } from "@/lib/socket";
 import toast from "react-hot-toast";
 import { ChatModal } from "@/features/chat/components/ChatModal";
 import { RideSummaryPage } from "./RideSummaryPage";
+import { CarSeatSelector } from "./CarSeatSelector";
 import { MessageCircle } from "lucide-react";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
@@ -43,6 +44,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   } = rideState;
 
   const [selectedCarpoolId, setSelectedCarpoolId] = useState<string | null>(null);
+  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPaymentDone, setIsPaymentDone] = useState(false);
@@ -299,6 +301,11 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           return;
         }
 
+        if (!selectedSeatId && pool.seats && pool.seats.length > 0) {
+           toast.error("Please pick a seat in the car map first!");
+           return;
+        }
+
         const dropLoc = stops.find((s: any) => s.id !== 'pickup') || stops[stops.length - 1];
         socket.emit("carpool:join:request", {
           rideId: pool.rideId,
@@ -306,6 +313,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           name: user?.name,
           photo: user?.profilePhoto, // Include photo
           seats: 1,
+          seatId: selectedSeatId,
           pickup: userLoc,
           drop: dropLoc?.coords,
           paymentMethod
@@ -541,7 +549,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
             <h3 className="text-xl font-black text-[#0A192F] mb-3 tracking-tight text-center shrink-0 uppercase">Pick your ride</h3>
             <div className="flex bg-slate-100 p-1 rounded-xl mb-3 shadow-inner mx-2 shrink-0">
               <button onClick={() => { rideState.setIsSharedRide(false); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${!isSharedRide ? 'bg-white shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Solo Ride</button>
-              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Share & Save 40%</button>
+              <button onClick={() => { rideState.setIsSharedRide(true); rideState.setVehicleType('go'); }} className={`flex-1 py-2.5 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isSharedRide ? 'bg-[#FFD700] shadow-sm text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Join Route (Save 40%)</button>
             </div>
 
             <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto px-2 custom-scrollbar">
@@ -550,18 +558,22 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   {availableCarpools.length > 0 ? (
                     availableCarpools.map((pool) => {
                       const isSelected = selectedCarpoolId === pool.rideId;
+                      
+                      const driverStart = pool.pickup?.label?.split(',')[0] || "Origin";
+                      const driverEnd = pool.drop?.label?.split(',')[0] || "Destination";
+
                       return (
+                        <div key={pool.rideId} className="flex flex-col gap-2 relative">
                         <button
-                          key={pool.rideId}
-                          onClick={() => handleJoinCarpool(pool.rideId)}
-                          className={`w-full flex items-center gap-2.5 p-2 rounded-2xl border-2 transition-all group shrink-0 relative overflow-hidden bg-white ${isSelected
+                          onClick={() => { handleJoinCarpool(pool.rideId); setSelectedSeatId(null); }}
+                          className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all group shrink-0 relative overflow-hidden bg-white ${isSelected
                               ? 'border-[#0A192F] shadow-md ring-1 ring-[#0A192F] bg-slate-50/50'
                               : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50 shadow-sm'
                             }`}
                         >
                           {/* Driver Profile Image with Normalization */}
                           <div className="relative shrink-0">
-                            <div className="w-10 h-10 bg-slate-100 rounded-xl overflow-hidden border-2 border-white shadow-sm transition-transform group-hover:scale-105">
+                            <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden border-2 border-white shadow-sm transition-transform group-hover:scale-105">
                               {(() => {
                                 const rawPhoto = pool.driverPhoto;
                                 if (false && !rawPhoto) return (
@@ -608,12 +620,20 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                           </div>
 
                           {/* Driver & Trip Info */}
-                          <div className="flex-1 text-left min-w-0">
+                          <div className="flex-1 text-left min-w-0 flex flex-col justify-center">
                             <div className="flex items-center justify-between gap-1">
-                              <p className="font-black text-[#0A192F] text-[13px] truncate tracking-tight uppercase leading-none">{pool.driverName || "Driver"}</p>
-                              <p className="font-black text-[14px] text-[#0A192F] shrink-0">₹{pool.pricePerSeat}</p>
+                              <p className="font-black text-[#0A192F] text-[14px] truncate tracking-tight uppercase leading-none">{pool.driverName || "Driver"}</p>
+                              <p className="font-black text-[15px] text-[#0A192F] shrink-0">₹{pool.pricePerSeat}</p>
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            
+                            <div className="flex items-center gap-1 mt-1.5 mb-1 overflow-hidden">
+                               <MapPin className="w-[10px] h-[10px] text-emerald-500 shrink-0" />
+                               <span className="text-[10px] font-bold text-slate-500 truncate whitespace-nowrap">
+                                  {driverStart} <span className="text-slate-300 mx-0.5">→</span> {driverEnd}
+                               </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 mt-1">
                               <div className="flex items-center gap-0.5 text-[8px] font-black text-amber-600 bg-amber-50 px-1 py-0.5 rounded-md">
                                 <Star className="w-2 h-2 fill-amber-600" />
                                 <span>{pool.driverRating || 4.8}</span>
@@ -631,6 +651,16 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                             <div className="absolute right-0 top-0 bottom-0 w-1 bg-[#0A192F]" />
                           )}
                         </button>
+                        
+                        {isSelected && pool.seats && pool.seats.length > 0 && (
+                          <div className="animate-in slide-in-from-top-2 fade-in duration-200">
+                             <CarSeatSelector 
+                                seats={pool.seats} 
+                                onSelectSeat={(s) => setSelectedSeatId(s.seatId)} 
+                             />
+                          </div>
+                        )}
+                        </div>
                       );
                     })
                   ) : (
@@ -822,14 +852,21 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                 return (
                   <div className="flex flex-col gap-1">
                     <h2 className="text-4xl font-black text-[#0A192F] tracking-tighter leading-tight italic">
-                      {activeRide.status === "ARRIVED" ? "At Pickup" :
-                        activeRide.status === "STARTED" ? "On Trip" :
-                          activeRide.status === "SEARCHING" ? "Searching..." :
-                            (activeRide.eta || (dist ? `${dist.toFixed(1)} km away` : 'On the Way'))}
+                      {activeRide.status === "ARRIVED" ? "Driver Here" :
+                        activeRide.status === "STARTED" ? "Trip Started" :
+                          activeRide.status === "ACCEPTED" ? "Driver Arriving" :
+                            activeRide.status === "SEARCHING" ? "Searching..." :
+                              (activeRide.eta || (dist ? `${dist.toFixed(1)} km away` : 'On the Way'))}
                     </h2>
                     <div className="flex items-center gap-2 mt-0.5">
                       {activeRide.status === "ACCEPTED" && (
                         <p className="text-[13px] font-bold text-slate-500">Pick-up in approx. {activeRide.eta || '5 mins'}</p>
+                      )}
+                      {activeRide.status === "ARRIVED" && (
+                        <p className="text-[13px] font-bold text-slate-500">Your driver has reached the pickup point.</p>
+                      )}
+                      {activeRide.status === "STARTED" && (
+                        <p className="text-[13px] font-bold text-slate-500">You are on the trip now.</p>
                       )}
                       {activeRide.isSharedRide && (
                         <span className="text-[11px] font-black text-[#0A192F] bg-[#FFD700] px-2 py-0.5 rounded-md uppercase tracking-tighter shadow-sm">

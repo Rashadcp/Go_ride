@@ -9,6 +9,7 @@ export const useMapLogic = () => {
     setUserLoc,
     setStops,
     setDriverDest,
+    setRouteInfo,
     setIsSearchOpen,
     setIsRouteSearched,
     setSearchStarted,
@@ -158,10 +159,24 @@ export const useMapLogic = () => {
   };
 
   const handleDriverInputChange = (query: string, setIsDriverTripActive: (v: boolean) => void, biasLat?: number, biasLon?: number) => {
-    setDriverDest((prev: any) => ({ ...prev, query: query || '', showSuggestions: (query || '').length >= 3 }));
+    const normalizedQuery = query || '';
+    const isCleared = normalizedQuery.length === 0;
+
+    setDriverDest((prev: any) => ({
+      ...prev,
+      query: normalizedQuery,
+      coords: isCleared ? null : prev.coords,
+      suggestions: isCleared ? [] : prev.suggestions,
+      showSuggestions: normalizedQuery.length >= 3
+    }));
     setIsDriverTripActive(false);
+
+    if (isCleared) {
+      setRouteInfo({ distance: 0, duration: 0 });
+    }
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => fetchDriverSuggestions(query || '', biasLat, biasLon), 300);
+    debounceTimer.current = setTimeout(() => fetchDriverSuggestions(normalizedQuery, biasLat, biasLon), 300);
   };
 
   const selectSuggestion = (stopId: string, sug: any) => {

@@ -35,27 +35,47 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
 
     connectSocket();
 
+    const normalizeRide = (rideData: any, previousRide?: any) => {
+      if (!rideData) return rideData;
+
+      const normalizedRide = { ...(previousRide || {}), ...rideData };
+      const rawDriver = normalizedRide.driverId;
+
+      if (rawDriver && typeof rawDriver === "object") {
+        normalizedRide.driverInfo = {
+          ...(previousRide?.driverInfo || {}),
+          ...(normalizedRide.driverInfo || {}),
+          ...rawDriver,
+          name: rawDriver.name || normalizedRide.driverInfo?.name || previousRide?.driverInfo?.name,
+          profilePhoto: rawDriver.profilePhoto || rawDriver.photo || normalizedRide.driverInfo?.profilePhoto || previousRide?.driverInfo?.profilePhoto,
+          vehiclePlate: rawDriver.vehicleNumber || rawDriver.vehiclePlate || normalizedRide.driverInfo?.vehiclePlate || previousRide?.driverInfo?.vehiclePlate || "NOT AVAILABLE",
+          location: normalizedRide.driverLocation || normalizedRide.driverInfo?.location || previousRide?.driverInfo?.location
+        };
+        normalizedRide.driverId = rawDriver._id || rawDriver.id;
+      } else if (normalizedRide.driverInfo || previousRide?.driverInfo) {
+        normalizedRide.driverInfo = {
+          ...(previousRide?.driverInfo || {}),
+          ...(normalizedRide.driverInfo || {}),
+          location: normalizedRide.driverLocation || normalizedRide.driverInfo?.location || previousRide?.driverInfo?.location
+        };
+      }
+
+      if (!normalizedRide.rideId && normalizedRide._id) {
+        normalizedRide.rideId = normalizedRide._id;
+      }
+
+      return normalizedRide;
+    };
+
     const fetchActiveRide = async () => {
       try {
         const response = await api.get("/rides/active");
         if (response.data) {
-          const ride = response.data;
-          if (ride.driverId && typeof ride.driverId === 'object') {
-            if (ride.status === "COMPLETED" || ride.status === "CANCELLED") {
-               setActiveRide(null);
-               setPendingRideId(null);
-               return;
-            }
-
-            ride.driverInfo = {
-              ...ride.driverInfo,
-              ...ride.driverId,
-              name: ride.driverId.name,
-              profilePhoto: ride.driverId.profilePhoto,
-              vehiclePlate: ride.driverId.vehicleNumber || ride.driverInfo?.vehiclePlate || "NOT AVAILABLE",
-              location: ride.driverLocation || ride.driverInfo?.location
-            };
-            ride.driverId = ride.driverId._id || ride.driverId.id;
+          const ride = normalizeRide(response.data);
+          if (ride.status === "COMPLETED" || ride.status === "CANCELLED") {
+             setActiveRide(null);
+             setPendingRideId(null);
+             return;
           }
           
           setActiveRide(ride);
@@ -88,41 +108,51 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     };
 
     const handleRideAccepted = (data: any) => {
-      setActiveRide((prev: any) => ({
-        ...prev,
-        ...(data.ride || {}),
-        ...data,
-        driverInfo: data.driverInfo || data.ride?.driverInfo || prev?.driverInfo
-      }));
-      setPendingRideId(data.rideId || null);
+      const normalizedRide = normalizeRide({ ...(data.ride || {}), ...data });
+      setActiveRide((prev: any) => normalizeRide(normalizedRide, prev));
+      setPendingRideId(normalizedRide?.rideId || data.rideId || null);
       setIsRequestingRide(false);
       setLoadingDrivers(false);
-      socket.emit("join-ride", { driverId: data.driverId, rideId: data.rideId });
-      toast.success(`Ride accepted by ${data.driverInfo?.name || "Driver"}!`);
+      if (normalizedRide?.driverId || normalizedRide?.rideId) {
+        socket.emit("join-ride", { driverId: normalizedRide.driverId, rideId: normalizedRide.rideId });
+      }
+      toast.success(`Ride accepted by ${normalizedRide?.driverInfo?.name || "Driver"}!`);
     };
 
     const handleRideStatusUpdate = (data: any) => {
       const { status, ride } = data;
       if (status === "COMPLETED") {
+        const currentActiveRide = useRideStore.getState().activeRide;
+        const currentUserId = String(user?.id || user?._id || "");
+        const currentRideDriverId = String(currentActiveRide?.driverId?._id || currentActiveRide?.driverId || "");
+        const isDriverViewingOwnRide = currentRideDriverId === currentUserId;
+        const isSharedPassengerRide = !!currentActiveRide && !isDriverViewingOwnRide && (currentActiveRide.type === "CARPOOL" || currentActiveRide.isSharedRide || ride?.type === "CARPOOL" || ride?.isSharedRide);
+
         toast.success("Destination reached!");
-        setActiveRide((prev: any) => ({
-          ...prev,
+
+        if (isSharedPassengerRide) {
+          setActiveRide(null);
+          setPendingRideId(null);
+          setIsRequestingRide(false);
+          queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+          return;
+        }
+
+        setActiveRide((prev: any) => normalizeRide({
           ...(ride || {}),
-          status: "COMPLETED",
-          driverInfo: prev?.driverInfo || ride?.driverInfo
-        }));
+          status: "COMPLETED"
+        }, prev));
         // Ensure history is fresh
         queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
         queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
         return;
       }
       if (ride) {
-        setActiveRide((prev: any) => ({
-          ...prev,
+        setActiveRide((prev: any) => normalizeRide({
           ...ride,
-          status: ride.status || status,
-          driverInfo: prev?.driverInfo || ride?.driverInfo
-        }));
+          status: ride.status || status
+        }, prev));
       } else {
         setActiveRide((prev: any) => ({ ...prev, status }));
       }
@@ -189,13 +219,43 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     socket.on("ride:update", (updatedRide: any) => {
       const currentActiveRide = useRideStore.getState().activeRide;
       if (currentActiveRide && (currentActiveRide.rideId === updatedRide.rideId || currentActiveRide._id === updatedRide._id)) {
-        setActiveRide(updatedRide);
+        const currentUserId = String(user?.id || user?._id || "");
+        const currentRideDriverId = String(currentActiveRide.driverId?._id || currentActiveRide.driverId || "");
+        const isDriverViewingOwnRide = currentRideDriverId === currentUserId;
+        const isSharedPassengerRide = !isDriverViewingOwnRide && (currentActiveRide.type === "CARPOOL" || currentActiveRide.isSharedRide);
+        const updatedPassengers = Array.isArray(updatedRide?.passengers) ? updatedRide.passengers : [];
+        const passengerStillInRide = updatedPassengers.some(
+          (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === currentUserId
+        );
+        const currentPassengerEntry = updatedPassengers.find(
+          (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === currentUserId
+        );
+
+        if (isSharedPassengerRide && !passengerStillInRide) {
+          if (currentActiveRide.status === "COMPLETED") {
+            return;
+          }
+        }
+
+        const nextRide = normalizeRide(updatedRide, currentActiveRide);
+        if (isSharedPassengerRide && currentPassengerEntry?.tripStatus) {
+          nextRide.status = currentPassengerEntry.tripStatus;
+        }
+
+        setActiveRide(nextRide);
       }
     });
 
     socket.on("carpool:join:accepted", (data: any) => {
+      const normalizedRide = normalizeRide(data.ride);
       toast.success("Joined carpool successfully!");
-      setActiveRide(data.ride);
+      setActiveRide(normalizedRide);
+      setPendingRideId(normalizedRide?.rideId || null);
+      setIsRequestingRide(false);
+      setLoadingDrivers(false);
+      if (normalizedRide?.driverId || normalizedRide?.rideId) {
+        socket.emit("join-ride", { driverId: normalizedRide.driverId, rideId: normalizedRide.rideId });
+      }
       setDashboardStep("ACTIVE");
     });
 

@@ -204,6 +204,18 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 });
             }
 
+            const activePools = await Promise.all(
+                filteredPools.map(async (pool) => {
+                    const driverId = String((pool.driverId as any)?._id || pool.driverId || pool.createdBy?._id || pool.createdBy || "");
+                    if (!driverId) return null;
+
+                    const activeDriver = await getActiveDriver(driverId);
+                    return activeDriver?.status === "available" ? pool : null;
+                })
+            );
+
+            filteredPools = activePools.filter((pool): pool is NonNullable<typeof pool> => Boolean(pool));
+
             const enrichedPools = filteredPools.map(p => {
                 const driver = p.driverId || p.createdBy;
                 return {

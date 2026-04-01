@@ -7,10 +7,29 @@ import User from "../../models/user";
 
 export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Carpool Join Request (Passenger -> Server -> Driver)
-    socket.on("carpool:join:request", async (data: { rideId: string; userId: string; name: string; seats: number; pickup: any }) => {
+    socket.on("carpool:join:request", async (data: { rideId: string; userId: string; name: string; seats: number; pickup: any; seatId?: string }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL") return;
+
+            // Handle Seat Selection System
+            if (data.seatId) {
+                const targetSeat = (ride as any).seats?.find((s: any) => s.seatId === data.seatId);
+                if (targetSeat && targetSeat.status === 'AVAILABLE') {
+                    await Ride.updateOne(
+                        { rideId: data.rideId, "seats.seatId": data.seatId },
+                        {
+                            $set: {
+                                "seats.$.status": "LOCKED",
+                                "seats.$.userId": data.userId,
+                                "seats.$.lockedUntil": new Date(Date.now() + 5 * 60000)
+                            }
+                        }
+                    );
+                } else {
+                    return socket.emit("ride-request-failed", { reason: "Seat is no longer available" });
+                }
+            }
 
             // Notify driver using their specific room
             if (ride.driverId) {
@@ -26,10 +45,23 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     });
 
     // Carpool Join Accept (Driver -> Server -> Passenger)
-    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string; photo?: string; passengerPhoto?: string }) => {
+    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string; photo?: string; passengerPhoto?: string; seatId?: string }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL" || ride.availableSeats < data.seats) return;
+
+            // Confirm Seat Booked
+            if (data.seatId) {
+                await Ride.updateOne(
+                    { rideId: data.rideId, "seats.seatId": data.seatId, "seats.userId": data.userId },
+                    {
+                        $set: {
+                            "seats.$.status": "BOOKED",
+                            "seats.$.lockedUntil": null
+                        }
+                    }
+                );
+            }
 
             // Add passenger to ride
             ride.passengers.push({ 
@@ -37,6 +69,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 name: data.name, 
                 photo: data.photo || data.passengerPhoto, // Store photo from request
                 seats: data.seats,
+                tripStatus: "ACCEPTED",
                 paymentMethod: data.paymentMethod || "CASH"
             });
             ride.availableSeats -= data.seats;
@@ -79,10 +112,12 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             const passengerRideView = populatedRide?.toObject
                 ? {
                     ...populatedRide.toObject(),
+                    status: ["OPEN", "FULL"].includes(String((populatedRide as any).status || "")) ? "ACCEPTED" : (populatedRide as any).status,
                     paymentMethod: data.paymentMethod || "CASH"
                 }
                 : {
                     ...populatedRide,
+                    status: ["OPEN", "FULL"].includes(String((populatedRide as any)?.status || "")) ? "ACCEPTED" : (populatedRide as any)?.status,
                     paymentMethod: data.paymentMethod || "CASH"
                 };
 
@@ -118,6 +153,42 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             const { driverId, vehicleType, seats, pickup, drop, distance, duration, price } = data;
             
             const rideId = `POOL-${Date.now()}`;
+            
+            let defaultSeats = [];
+            if (vehicleType === 'bike') {
+                defaultSeats = [{ seatId: 'PILLION', type: 'MIDDLE', status: 'AVAILABLE' }];
+            } else if (vehicleType === 'auto') {
+                defaultSeats = [
+                    { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                    { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
+                    { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
+                ];
+            } else if (vehicleType === 'xl') {
+                defaultSeats = [
+                    { seatId: 'FRONT_PASSENGER', type: 'FRONT', status: 'AVAILABLE' },
+                    { seatId: 'MIDDLE_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                    { seatId: 'MIDDLE_RIGHT', type: 'WINDOW', status: 'AVAILABLE' },
+                    { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                    { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
+                    { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
+                ];
+            } else {
+                defaultSeats = [
+                    { seatId: 'FRONT_PASSENGER', type: 'FRONT', status: 'AVAILABLE' },
+                    { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                    { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
+                    { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
+                ];
+            }
+
+            let offeredSeats = parseInt(seats) || 1;
+            const finalSeats = defaultSeats.map(seat => {
+                if (offeredSeats > 0) {
+                    offeredSeats--;
+                    return { ...seat, status: 'AVAILABLE' };
+                }
+                return { ...seat, status: 'BOOKED' };
+            });
             const newRide = await Ride.create({
                 rideId,
                 createdBy: driverId,
@@ -138,6 +209,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 },
                 requestedVehicleType: vehicleType || 'car',
                 availableSeats: seats || 1,
+                seats: finalSeats,
                 price: price || (vehicleType === 'bike' ? 40 : 100),
                 pricePerSeat: price || (vehicleType === 'bike' ? 40 : 100),
                 distance: parseFloat(distance) || 0,
@@ -171,6 +243,101 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             console.log(`❌ Carpool join rejected for ride ${data.rideId}, user ${data.userId} declined`);
         } catch (error) {
             console.error("Carpool join reject error:", error);
+        }
+    });
+
+    socket.on("carpool:passenger:end", async (data: { rideId: string; userId: string }) => {
+        try {
+            const ride = await Ride.findOne({ rideId: data.rideId })
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto email');
+
+            if (!ride || ride.type !== "CARPOOL") return;
+
+            const passenger = ride.passengers.find((p: any) => String(p.userId?._id || p.userId) === String(data.userId));
+            if (!passenger) return;
+
+            const passengerRideView = {
+                ...(ride.toObject ? ride.toObject() : ride),
+                status: "COMPLETED",
+                paymentMethod: passenger.paymentMethod || ride.paymentMethod || "CASH",
+                completedAt: new Date()
+            };
+
+            const releasedSeats = Number(passenger.seats || 1);
+
+            ride.passengers = ride.passengers.filter((p: any) => String(p.userId?._id || p.userId) !== String(data.userId)) as any;
+            ride.availableSeats += releasedSeats;
+
+            if (ride.status === "FULL" && ride.availableSeats > 0) {
+                ride.status = "STARTED";
+            }
+
+            await ride.save();
+
+            const updatedRide = await Ride.findById(ride._id)
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto email');
+
+            io.to(`user:${data.userId}`).emit("ride-status-update", {
+                rideId: data.rideId,
+                status: "COMPLETED",
+                ride: passengerRideView
+            });
+
+            io.to(`ride:${data.rideId}`).emit("ride:update", updatedRide);
+            io.emit("ride:update", updatedRide);
+
+            console.log(`✅ Carpool passenger ended for ride ${data.rideId}, user ${data.userId}`);
+        } catch (error) {
+            console.error("Carpool passenger end error:", error);
+        }
+    });
+
+    socket.on("carpool:passenger:status", async (data: { rideId: string; userId: string; status: "ARRIVED" | "STARTED" }) => {
+        try {
+            const ride = await Ride.findOne({ rideId: data.rideId })
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto email');
+
+            if (!ride || ride.type !== "CARPOOL") return;
+
+            const passenger = ride.passengers.find((p: any) => String(p.userId?._id || p.userId) === String(data.userId));
+            if (!passenger) return;
+
+            (passenger as any).tripStatus = data.status;
+            await ride.save();
+
+            const updatedRide = await Ride.findById(ride._id)
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto email');
+
+            const passengerEntry = updatedRide?.passengers.find((p: any) => String(p.userId?._id || p.userId) === String(data.userId));
+
+            const passengerRideView = updatedRide?.toObject
+                ? {
+                    ...updatedRide.toObject(),
+                    status: passengerEntry?.tripStatus || data.status,
+                    paymentMethod: passengerEntry?.paymentMethod || ride.paymentMethod || "CASH"
+                }
+                : {
+                    ...updatedRide,
+                    status: passengerEntry?.tripStatus || data.status,
+                    paymentMethod: passengerEntry?.paymentMethod || ride.paymentMethod || "CASH"
+                };
+
+            io.to(`user:${data.userId}`).emit("ride-status-update", {
+                rideId: data.rideId,
+                status: passengerEntry?.tripStatus || data.status,
+                ride: passengerRideView
+            });
+
+            io.to(`ride:${data.rideId}`).emit("ride:update", updatedRide);
+            io.emit("ride:update", updatedRide);
+
+            console.log(`✅ Carpool passenger status updated for ride ${data.rideId}, user ${data.userId}: ${data.status}`);
+        } catch (error) {
+            console.error("Carpool passenger status update error:", error);
         }
     });
 };

@@ -47,6 +47,7 @@ export function RideSummaryPage({
   const [isPaymentDone, setIsPaymentDone] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState("");
+  const shouldShowRating = !(activeRide?.type === "CARPOOL" || activeRide?.isSharedRide);
 
   // If already paid (WALLET or CASH), we mark it as done 
   useEffect(() => {
@@ -82,12 +83,30 @@ export function RideSummaryPage({
     const success = await processPayment(fare, rId, dId);
     if (success) {
       setIsPaymentDone(true);
-      setCurrentStep("RATING");
+      if (shouldShowRating) {
+        setCurrentStep("RATING");
+      } else {
+        onComplete(0, "");
+      }
     }
   };
 
   const handleFinish = () => {
     onComplete(rating, feedback);
+  };
+
+  const handlePrimaryAction = () => {
+    if (!isPaymentDone) {
+      handlePayment();
+      return;
+    }
+
+    if (shouldShowRating) {
+      setCurrentStep("RATING");
+      return;
+    }
+
+    onComplete(0, "");
   };
 
   return (
@@ -263,14 +282,14 @@ export function RideSummaryPage({
                 </div>
 
                 <button 
-                  onClick={isPaymentDone ? () => setCurrentStep("RATING") : handlePayment}
+                  onClick={handlePrimaryAction}
                   disabled={isProcessing}
                   className="w-full py-6 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[32px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-2xl flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-95"
                 >
                   {isProcessing && <Loader2 className="w-5 h-5 animate-spin" />}
                   {isPaymentDone ? (
                     <>
-                      <span>Go to Feedback</span>
+                      <span>{shouldShowRating ? "Go to Feedback" : "Complete & Close"}</span>
                       <ArrowRight className="w-5 h-5" />
                     </>
                   ) : (

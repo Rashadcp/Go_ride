@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus, Zap, Users, User as UserProfile, Clock, Star, ShieldCheck, MessageCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Wallet, IndianRupee, Bell, HelpCircle, Navigation, Compass, MapPin, Plus, Zap, Users, User as UserProfile, Clock, Star, ShieldCheck, MessageCircle, CheckCircle2, XCircle, TimerReset } from "lucide-react";
 import { ChatModal } from "@/features/chat/components/ChatModal";
 import dynamic from "next/dynamic";
 import { useRideStore } from "@/features/ride/store/useRideStore";
@@ -30,6 +30,180 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
    const [isChatOpen, setIsChatOpen] = useState(false);
    const [chatReceiver, setChatReceiver] = useState<any>(null);
+   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+   const [processingPassengerId, setProcessingPassengerId] = useState<string | null>(null);
+
+   const resolveProfileImage = (rawPhoto: string | undefined, name: string) => {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
+
+      if (!rawPhoto) {
+         return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "P")}&background=FFD700&color=0A192F&bold=true`;
+      }
+
+      if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
+         return rawPhoto;
+      }
+
+      return `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+   };
+
+   const pendingRequests = useMemo(() => {
+      const uniqueRequests = new Map<string, any>();
+
+      (incomingCarpoolRequests || []).forEach((request: any, index: number) => {
+         const key = String(request.userId || request.passengerSocketId || index);
+         if (!uniqueRequests.has(key)) {
+            uniqueRequests.set(key, request);
+         }
+      });
+
+      return Array.from(uniqueRequests.values());
+   }, [incomingCarpoolRequests]);
+
+   const confirmedPassengers = rideState.activeRide?.passengers || [];
+
+   const handleAcceptJoinRequest = (req: any) => {
+      const requestKey = String(req.userId || req.passengerSocketId);
+      setProcessingRequestId(requestKey);
+
+      rideState.setActiveRide((prev: any) => {
+         if (!prev) return prev;
+
+         const existingPassengers = Array.isArray(prev.passengers) ? prev.passengers : [];
+         const alreadyAdded = existingPassengers.some(
+            (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === String(req.userId)
+         );
+
+         if (alreadyAdded) {
+            return prev;
+         }
+
+         const nextAvailableSeats = Math.max(0, Number(prev.availableSeats ?? seatsAvailable) - Number(req.seats || 1));
+
+         return {
+            ...prev,
+            passengers: [
+               ...existingPassengers,
+               {
+                  userId: req.userId,
+                  name: req.name,
+                  photo: req.photo || req.passengerPhoto || req.profilePhoto,
+                  seats: req.seats || 1,
+                  paymentMethod: req.paymentMethod || "CASH",
+                  joinedAt: new Date().toISOString()
+               }
+            ],
+            availableSeats: nextAvailableSeats,
+            status: nextAvailableSeats === 0 ? "FULL" : prev.status
+         };
+      });
+
+      socket.emit("carpool:join:accept", {
+         rideId: rideState.activeRide?.rideId || req.rideId,
+         userId: req.userId,
+         name: req.name,
+         photo: req.photo || req.passengerPhoto,
+         seats: req.seats,
+         passengerSocketId: req.passengerSocketId,
+         paymentMethod: req.paymentMethod,
+         seatId: req.seatId
+      });
+
+      rideState.setIncomingCarpoolRequests((prev: any[]) =>
+         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
+      );
+      setProcessingRequestId(null);
+      toast.success(`${req.name || "Passenger"} added to your ride`);
+   };
+
+   const handleRejectJoinRequest = (req: any) => {
+      const requestKey = String(req.userId || req.passengerSocketId);
+      setProcessingRequestId(requestKey);
+
+      socket.emit("carpool:join:reject", {
+         rideId: rideState.activeRide?.rideId || req.rideId,
+         userId: req.userId,
+         passengerSocketId: req.passengerSocketId
+      });
+
+      rideState.setIncomingCarpoolRequests((prev: any[]) =>
+         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
+      );
+      setProcessingRequestId(null);
+      toast.error("Request declined");
+   };
+
+   const handleEndPassengerTrip = (passenger: any) => {
+      const passengerId = String(passenger.userId?._id || passenger.userId || "");
+      if (!passengerId) return;
+
+      setProcessingPassengerId(passengerId);
+      socket.emit("carpool:passenger:end", {
+         rideId: rideState.activeRide?.rideId || rideState.activeRide?._id,
+         userId: passengerId
+      });
+      setProcessingPassengerId(null);
+      toast.success(`${passenger.name || "Passenger"} marked as dropped off`);
+   };
+
+   const getPassengerTripAction = (passenger: any) => {
+      const tripStatus = passenger.tripStatus || "ACCEPTED";
+
+      if (tripStatus === "ARRIVED") {
+         return {
+            label: "Started",
+            className: "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-400/20",
+            nextStatus: "STARTED" as const
+         };
+      }
+
+      if (tripStatus === "STARTED") {
+         return {
+            label: "End",
+            className: "bg-rose-500/10 hover:bg-rose-500/20 text-rose-200 border-rose-400/20",
+            nextStatus: "COMPLETED" as const
+         };
+      }
+
+      return {
+         label: "Reached",
+         className: "bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] border-[#FFD700]/20",
+         nextStatus: "ARRIVED" as const
+      };
+   };
+
+   const handlePassengerTripProgress = (passenger: any) => {
+      const passengerId = String(passenger.userId?._id || passenger.userId || "");
+      const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
+      if (!passengerId || !rideId) return;
+
+      const action = getPassengerTripAction(passenger);
+
+      if (action.nextStatus === "COMPLETED") {
+         handleEndPassengerTrip(passenger);
+         return;
+      }
+
+      socket.emit("carpool:passenger:status", {
+         rideId,
+         userId: passengerId,
+         status: action.nextStatus
+      });
+
+      rideState.setActiveRide((prev: any) => {
+         if (!prev) return prev;
+         return {
+            ...prev,
+            passengers: (prev.passengers || []).map((entry: any) =>
+               String(entry.userId?._id || entry.userId || "") === passengerId
+                  ? { ...entry, tripStatus: action.nextStatus }
+                  : entry
+            )
+         };
+      });
+
+      toast.success(`${passenger.name || "Passenger"} marked as ${action.label.toLowerCase()}`, { id: "ride-status" });
+   };
 
    useEffect(() => {
       if (!user) return;
@@ -39,6 +213,24 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          userId: user.id || user._id,
          role: "DRIVER"
       });
+
+      const handleRideUpdate = (updatedRide: any) => {
+         const currentRide = useRideStore.getState().activeRide;
+         if (!currentRide) return;
+
+         const currentRideId = currentRide.rideId || currentRide._id;
+         const updatedRideId = updatedRide?.rideId || updatedRide?._id;
+
+         if (String(currentRideId) === String(updatedRideId)) {
+            useRideStore.getState().setActiveRide((prev: any) => ({ ...(prev || {}), ...updatedRide }));
+         }
+      };
+
+      socket.on("ride:update", handleRideUpdate);
+
+      return () => {
+         socket.off("ride:update", handleRideUpdate);
+      };
    }, [user?.id, user?._id]);
 
    useEffect(() => {
@@ -52,7 +244,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
    useEffect(() => {
       const dId = user?.id || user?._id;
-      if (!dId || !userLoc) return;
+      if (!dId || !userLoc || !isDriverTripActive) return;
 
       // Distance check (threshold: 5 meters approx)
       if (lastSentLoc) {
@@ -87,7 +279,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          });
       }
 
-   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType, rideState.activeRide, lastSentLoc]);
+   }, [user?.id, user?._id, user?.name, user?.profilePhoto, user?.rating, userLoc, rideState.vehicleType, rideState.activeRide, lastSentLoc, isDriverTripActive]);
 
    const handleStartDriverTrip = async () => {
       if (!driverDest.coords || !user) {
@@ -235,200 +427,207 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                      </div>
                   </div>
 
-                  {(incomingCarpoolRequests?.length > 0 || (rideState.activeRide?.passengers?.length > 0)) ? (
-                     <div className="flex flex-col gap-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar scroll-smooth">
-                        {/* Confirmed Passengers List */}
-                        {rideState.activeRide?.passengers?.map((p: any, idx: number) => (
-                           <div key={`p-${idx}`} className="bg-[#FFD700]/10 border border-[#FFD700]/30 rounded-[24px] p-5 flex items-center justify-between group transition-all">
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#0A192F]/10 shadow-sm">
-                                    {(() => {
-                                       const rawPhoto = p.photo || p.profilePhoto;
-                                       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
-                                       let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+                  {(pendingRequests.length > 0 || confirmedPassengers.length > 0) ? (
+                     <div className="flex flex-col gap-4 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar scroll-smooth">
+                        <div className="grid grid-cols-3 gap-3">
+                           <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Pending</p>
+                              <p className="mt-2 text-2xl font-black text-white">{pendingRequests.length}</p>
+                           </div>
+                           <div className="rounded-[20px] border border-[#FFD700]/20 bg-[#FFD700]/10 px-4 py-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#FFD700]">Onboard</p>
+                              <p className="mt-2 text-2xl font-black text-white">{confirmedPassengers.length}</p>
+                           </div>
+                           <div className="rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300">Seats Left</p>
+                              <p className="mt-2 text-2xl font-black text-white">{rideState.activeRide?.availableSeats ?? seatsAvailable}</p>
+                           </div>
+                        </div>
 
-                                       if (rawPhoto) {
-                                          if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
-                                             finalSrc = rawPhoto;
-                                          } else {
-                                             finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
-                                          }
-                                       }
-                                       return <img src={finalSrc} alt="P" className="w-full h-full object-cover" />;
-                                    })()}
+                        {pendingRequests.length > 0 && (
+                           <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                 <div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Join Requests</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-300">Each rider has a separate decision card, even while your trip is already active.</p>
                                  </div>
-                                 <div className="text-left">
-                                    <p className="font-black text-white text-base leading-tight">{p.name || "Confirmed Passenger"}</p>
-                                    <div className="flex items-center gap-1.5 mt-1">
-                                       <span className="text-[10px] font-black text-[#FFD700] uppercase tracking-widest bg-[#0A192F] px-2 py-0.5 rounded-md">Confirmed • {p.seats} Seat{p.seats > 1 ? 's' : ''}</span>
-                                    </div>
+                                 <div className="rounded-full border border-[#FFD700]/25 bg-[#FFD700]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFD700]">
+                                    {pendingRequests.length} waiting
                                  </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                 <button
-                                    onClick={() => {
-                                       setChatReceiver({ id: p.userId?._id || p.userId, name: p.name });
-                                       setIsChatOpen(true);
-                                    }}
-                                    className="w-10 h-10 bg-[#FFD700] text-[#0A192F] rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95 relative"
-                                 >
-                                    <MessageCircle className="w-5 h-5" />
-                                    {(() => {
-                                       const passengerId = p.userId?._id || p.userId;
-                                       const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(passengerId)].sort().join("_")}`;
-                                       const unreadCount = unreadChatMessages[chatKey] || 0;
-                                       if (unreadCount > 0) return (
-                                          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">
-                                             {unreadCount}
-                                          </span>
-                                       );
-                                       return null;
-                                    })()}
-                                 </button>
-                                 <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
-                                    <ShieldCheck className="w-4 h-4" />
-                                 </div>
+
+                              <div className="flex flex-col gap-2.5">
+                                 {pendingRequests.map((req: any, idx: number) => {
+                                    const requestKey = String(req.userId || req.passengerSocketId || idx);
+                                    const isBusy = processingRequestId === requestKey;
+                                    const seatsRequested = Number(req.seats || 1);
+                                    const canAccept = (rideState.activeRide?.availableSeats ?? seatsAvailable) >= seatsRequested;
+
+                                    return (
+                                       <div key={`req-${requestKey}`} className="rounded-[20px] border border-white/10 bg-[#07111f]/90 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.2)]">
+                                          <div className="flex items-start gap-3">
+                                             <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[16px] border-2 border-[#FFD700]/25 bg-white shadow-lg">
+                                                <img
+                                                   src={resolveProfileImage(req.passengerPhoto || req.photo || req.profilePhoto, req.name || "Passenger")}
+                                                   alt={req.name || "Passenger"}
+                                                   className="h-full w-full object-cover"
+                                                />
+                                                <div className="absolute -bottom-1 -right-1 rounded-full bg-[#FFD700] p-1 text-[#0A192F] shadow-lg">
+                                                   <Users className="h-3 w-3" />
+                                                </div>
+                                             </div>
+
+                                             <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                                   <div>
+                                                      <p className="truncate text-[15px] font-black text-white">{req.name || "New Passenger"}</p>
+                                                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                         <span className="rounded-full bg-white/8 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-slate-200">
+                                                            {seatsRequested} seat{seatsRequested > 1 ? "s" : ""}
+                                                         </span>
+                                                         <span className="rounded-full bg-[#FFD700]/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#FFD700]">
+                                                            {req.paymentMethod || "Cash"}
+                                                         </span>
+                                                         <span className="flex items-center gap-1 rounded-full bg-emerald-500/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-300">
+                                                            <Star className="h-3 w-3 fill-current" />
+                                                            {(Number(req.rating) || 4.8).toFixed(1)}
+                                                         </span>
+                                                      </div>
+                                                   </div>
+
+                                                   <div className="rounded-xl border border-white/8 bg-white/5 px-2.5 py-1.5 text-right">
+                                                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">Decision</p>
+                                                      <p className="mt-0.5 text-[12px] font-black text-white">{canAccept ? "Ready" : "Full"}</p>
+                                                   </div>
+                                                </div>
+
+                                                <div className="mt-3 flex gap-2">
+                                                   <button
+                                                      onClick={() => handleAcceptJoinRequest(req)}
+                                                      disabled={!canAccept || isBusy}
+                                                      className="flex-1 rounded-xl bg-[#FFD700] px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#0A192F] shadow-lg transition-all hover:scale-[1.01] hover:bg-yellow-400 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                                                   >
+                                                      <span className="flex items-center justify-center gap-2">
+                                                         <CheckCircle2 className="h-4 w-4" />
+                                                         Accept
+                                                      </span>
+                                                   </button>
+                                                   <button
+                                                      onClick={() => handleRejectJoinRequest(req)}
+                                                      disabled={isBusy}
+                                                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-white transition-all hover:bg-rose-500/18 hover:text-rose-100 active:scale-95 disabled:opacity-40"
+                                                   >
+                                                      <span className="flex items-center justify-center gap-2">
+                                                         <XCircle className="h-4 w-4" />
+                                                         Decline
+                                                      </span>
+                                                   </button>
+                                                </div>
+                                             </div>
+                                          </div>
+                                       </div>
+                                    );
+                                 })}
                               </div>
                            </div>
-                        ))}
+                        )}
 
-                        {/* Incoming requests (existing code) */}
-                        {incomingCarpoolRequests.map((req: any, idx: number) => (
-                           <div key={`req-${idx}`} className="bg-white/5 border border-white/10 rounded-[24px] p-5 flex flex-col gap-4 group transition-all hover:bg-white/10 active:scale-[0.98]">
-                              <div className="flex items-center justify-between">
-                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#FFD700]/30 shadow-lg">
-                                       {(() => {
-                                          const rawPhoto = req.passengerPhoto || req.photo || req.profilePhoto;
-                                          const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
-                                          let finalSrc = `https://ui-avatars.com/api/?name=${encodeURIComponent(req.name || "P")}&background=FFD700&color=0A192F&bold=true`;
+                        {confirmedPassengers.length > 0 && (
+                           <div className="rounded-[28px] border border-[#FFD700]/20 bg-[#FFD700]/8 p-4">
+                              <div className="mb-4 flex items-center justify-between gap-3">
+                                 <div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Confirmed Riders</p>
+                                    <p className="mt-1 text-sm font-bold text-slate-300">These riders are already in your shared trip.</p>
+                                 </div>
+                                 <div className="rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                                    live onboard
+                                 </div>
+                              </div>
 
-                                          if (rawPhoto) {
-                                             if (rawPhoto.startsWith('http') || rawPhoto.startsWith('data:')) {
-                                                finalSrc = rawPhoto;
-                                             } else {
-                                                finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
-                                             }
-                                          }
-                                          return <img src={finalSrc} alt="Req" className="w-full h-full object-cover" />;
-                                       })()}
-                                    </div>
-                                    <div className="text-left">
-                                       <p className="font-black text-white text-base leading-tight">{req.name || "New Passenger"}</p>
-                                       <div className="flex items-center gap-1.5 mt-1">
-                                          <Star className="w-3 h-3 fill-[#FFD700] text-[#FFD700]" />
-                                          <span className="text-[10px] font-black text-[#FFD700]">{(req.rating || 4.8).toFixed(1)} • {req.seats} Seat{req.seats > 1 ? 's' : ''}</span>
+                              <div className="flex flex-col gap-3">
+                                 {confirmedPassengers.map((p: any, idx: number) => {
+                                    const passengerId = String(p.userId?._id || p.userId || idx);
+                                    const isEndingPassenger = processingPassengerId === passengerId;
+                                    const tripAction = getPassengerTripAction(p);
+
+                                    return (
+                                    <div key={`p-${idx}`} className="flex items-center justify-between rounded-[20px] border border-[#FFD700]/12 bg-[#091322]/92 px-3 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)]">
+                                       <div className="flex min-w-0 items-center gap-3">
+                                          <div className="h-10 w-10 overflow-hidden rounded-[14px] border border-white/10 bg-white shadow-sm shrink-0">
+                                             <img
+                                                src={resolveProfileImage(p.photo || p.profilePhoto, p.name || "Passenger")}
+                                                alt={p.name || "Passenger"}
+                                                className="h-full w-full object-cover"
+                                             />
+                                          </div>
+                                          <div className="min-w-0 text-left">
+                                             <p className="truncate text-[14px] font-black text-white">{p.name || "Confirmed Passenger"}</p>
+                                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                <span className="rounded-full bg-[#FFD700]/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#FFD700]">
+                                                   Confirmed
+                                                </span>
+                                               <span className="rounded-full bg-white/8 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-slate-200">
+                                                  {p.seats} seat{p.seats > 1 ? "s" : ""}
+                                               </span>
+                                                <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-emerald-300">
+                                                   {(p.tripStatus || "ACCEPTED").toLowerCase()}
+                                                </span>
+                                             </div>
+                                          </div>
+                                       </div>
+
+                                       <div className="ml-3 flex shrink-0 items-center gap-1.5">
+                                          <button
+                                             onClick={() => handlePassengerTripProgress(p)}
+                                             disabled={isEndingPassenger}
+                                             className={`rounded-xl border px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.14em] transition-all active:scale-95 disabled:opacity-40 ${tripAction.className}`}
+                                          >
+                                             {tripAction.label}
+                                          </button>
+                                          <button
+                                             onClick={() => {
+                                                setChatReceiver({ id: p.userId?._id || p.userId, name: p.name });
+                                                setIsChatOpen(true);
+                                             }}
+                                             className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFD700] text-[#0A192F] shadow-lg transition-transform hover:scale-105 active:scale-95"
+                                          >
+                                             <MessageCircle className="w-4 h-4" />
+                                             {(() => {
+                                                const passengerId = p.userId?._id || p.userId;
+                                                const chatKey = `${rideState.activeRide?.rideId || rideState.activeRide?._id || ""}_${[String(user?.id || user?._id), String(passengerId)].sort().join("_")}`;
+                                                const unreadCount = unreadChatMessages[chatKey] || 0;
+                                                if (unreadCount > 0) return (
+                                                   <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] text-white shadow-xl animate-bounce font-black">
+                                                      {unreadCount}
+                                                   </span>
+                                                );
+                                                return null;
+                                             })()}
+                                          </button>
+                                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300">
+                                             <ShieldCheck className="w-3.5 h-3.5" />
+                                          </div>
                                        </div>
                                     </div>
-                                 </div>
-                                 <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wants to Join</p>
-                                 </div>
-                              </div>
-
-                              <div className="flex gap-2">
-                                 <button
-                                    onClick={() => {
-                                       socket.emit("carpool:join:accept", {
-                                          rideId: rideState.activeRide?.rideId || req.rideId,
-                                          userId: req.userId,
-                                          name: req.name,
-                                          photo: req.photo || req.passengerPhoto, // Include photo
-                                          seats: req.seats,
-                                          passengerSocketId: req.passengerSocketId,
-                                          paymentMethod: req.paymentMethod
-                                       });
-                                       rideState.setIncomingCarpoolRequests((prev: any[]) => prev.filter((r) => r.userId !== req.userId));
-                                    }}
-                                    className="flex-1 py-3 bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shadow-lg"
-                                 >
-                                    Accept & Add
-                                 </button>
-                                 <button
-                                    onClick={() => {
-                                       socket.emit("carpool:join:reject", {
-                                          rideId: rideState.activeRide?.rideId || req.rideId,
-                                          userId: req.userId,
-                                          passengerSocketId: req.passengerSocketId
-                                       });
-                                       rideState.setIncomingCarpoolRequests((prev: any[]) => prev.filter((r) => r.userId !== req.userId));
-                                       toast.error("Request declined");
-                                    }}
-                                    className="px-5 py-3 bg-white/10 hover:bg-rose-500/20 text-white rounded-xl font-black text-[11px] uppercase tracking-widest transition-all"
-                                 >
-                                    Decline
-                                 </button>
+                                    );
+                                 })}
                               </div>
                            </div>
-                        ))}
+                        )}
                      </div>
                   ) : (
-                     <div className="bg-white/5 border border-white/10 rounded-[20px] p-6 flex flex-col items-center justify-center gap-3 relative z-10 text-center">
+                     <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-[24px] p-6 flex flex-col items-center justify-center gap-3 relative z-10 text-center">
                         <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center">
                            <Users className="text-slate-400 w-6 h-6" />
                         </div>
-                        <p className="text-[15px] font-bold text-slate-300">Matching with passengers securely along your chosen route...</p>
+                        <p className="text-[15px] font-bold text-slate-300">No riders in queue yet. New join requests will appear here with separate accept and decline buttons.</p>
+                        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                           <TimerReset className="h-3.5 w-3.5" />
+                           waiting live
+                        </div>
                      </div>
                   )}
 
-                  {/* Status Control Buttons - Premium Implementation */}
-                  <div className="flex flex-col gap-3 mt-6 relative z-10 font-sans">
-                     {(!rideState.activeRide?.status || ["OPEN", "ACCEPTED", "CONFIRMED", "MATCHED", "FULL"].includes(rideState.activeRide.status)) && (
-                        <button
-                           onClick={() => {
-                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
-                              if (!rideId) return toast.error("No active ride found");
-                              socket.emit("update-ride-status", { rideId, status: "ARRIVED", driverId: user.id });
-                              rideState.setActiveRide((prev: any) => ({ ...prev, status: "ARRIVED" }));
-                              toast.success("Updated: Arrived at Pickup!", { id: 'ride-status' });
-                           }}
-                           className="w-full py-4 bg-[#FFD700] hover:bg-yellow-400 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-[#FFD700]/10 flex items-center justify-center gap-3 active:scale-95"
-                        >
-                           <MapPin className="w-5 h-5" />
-                           I am at Pickup
-                        </button>
-                     )}
-
-                     {rideState.activeRide?.status === "ARRIVED" && (
-                        <button
-                           onClick={() => {
-                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
-                              if (!rideId) return toast.error("No active ride found");
-                              socket.emit("update-ride-status", { rideId, status: "STARTED", driverId: user.id });
-                              rideState.setActiveRide((prev: any) => ({ ...prev, status: "STARTED" }));
-                              toast.success("Trip officially started!", { id: 'ride-status' });
-                           }}
-                           className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
-                        >
-                           <Zap className="w-5 h-5" />
-                           Start Trip
-                        </button>
-                     )}
-
-                     {rideState.activeRide?.status === "STARTED" && (
-                        <button
-                           onClick={() => {
-                              const rideId = rideState.activeRide?.rideId || rideState.activeRide?._id;
-                              if (!rideId) return toast.error("No active ride found");
-                              socket.emit("update-ride-status", { rideId, status: "COMPLETED", driverId: user.id });
-                              rideState.resetRideState();
-                              setIsDriverTripActive(false);
-                              toast.success("Ride completed successfully!", { id: 'ride-status' });
-                           }}
-                           className="w-full py-4 bg-white hover:bg-slate-50 text-[#0A192F] rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all hover:scale-[1.02] shadow-xl flex items-center justify-center gap-3 active:scale-95 border border-slate-200"
-                        >
-                           <ShieldCheck className="w-5 h-5" />
-                           Finish Trip
-                        </button>
-                     )}
-                  </div>
-
-                  <button
-                     onClick={() => { setIsDriverTripActive(false); rideState.resetRideState(); }}
-                     className="w-full mt-4 py-4 relative z-10 bg-transparent hover:bg-rose-500/10 border border-white/10 text-slate-400 hover:text-rose-500 rounded-[20px] font-black text-[11px] uppercase tracking-[0.2em] transition-all active:scale-95"
-                  >
-                     End Trip
-                  </button>
                </div>
             </div>
          )}

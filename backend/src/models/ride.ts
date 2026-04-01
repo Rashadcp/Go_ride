@@ -1,5 +1,13 @@
 import mongoose from "mongoose";
 
+const SeatSchema = new mongoose.Schema({
+  seatId: { type: String, required: true },
+  type: { type: String, enum: ['FRONT', 'WINDOW', 'MIDDLE'], required: true },
+  status: { type: String, enum: ['AVAILABLE', 'LOCKED', 'BOOKED'], default: 'AVAILABLE' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  lockedUntil: { type: Date, default: null }
+});
+
 const rideSchema = new mongoose.Schema(
     {
         rideId: {
@@ -57,6 +65,11 @@ const rideSchema = new mongoose.Schema(
             name: String,
             photo: String,
             seats: Number,
+            tripStatus: {
+                type: String,
+                enum: ["ACCEPTED", "ARRIVED", "STARTED", "COMPLETED"],
+                default: "ACCEPTED",
+            },
             paymentMethod: {
                 type: String,
                 enum: ["WALLET", "CASH", "UPI"],
@@ -68,6 +81,7 @@ const rideSchema = new mongoose.Schema(
             type: Number,
             default: 1,
         },
+        seats: [SeatSchema],
         departureTime: {
             type: Date,
             default: null,

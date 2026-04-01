@@ -69,12 +69,18 @@ export const getActiveRide = async (req: any, res: Response) => {
 
         if (ride) {
             const rideObj: any = ride.toObject();
+            const passengerEntry = Array.isArray(rideObj.passengers)
+                ? rideObj.passengers.find((passenger: any) => String(passenger.userId?._id || passenger.userId) === String(req.user._id))
+                : null;
             
             // Helpful fields for frontend
             rideObj.discount = (rideObj.originalPrice && rideObj.originalPrice > rideObj.price) 
                 ? (rideObj.originalPrice - rideObj.price) 
                 : 0;
             rideObj.fare = rideObj.price; // Alias for UI
+            if (passengerEntry?.tripStatus) {
+                rideObj.status = passengerEntry.tripStatus;
+            }
 
             if (ride.driverId) {
                 const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
