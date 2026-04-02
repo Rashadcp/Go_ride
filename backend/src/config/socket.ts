@@ -19,16 +19,30 @@ import User from "../models/user";
 
 let io: Server;
 
+const defaultAllowedOrigins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.56.1:3000",
+    "http://192.168.0.103:3000"
+];
+
+const getAllowedOrigins = () => {
+    const configuredOrigins = [
+        process.env.FRONTEND_URL,
+        process.env.ALLOWED_ORIGINS
+    ]
+        .filter(Boolean)
+        .flatMap((value) => (value as string).split(","))
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+    return Array.from(new Set([...configuredOrigins, ...defaultAllowedOrigins]));
+};
+
 export const initSocket = async (server: HttpServer) => {
     io = new Server(server, {
         cors: {
-            origin: [
-                process.env.FRONTEND_URL || "http://localhost:3000",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://192.168.56.1:3000",
-                "http://192.168.0.103:3000"
-            ],
+            origin: getAllowedOrigins(),
             methods: ["GET", "POST"],
             credentials: true
         }

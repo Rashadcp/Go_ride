@@ -26,16 +26,30 @@ import { initSocket } from "./config/socket";
 const app = express();
 const httpServer = createServer(app);
 
+const defaultAllowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://192.168.56.1:3000",
+  "http://192.168.0.103:3000",
+];
+
+const getAllowedOrigins = () => {
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.ALLOWED_ORIGINS,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => (value as string).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return Array.from(new Set([...configuredOrigins, ...defaultAllowedOrigins]));
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      process.env.FRONTEND_URL || "http://localhost:3000",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://192.168.56.1:3000",
-      "http://192.168.0.103:3000"
-    ];
-
     if (!origin || allowedOrigins.includes(origin) || origin.includes("localhost") || origin.includes("127.0.0.1") || origin.startsWith("http://192.168.")) {
       callback(null, true);
     } else {
@@ -76,6 +90,7 @@ app.use("/api/rating", ratingRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => res.send("Go Ride API Running"));
+app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error("Global Error Context:", {

@@ -13,16 +13,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: runner
+      target: prod
     container_name: goride-backend-prod
     ports:
       - "5001:5001"
     env_file:
-      - ./backend/.env
+      - ./backend/.env.production
     environment:
       - NODE_ENV=production
+      - PORT=5001
       - REDIS_URL=redis://redis:6379
-      - FRONTEND_URL=https://goride.vercel.app # Change this after Vercel deployment
     depends_on:
       - redis
     restart: always

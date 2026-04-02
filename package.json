@@ -7,7 +7,9 @@
     "typecheck": "npm --prefix frontend run typecheck",
     "verify": "npm --prefix frontend run verify",
     "backend:build": "npm --prefix backend run build",
-    "backend:start": "npm --prefix backend run start"
+    "backend:start": "npm --prefix backend run start",
+    "backend:deploy:prod": "docker compose -f docker-compose.prod.yml up -d --build",
+    "backend:logs:prod": "docker compose -f docker-compose.prod.yml logs -f backend"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1007.0",

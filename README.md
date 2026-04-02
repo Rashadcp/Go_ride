@@ -20,6 +20,11 @@
 2) Start Frontend locally: `cd frontend && npm install && npm run dev`
 3) Open http://localhost:3000 to access the platform.
 
+## Deploy backend to EC2
+- Production backend compose: `docker-compose.prod.yml`
+- Production env template: `backend/.env.production.example`
+- Step-by-step guide: `EC2_BACKEND_DEPLOY.md`
+
 ## Socket events (shared ride)
 - `create-shared-ride` (driver) → `shared-rides` broadcast
 - `join-shared-ride` (passenger) → `shared-ride-passenger-request` (to driver)
