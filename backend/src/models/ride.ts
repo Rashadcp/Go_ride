@@ -75,7 +75,22 @@ const rideSchema = new mongoose.Schema(
                 enum: ["WALLET", "CASH", "UPI"],
                 default: "CASH",
             },
-            joinedAt: { type: Date, default: Date.now }
+            joinedAt: { type: Date, default: Date.now },
+            pickup: {
+                label: String,
+                coords: {
+                    lat: Number,
+                    lng: Number,
+                },
+            },
+            drop: {
+                label: String,
+                coords: {
+                    lat: Number,
+                    lng: Number,
+                },
+            },
+            distance: Number,
         }],
         availableSeats: {
             type: Number,

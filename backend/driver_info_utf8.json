@@ -1,0 +1,30 @@
+﻿[dotenv@17.3.1] injecting env (22) from .env -- tip: ≡ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+Connecting to: mongodb+srv://rashad:rasha007@cluster0.kucdjp4.mongodb.net/goride?appName=Cluster0
+Connected to MongoDB
+Driver Found:
+{
+  "_id": "69ad50f27a8905d50541a1db",
+  "name": "rashad cp",
+  "firstName": "rashad",
+  "lastName": "cp",
+  "email": "rashad007.cp@gmail.com",
+  "password": "$2b$10$rd0sWZhHHEIABTuQBbEvC.GNybYz1S39eISUmZ8xoWqJzqVQ11Z7K",
+  "role": "USER",
+  "walletBalance": 2797,
+  "rating": 3.8,
+  "totalRides": 0,
+  "status": "ACTIVE",
+  "addresses": [],
+  "createdAt": "2026-03-08T10:35:30.229Z",
+  "updatedAt": "2026-04-02T06:40:00.195Z",
+  "__v": 0,
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5YWQ1MGYyN2E4OTA1ZDUwNTQxYTFkYiIsImlhdCI6MTc3NTExMjAwMCwiZXhwIjoxNzc1NzE2ODAwfQ.AGt7ThAcRocxthv8w3f0Y6sunQAqt753UGrANOgxyWs",
+  "profilePhoto": "https://goride-storage.s3.eu-north-1.amazonaws.com/goride/profilePhoto-1773376253739-122615965.jpeg",
+  "resetPasswordExpires": "2026-03-31T03:41:08.423Z",
+  "resetPasswordOTP": "129022",
+  "googleId": "107224137037096812833",
+  "isBlocked": false,
+  "isDeleted": false,
+  "isSuspicious": false,
+  "phone": "9562703957"
+}

@@ -189,8 +189,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             };
 
             const pools = await Ride.find(query)
-                .populate('driverId', 'name profilePhoto rating')
-                .populate('createdBy', 'name profilePhoto rating')
+                .populate('driverId', 'name profilePhoto rating status isBlocked isDeleted')
+                .populate('createdBy', 'name profilePhoto rating status isBlocked isDeleted')
                 .limit(10); // Show more than 1 pool!
 
             let filteredPools = pools;
@@ -206,8 +206,14 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
 
             const activePools = await Promise.all(
                 filteredPools.map(async (pool) => {
-                    const driverId = String((pool.driverId as any)?._id || pool.driverId || pool.createdBy?._id || pool.createdBy || "");
+                    const driver = (pool.driverId || pool.createdBy) as any;
+                    const driverId = String(driver?._id || driver || "");
                     if (!driverId) return null;
+
+                    // Verify driver account is still in good standing
+                    if (driver && (driver.status === 'INACTIVE' || driver.isBlocked || driver.isDeleted)) {
+                        return null;
+                    }
 
                     const activeDriver = await getActiveDriver(driverId);
                     return activeDriver?.status === "available" ? pool : null;
@@ -414,7 +420,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                     if (paymentSuccessful && driverIdFromRide) {
                         const driver = await User.findById(driverIdFromRide);
                         if (driver) {
-                            const platformFee = Math.round(amount * 0.25); // 25% platform commission
+                            const feeRate = isCarpool ? 0.15 : 0.25;
+                            const platformFee = Math.round(amount * feeRate); // 15% or 25% platform commission
                             let description = '';
                             let txType = 'CREDIT';
                             let txAmount = 0;

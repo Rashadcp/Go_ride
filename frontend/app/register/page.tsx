@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import SocialAuth from "@/components/auth/SocialAuth";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
-import { Camera, User, X, Eye, EyeOff, Navigation, ArrowLeft, ShieldCheck, Mail, Lock, UserPlus } from "lucide-react";
+import { Camera, X, Eye, EyeOff, Navigation, ArrowLeft, UserPlus } from "lucide-react";
 import Image from "next/image";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
@@ -88,7 +88,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] flex font-[family-name:var(--font-roboto)] overflow-hidden transition-all duration-500">
+        <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] flex font-[family-name:var(--font-roboto)] overflow-x-hidden transition-all duration-500">
             {/* Left Side: Brand Side */}
             <div className="hidden lg:flex lg:w-[45%] bg-[#1A1A1A] relative items-center justify-center overflow-hidden">
                 <div className="absolute top-0 left-0 w-[50%] h-[50%] bg-[#FFD700]/5 rounded-full blur-[150px]"></div>
@@ -102,13 +102,13 @@ export default function RegisterPage() {
                         Join <br /> <span className="text-[#FFD700]">GoRide.</span>
                     </h2>
                     <p className="text-slate-500 font-medium text-lg leading-relaxed max-w-sm mx-auto font-[family-name:var(--font-roboto)]">
-                        Want to travel or earn? Join GoRide today. It's fast and easy!
+                        Want to travel or earn? Join GoRide today. It&apos;s fast and easy!
                     </p>
                 </div>
             </div>
 
             {/* Right Side: Form Content */}
-            <div className="w-full lg:w-[55%] flex flex-col px-6 sm:px-12 lg:px-20 py-8 relative z-10">
+            <div className="w-full lg:w-[55%] flex flex-col px-4 sm:px-8 lg:px-20 py-6 sm:py-8 relative z-10">
                 <div className="flex items-center gap-3 cursor-pointer group mb-10 sm:mb-16" onClick={() => router.push("/")}>
                     <div className="w-9 h-9 bg-[#1A1A1A] rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
                         <Navigation className="w-5 h-5 text-[#FFD700] fill-current" strokeWidth={1.5} />
@@ -116,7 +116,7 @@ export default function RegisterPage() {
                     <span className="font-[family-name:var(--font-montserrat)] font-black text-xl tracking-tighter uppercase text-[#1A1A1A]">GO<span className="text-[#FFD700]">RIDE</span></span>
                 </div>
 
-                <div className="max-w-xl w-full mx-auto lg:ml-0 my-auto pb-10">
+                <div className="max-w-xl w-full mx-auto lg:ml-0 my-auto pb-8 sm:pb-10">
                     <div className="mb-8 font-[family-name:var(--font-montserrat)]">
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Join Us</span>
                         <h1 className="text-4xl font-black mb-3 tracking-tighter uppercase leading-tight">Create <br /> <span className="text-[#B8860B]">Profile</span></h1>
@@ -125,21 +125,21 @@ export default function RegisterPage() {
                         </p>
                     </div>
 
-                    <div className="relative bg-white/40 backdrop-blur-md p-1 rounded-2xl flex items-center mb-8 border border-[#E5E5E0] shadow-inner h-[54px] font-[family-name:var(--font-montserrat)]">
+                    <div className="relative bg-white/40 backdrop-blur-md p-1 rounded-2xl flex items-center mb-8 border border-[#E5E5E0] shadow-inner min-h-[54px] font-[family-name:var(--font-montserrat)]">
                         <div
                             className={`absolute top-1 left-1 bottom-1 w-[calc(50%-4px)] bg-[#1A1A1A] rounded-xl transition-all duration-300 ease-out z-0 ${role === "DRIVER" ? "translate-x-full" : "translate-x-0"}`}
                         ></div>
                         <button
                             type="button"
                             onClick={() => setRole("USER")}
-                            className={`relative flex-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all duration-300 z-10 ${role === "USER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
+                            className={`relative flex-1 px-2 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-300 z-10 ${role === "USER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
                         >
                             I am a Passenger
                         </button>
                         <button
                             type="button"
                             onClick={() => setRole("DRIVER")}
-                            className={`relative flex-1 py-1 text-[10px] font-black uppercase tracking-widest transition-all duration-300 z-10 ${role === "DRIVER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
+                            className={`relative flex-1 px-2 py-2 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.14em] sm:tracking-widest transition-all duration-300 z-10 ${role === "DRIVER" ? "text-[#FFD700]" : "text-[#4A4A48]"}`}
                         >
                             I am a Driver
                         </button>
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A] ml-1">First Name</label>
                                 <input
@@ -226,7 +226,7 @@ export default function RegisterPage() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A] ml-1">Password</label>
                                 <div className="relative">
@@ -275,7 +275,7 @@ export default function RegisterPage() {
                             type="submit"
                             disabled={loading}
                             loading={loading}
-                            className="w-full py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none font-[family-name:var(--font-montserrat)]"
+                            className="w-full py-4 sm:py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none font-[family-name:var(--font-montserrat)]"
                         >
                             Sign Up <ArrowLeft className="w-4 h-4 rotate-180" />
                         </Button>

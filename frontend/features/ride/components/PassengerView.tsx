@@ -40,7 +40,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     visibleNearbyDrivers, availableCarpools,
     loadingDrivers, isRequestingRide, setIsRequestingRide, dashboardStep,
     isSharedRide, vehicleType, paymentMethod, setPaymentMethod,
-    unreadChatMessages
+    unreadChatMessages, focusedStopId, setFocusedStopId
   } = rideState;
 
   const [selectedCarpoolId, setSelectedCarpoolId] = useState<string | null>(null);
@@ -294,7 +294,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     if (isSharedRide && selectedCarpoolId) {
       const pool = availableCarpools.find(p => p.rideId === selectedCarpoolId);
       if (pool) {
-        const isBike = pool.requestedVehicleType === 'bike';
+        const poolVehicleType = pool.requestedVehicleType || pool.vehicleType;
+        const isBike = poolVehicleType === 'bike';
         const sharedFare = isBike ? 40 : 100;
 
         if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
@@ -302,7 +303,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           return;
         }
 
-        if (selectedSeats.length === 0 && pool.seats && pool.seats.length > 0) {
+        if (selectedSeats.length === 0 && pool.seats && pool.seats.length > 0 && !isBike) {
            toast.error("Please pick a seat in the car map first!");
            return;
         }
@@ -313,10 +314,13 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
           name: user?.name,
           photo: user?.profilePhoto, // Include photo
-          seats: selectedSeats.length || 1,
-          seatId: selectedSeats.map(s => s.seatId).join(','),
+          seats: isBike ? 1 : (selectedSeats.length || 1),
+          seatId: isBike ? "PILLION" : selectedSeats.map(s => s.seatId).join(','),
           pickup: userLoc,
+          pickupLabel: pickup.query || "Current Location",
           drop: dropLoc?.coords,
+          dropLabel: dropLoc?.query || "Selected Destination",
+          distance: routeInfo.distance,
           paymentMethod
         });
         toast.success(`Joining ${pool.driverName}'s ride...`);
@@ -378,9 +382,56 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   };
 
   const handleJoinCarpool = (poolId: string) => {
+    const pool = availableCarpools.find(p => p.rideId === poolId);
     setSelectedCarpoolId(poolId);
     setSelectedSeats([]);
-    setIsSeatModalOpen(true);
+    
+    // Skip seat selection modal for bikes
+    if ((pool?.requestedVehicleType || pool?.vehicleType) === 'bike') {
+       // We'll let the user see it's selected, then they can click 'Join' or we can auto-trigger
+       // For better UX, we'll auto-trigger the request after a tiny delay to show selection update
+       setTimeout(() => {
+          handleCreateRequestExtended(poolId);
+       }, 100);
+    } else {
+       setIsSeatModalOpen(true);
+    }
+  };
+
+  // Helper to handle request with a specific pool ID (used for bike auto-join)
+  const handleCreateRequestExtended = (poolIdOverride?: string) => {
+    const id = poolIdOverride || selectedCarpoolId;
+    if (!id) return;
+
+    const pool = availableCarpools.find(p => p.rideId === id);
+    if (!pool) return;
+
+    const poolVehicleType = pool.requestedVehicleType || pool.vehicleType;
+    const isBike = poolVehicleType === 'bike';
+    const sharedFare = isBike ? 40 : 100;
+
+    if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
+      toast.error(`Insufficient balance (Rs ${sharedFare} min)`);
+      return;
+    }
+
+    const dropLoc = stops.find((s: any) => s.id !== 'pickup') || stops[stops.length - 1];
+    socket.emit("carpool:join:request", {
+      rideId: pool.rideId,
+      userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
+      name: user?.name,
+      photo: user?.profilePhoto,
+      seats: isBike ? 1 : (selectedSeats.length || 1),
+      seatId: isBike ? 'PILLION' : selectedSeats.map(s => s.seatId).join(','),
+      pickup: userLoc,
+      pickupLabel: pickup.query || "Current Location",
+      drop: dropLoc?.coords,
+      dropLabel: dropLoc?.query || "Selected Destination",
+      distance: routeInfo.distance,
+      paymentMethod
+    });
+    toast.success(`Joining ${pool.driverName}'s ride...`);
+    rideState.setIsRequestingRide(true);
   };
   const pickup = stops.find((s: any) => s.id === 'pickup') || { id: 'pickup', query: '', coords: null, suggestions: [], showSuggestions: false };
   const dropoff = stops.find((s: any) => s.id === 'dropoff') || stops.find((s: any) => s.id === '1') || { id: 'dropoff', query: '', coords: null, suggestions: [], showSuggestions: false };
@@ -441,11 +492,11 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       </div>
 
       {/* Unified Left Panel (Flexible Box) */}
-      <div className="absolute top-20 lg:top-10 left-4 lg:left-10 right-4 lg:right-auto z-30 lg:w-[440px] max-h-[calc(100vh-180px)] pointer-events-none flex flex-col gap-6">
+      <div className="absolute top-20 lg:top-10 left-4 lg:left-10 right-4 lg:right-auto z-30 lg:w-[440px] max-h-[calc(100vh-180px)] pointer-events-none flex flex-col gap-4 lg:gap-6">
 
         {/* Floating Search Bar (Uber UI) */}
         <div className="bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-100 overflow-hidden flex flex-col relative z-20 pointer-events-auto transition-all shrink-0">
-          <div className="px-5 py-5 flex items-start gap-8 relative z-10">
+          <div className="px-4 sm:px-5 py-4 sm:py-5 flex items-start gap-4 sm:gap-8 relative z-10">
             {/* Action Column */}
             <div className="flex flex-col items-center shrink-0 w-10 relative">
               {(stops.some((s: any) => s.query || s.coords) || isRouteSearched) ? (
@@ -463,7 +514,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
             </div>
 
             {/* Vertical Line Indicators - Centered under the arrow column (at 40px) */}
-            <div className="absolute left-[41px] top-[80px] bottom-[48px] w-[2px] bg-slate-200 pointer-events-none" />
+            <div className="absolute left-[41px] top-[72px] sm:top-[80px] bottom-[42px] sm:bottom-[48px] w-[2px] bg-slate-200 pointer-events-none" />
 
             {/* Inputs Column */}
             <div className="flex-1 flex flex-col gap-3 min-w-0 z-10 w-full relative pointer-events-auto">
@@ -474,7 +525,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   onDrop={(e) => handleDrop(e, idx)}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                 >
-                  <div className="absolute -left-[68px] flex items-center justify-center w-8 h-full pointer-events-none">
+                  <div className="absolute -left-[56px] sm:-left-[68px] flex items-center justify-center w-8 h-full pointer-events-none">
                     {idx === 0 ? (
                       <div className="w-[9px] h-[9px] bg-black rounded-full z-10 shadow-sm" />
                     ) : idx === displayStops.length - 1 ? (
@@ -504,6 +555,15 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                         <Compass className="w-4 h-4" />
                       </button>
                     )}
+                    {stop.query?.length > 0 && (
+                      <button 
+                        onClick={() => mapLogic.handleInputChange(stop.id, "")} 
+                        className="w-7 h-7 flex items-center justify-center text-slate-400 bg-white rounded-full shadow-sm hover:scale-110 hover:text-rose-500 transition-all ml-1 shrink-0"
+                        title="Clear"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                     {(idx !== 0 && idx !== displayStops.length - 1) && (
                       <button onClick={() => handleRemoveStop(stop.id)} className="w-7 h-7 flex items-center justify-center text-rose-500 bg-white rounded-full shadow-sm hover:scale-110 transition-all ml-2 shrink-0">
                         <X className="w-4 h-4" />
@@ -521,10 +581,10 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           </div>
 
           <div className="overflow-y-auto custom-scrollbar">
-            {isSearchOpen && stops.some((s: any) => s.showSuggestions && s.suggestions?.length > 0) && (
+            {isSearchOpen && focusedStopId && stops.some((s: any) => s.id === focusedStopId && s.showSuggestions && s.suggestions?.length > 0) && (
               <div className="border-t border-slate-100 bg-white max-h-[350px] overflow-y-auto w-full pb-2">
-                {stops.find((s: any) => s.showSuggestions)?.suggestions.map((sug: any, idx: number) => {
-                  const activeStop = stops.find((s: any) => s.showSuggestions)!;
+                {stops.find((s: any) => s.id === focusedStopId)?.suggestions.map((sug: any, idx: number) => {
+                  const activeStop = stops.find((s: any) => s.id === focusedStopId)!;
                   return (
                     <button key={idx} onClick={() => mapLogic.selectSuggestion(activeStop.id, sug)} className="w-full px-6 py-4 text-left flex items-center gap-4 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 group">
                       <div className="w-10 h-10 bg-slate-100 rounded-full flex justify-center items-center text-slate-500 group-hover:text-black transition-colors shrink-0">
@@ -561,6 +621,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                   {availableCarpools.length > 0 ? (
                     availableCarpools.map((pool) => {
                       const isSelected = selectedCarpoolId === pool.rideId;
+                      const poolVehicleType = pool.requestedVehicleType || pool.vehicleType || "car";
                       
                       const driverStart = pool.pickup?.label?.split(',')[0] || "Origin";
                       const driverEnd = pool.drop?.label?.split(',')[0] || "Destination";
@@ -581,7 +642,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 const rawPhoto = pool.driverPhoto;
                                 if (false && !rawPhoto) return (
                                   <div className="w-full h-full bg-[#FFD700] flex items-center justify-center">
-                                    {pool.requestedVehicleType === 'bike' ? (
+                                    {poolVehicleType === 'bike' ? (
                                       <Bike className="w-5 h-5 text-[#0A192F]" />
                                     ) : (
                                       <Car className="w-5 h-5 text-[#0A192F]" />
@@ -592,10 +653,10 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
                                 const driverName = pool.driverName || "Driver";
                                 let finalSrc = rawPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(driverName)}&background=0A192F&color=FFD700&bold=true`;
-                                if (rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
+                                if (rawPhoto && rawPhoto.includes('amazonaws.com') && rawPhoto.includes('goride/profiles/')) {
                                   const filename = rawPhoto.split('/').pop();
                                   finalSrc = `${baseUrl}/api/auth/profile-photo/${filename}`;
-                                } else if (!rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
+                                } else if (rawPhoto && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('data:')) {
                                   finalSrc = `${baseUrl}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
                                 }
 
@@ -614,7 +675,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                               })()}
                             </div>
                             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#0A192F] border-2 border-white rounded-full flex items-center justify-center shadow-sm">
-                              {(pool.requestedVehicleType === 'bike') ? (
+                              {(poolVehicleType === 'bike') ? (
                                 <Bike className="w-2 h-2 text-[#FFD700]" />
                               ) : (
                                 <Car className="w-2 h-2 text-[#FFD700]" />
@@ -642,7 +703,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                                 <span>{pool.driverRating || 4.8}</span>
                               </div>
                               <span className="text-[10px] font-black text-slate-400">•</span>
-                              <span className="text-[8px] font-black text-slate-500 tracking-wider uppercase">{pool.requestedVehicleType === 'bike' ? 'BIKE' : 'SEDAN'}</span>
+                              <span className="text-[8px] font-black text-slate-500 tracking-wider uppercase">{poolVehicleType === 'bike' ? 'BIKE' : 'SEDAN'}</span>
                               <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded-md border border-blue-100 ml-auto">
                                 <Users className="w-2 h-2" />
                                 <span className="text-[8px] font-black uppercase whitespace-nowrap">{pool.availableSeats} LEFT</span>
@@ -679,7 +740,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       <button
                         key={style.id}
                         onClick={() => rideState.setVehicleType(style.id as any)}
-                        className={`w-full flex items-center justify-between p-4 rounded-3xl border-2 transition-all group shrink-0 relative overflow-hidden ${isSelected ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-xl' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}
+                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-3xl border-2 transition-all group shrink-0 relative overflow-hidden gap-3 sm:gap-4 ${isSelected ? 'border-[#0A192F] bg-[#0A192F]/5 shadow-xl' : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50'}`}
                       >
                         {isSelected && <div className="absolute top-0 right-0 w-24 h-24 bg-[#FFD700]/10 rounded-full -mr-12 -mt-12" />}
                         <div className="flex items-center gap-4 relative z-10">
@@ -697,7 +758,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{style.time} • {style.desc}</p>
                           </div>
                         </div>
-                        <div className="text-right relative z-10">
+                        <div className="text-left sm:text-right relative z-10 w-full sm:w-auto">
                           <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
                           <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Starts at ₹{style.baseFare}</p>
                         </div>
@@ -749,10 +810,17 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
             <div className="px-2 mt-3 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
                 onClick={() => {
-                  if (isSharedRide && selectedCarpoolId && selectedSeats.length === 0) {
-                    setIsSeatModalOpen(true);
+                  if (isSharedRide && selectedCarpoolId) {
+                     const pool = availableCarpools.find(p => p.rideId === selectedCarpoolId);
+                     if (pool?.requestedVehicleType === 'bike') {
+                        handleCreateRequestExtended();
+                     } else if (selectedSeats.length === 0 && pool?.seats && pool.seats.length > 0) {
+                        setIsSeatModalOpen(true);
+                     } else {
+                        handleCreateRequestExtended();
+                     }
                   } else {
-                    handleCreateRequest();
+                    handleRequestRideExtended(paymentMethod);
                   }
                 }}
                 disabled={isRequestingRide || loadingDrivers || isProcessingPayment}

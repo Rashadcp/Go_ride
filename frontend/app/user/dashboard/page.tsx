@@ -171,7 +171,7 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-bg-main overflow-hidden selection:bg-[#FFD700]/30 font-sans transition-colors duration-500">
+    <div className="flex min-h-screen lg:h-screen bg-bg-main overflow-hidden selection:bg-[#FFD700]/30 font-sans transition-colors duration-500">
       <Sidebar
         user={user}
         activeTab={activeTab}
@@ -181,7 +181,7 @@ export default function UserDashboard() {
         handleLogout={handleLogout}
       />
 
-      <main className="flex-1 relative flex flex-col overflow-y-auto lg:overflow-hidden pt-20 pb-24 lg:pt-0 lg:pb-0 scroll-smooth">
+      <main className="flex-1 relative flex flex-col overflow-y-auto lg:overflow-hidden pt-20 pb-24 lg:pt-0 lg:pb-0 scroll-smooth min-w-0">
         {activeTab === "dashboard" && (
           <div className="flex-1 relative flex flex-col min-h-full">
             {/* Top Action Overlay - Responsive */}
@@ -212,7 +212,7 @@ export default function UserDashboard() {
                 </div>
               </div>
 
-              <div className="flex p-0.5 lg:p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden h-[40px] lg:h-[44px] order-1 lg:order-none">
+              <div className="flex p-0.5 lg:p-1 bg-white/80 backdrop-blur-md rounded-full shadow-2xl border border-white group/switcher overflow-hidden min-h-[40px] lg:h-[44px] order-1 lg:order-none">
                 <button onClick={() => { setIsDriverMode(false); setIsRouteSearched(false); setSearchStarted(false); setLoadingDrivers(false); }} className={`flex-1 lg:flex-initial px-3 lg:px-5 py-2 lg:py-2.5 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isDriverMode ? "bg-[#0A192F] text-[#FFD700] shadow-lg" : "text-slate-400 hover:text-slate-600"}`}>
                   Passenger
                 </button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   CheckCircle2, 
   MapPin, 
@@ -48,13 +48,26 @@ export function RideSummaryPage({
   const [isProcessing, setIsProcessing] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState("");
   const shouldShowRating = !(activeRide?.type === "CARPOOL" || activeRide?.isSharedRide);
+  const resolvedPaymentMethod = useMemo(() => {
+    const currentUserId = String(user?.id || user?._id || "");
+    const passengerEntry = Array.isArray(activeRide?.passengers)
+      ? activeRide.passengers.find(
+          (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === currentUserId
+        )
+      : null;
+
+    return passengerEntry?.paymentMethod || activeRide?.paymentMethod || "CASH";
+  }, [activeRide, user?.id, user?._id]);
 
   // If already paid (WALLET or CASH), we mark it as done 
   useEffect(() => {
-    if (activeRide.paymentMethod !== "UPI" || activeRide.paymentStatus === "COMPLETED") {
+    if (resolvedPaymentMethod !== "UPI" || activeRide.paymentStatus === "COMPLETED") {
       setIsPaymentDone(true);
+      return;
     }
-  }, [activeRide]);
+
+    setIsPaymentDone(false);
+  }, [activeRide?.paymentStatus, resolvedPaymentMethod]);
 
   const fare = getRideSettlementAmount(activeRide);
 
@@ -212,9 +225,9 @@ export function RideSummaryPage({
                       <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount to Pay</p>
                         <div className={`p-2 rounded-xl text-[10px] font-black uppercase text-center w-max ${
-                          activeRide.paymentMethod === 'UPI' ? 'bg-blue-50 text-blue-600' : 'bg-[#FEF3C7] text-[#0A192F]'
+                          resolvedPaymentMethod === 'UPI' ? 'bg-blue-50 text-blue-600' : 'bg-[#FEF3C7] text-[#0A192F]'
                         }`}>
-                          via {activeRide.paymentMethod}
+                          via {resolvedPaymentMethod}
                         </div>
                       </div>
                       <span className="text-5xl font-black text-[#0A192F] tracking-tighter italic">₹{fare}</span>

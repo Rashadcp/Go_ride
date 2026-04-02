@@ -67,7 +67,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
     }, [activeTrip, activeUnreadCount, isChatOpen, latestIncomingChat]);
 
     return (
-        <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden min-w-0">
             {/* Map Section */}
             <div className="flex-1 relative bg-slate-900 overflow-hidden min-h-[40vh]">
                 <div className="absolute inset-0 z-0">
@@ -84,14 +84,14 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
                 </div>
 
                 {/* Status Overlay */}
-                <div className="absolute top-4 lg:top-6 left-4 lg:left-6 right-4 lg:right-6 flex flex-col sm:flex-row items-center justify-between gap-3 z-20">
-                    <div className="flex items-center gap-3 bg-[#0A192F]/80 backdrop-blur-2xl border border-white/10 px-4 lg:px-6 py-2 lg:py-3 rounded-full shadow-2xl">
+                <div className="absolute top-4 lg:top-6 left-4 lg:left-6 right-4 lg:right-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 z-20">
+                    <div className="flex items-center gap-3 bg-[#0A192F]/80 backdrop-blur-2xl border border-white/10 px-4 lg:px-6 py-2 lg:py-3 rounded-full shadow-2xl min-w-0">
                         <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#FFD700] animate-pulse ring-4 ring-[#FFD700]/20' : 'bg-slate-500'}`}></div>
-                        <span className="text-white font-black text-[8px] lg:text-[9px] uppercase tracking-widest leading-none whitespace-nowrap">
+                        <span className="text-white font-black text-[8px] lg:text-[9px] uppercase tracking-widest leading-none truncate">
                             live in <span className="text-[#FFD700]">{locationName.substring(0, 15)}...</span> • {isOnline ? 'Active' : 'Offline'}
                         </span>
                     </div>
-                    <div className="flex items-center bg-[#0A192F]/90 backdrop-blur-2xl border border-white/10 rounded-full p-1 shadow-2xl scale-90 lg:scale-95">
+                    <div className="flex items-center self-end sm:self-auto bg-[#0A192F]/90 backdrop-blur-2xl border border-white/10 rounded-full p-1 shadow-2xl scale-90 lg:scale-95">
                         <button onClick={handleGoOnline} className={`px-4 lg:px-6 py-1.5 lg:py-2 rounded-full text-[8px] lg:text-[9px] font-black uppercase tracking-widest transition-all ${isOnline ? 'bg-[#FFD700] text-[#0A192F] shadow-lg shadow-[#FFD700]/20' : 'text-slate-500 hover:text-white'}`}>Online</button>
                         <button onClick={handleGoOffline} className={`px-4 lg:px-6 py-1.5 lg:py-2 rounded-full text-[8px] lg:text-[9px] font-black uppercase tracking-widest transition-all ${!isOnline ? 'bg-white/5 text-white' : 'text-slate-500 hover:text-white'}`}>Offline</button>
                     </div>
@@ -99,7 +99,7 @@ export const LiveConsole: React.FC<LiveConsoleProps> = ({
             </div>
 
             {/* Control Console */}
-            <div className="h-[50vh] lg:h-full w-full lg:w-[420px] bg-[#0A192F] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col z-20 shadow-[-30px_0_60px_rgba(0,0,0,0.4)] relative">
+            <div className="h-[52vh] lg:h-full w-full lg:w-[420px] bg-[#0A192F] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col z-20 shadow-[-30px_0_60px_rgba(0,0,0,0.4)] relative min-w-0">
                 <div className="p-6 lg:p-8 pb-4 shrink-0 space-y-6">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl lg:text-2xl font-black text-white tracking-tighter italic uppercase">Live Console</h3>

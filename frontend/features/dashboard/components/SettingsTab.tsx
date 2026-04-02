@@ -2,8 +2,6 @@ import { User as UserProfile, Camera, MapPin, Home, Briefcase, Trash2, Lock, Pho
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useState, useEffect } from 'react';
-
 interface SettingsTabProps {
   user: any;
   handleUpdateImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -42,13 +40,13 @@ export function SettingsTab(props: SettingsTabProps) {
   } = props;
 
   return (
-    <div className="flex-1 bg-slate-50 p-12 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 bg-slate-50 p-4 sm:p-6 lg:p-12 overflow-y-auto custom-scrollbar">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-black text-[#0A192F] mb-12 tracking-tight">Account Settings</h1>
-        <div className="bg-white rounded-[40px] shadow-xl border border-slate-100 overflow-hidden">
-          <div className="p-10 border-b border-slate-100 flex items-center gap-10">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#0A192F] mb-8 sm:mb-12 tracking-tight">Account Settings</h1>
+        <div className="bg-white rounded-[28px] sm:rounded-[40px] shadow-xl border border-slate-100 overflow-hidden">
+          <div className="p-6 sm:p-8 lg:p-10 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-10">
             <div className="relative group/photo">
-              <div className="w-32 h-32 rounded-[40px] bg-[#0A192F] overflow-hidden border-4 border-[#FFD700]/10 shadow-2xl relative">
+              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[28px] sm:rounded-[40px] bg-[#0A192F] overflow-hidden border-4 border-[#FFD700]/10 shadow-2xl relative">
                 {user?.profilePhoto ? (
                   <Image src={user.profilePhoto} alt="Profile" width={128} height={128} className="object-cover" unoptimized={true} />
                 ) : (
@@ -62,8 +60,8 @@ export function SettingsTab(props: SettingsTabProps) {
                 <input type="file" className="hidden" accept="image/*" onChange={handleUpdateImage} />
               </label>
             </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-black text-[#0A192F] mb-1">{user?.name}</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl sm:text-2xl font-black text-[#0A192F] mb-1 break-words">{user?.name}</h2>
               <p className="text-slate-400 font-bold mb-4">{user?.email}</p>
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#0A192F]/5 rounded-full">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -72,8 +70,8 @@ export function SettingsTab(props: SettingsTabProps) {
             </div>
           </div>
           
-            <div className="p-10 space-y-10 group">
-              <div className="grid grid-cols-2 gap-8">
+            <div className="p-6 sm:p-8 lg:p-10 space-y-8 sm:space-y-10 group">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                 <Input label="First Name" value={profileData.firstName} onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })} />
                 <Input label="Last Name" value={profileData.lastName} onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })} />
               </div>
@@ -86,13 +84,13 @@ export function SettingsTab(props: SettingsTabProps) {
                   onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })} 
                 />
               </div>
-              <div className="flex justify-end pt-2">
-                <Button variant="secondary" onClick={handleUpdateProfile} loading={isUpdatingProfile}>Save Personal Details</Button>
+              <div className="flex justify-stretch sm:justify-end pt-2">
+                <Button variant="secondary" onClick={handleUpdateProfile} loading={isUpdatingProfile} className="w-full sm:w-auto">Save Personal Details</Button>
               </div>
             </div>
             
-            <div className="space-y-6">
-              <div className="flex items-center justify-between px-1">
+            <div className="space-y-6 px-6 pb-6 sm:px-8 sm:pb-8 lg:px-10 lg:pb-10">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-1">
                 <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-widest">Registered Addresses</h3>
                 {!isAddingAddress && (
                   <Button size="sm" variant="ghost" className="!h-auto !p-0 text-[#FFD700]" onClick={() => setIsAddingAddress(true)}>+ Add New</Button>
@@ -100,8 +98,8 @@ export function SettingsTab(props: SettingsTabProps) {
               </div>
               
               {isAddingAddress && (
-                <div className="p-8 bg-slate-50 rounded-[32px] border-2 border-[#FFD700]/20 space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
+                <div className="p-5 sm:p-8 bg-slate-50 rounded-[24px] sm:rounded-[32px] border-2 border-[#FFD700]/20 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 ml-1">Label</label>
                       <select className="w-full h-14 px-5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-[#0A192F]" value={addressFormData.label} onChange={(e) => setAddressFormData({ ...addressFormData, label: e.target.value })}>
@@ -114,14 +112,14 @@ export function SettingsTab(props: SettingsTabProps) {
                     </div>
                     <Input label="Complete Address" placeholder="Street, City, Building..." value={addressFormData.address} onChange={(e) => setAddressFormData({ ...addressFormData, address: e.target.value })} />
                   </div>
-                  <div className="flex justify-end gap-4">
-                    <Button variant="secondary" size="md" onClick={() => setIsAddingAddress(false)}>Cancel</Button>
-                    <Button variant="primary" size="md" onClick={handleAddAddress} loading={isUpdatingProfile}>Save Location</Button>
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4">
+                    <Button variant="secondary" size="md" onClick={() => setIsAddingAddress(false)} className="w-full sm:w-auto">Cancel</Button>
+                    <Button variant="primary" size="md" onClick={handleAddAddress} loading={isUpdatingProfile} className="w-full sm:w-auto">Save Location</Button>
                   </div>
                 </div>
               )}
               
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {(user?.addresses || []).map((addr: any, idx: number) => (
                   <div key={idx} className="p-6 bg-slate-50 rounded-3xl border-2 border-[#FFD700]/10 flex flex-col gap-3 group relative">
                     <div className="flex items-center justify-between">
@@ -140,13 +138,13 @@ export function SettingsTab(props: SettingsTabProps) {
             
             <div className="pt-8 border-t border-slate-100 space-y-6">
               <h3 className="text-xs font-black text-[#0A192F] uppercase tracking-widest px-1">Security & Password</h3>
-              <div className="grid grid-cols-3 gap-6 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                 <Input type="password" label="Current Password" placeholder="********" leftIcon={<Lock className="w-4 h-4" />} value={securityData.oldPassword} onChange={(e) => setSecurityData({ ...securityData, oldPassword: e.target.value })} />
                 <Input type="password" label="New Password" placeholder="********" leftIcon={<Lock className="w-4 h-4" />} value={securityData.newPassword} onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })} />
                 <Input type="password" label="Confirm New" placeholder="********" leftIcon={<Lock className="w-4 h-4" />} value={securityData.confirmPassword} onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })} />
               </div>
-              <div className="flex justify-end">
-                <Button variant="primary" onClick={handleChangePassword} loading={isUpdatingProfile} className="!px-12">
+              <div className="flex justify-stretch sm:justify-end">
+                <Button variant="primary" onClick={handleChangePassword} loading={isUpdatingProfile} className="w-full sm:w-auto sm:!px-12">
                   Update Password
                 </Button>
               </div>

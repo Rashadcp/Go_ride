@@ -8,12 +8,9 @@ import {
   MapPin,
   Share2,
   Wallet,
-  CheckCircle,
   Navigation,
-  BarChart3,
   ShieldCheck,
   ChevronRight,
-  Globe,
   Instagram,
   Twitter,
   Facebook
@@ -42,7 +39,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] font-[family-name:var(--font-roboto)] overflow-x-hidden selection:bg-[#FFD700]/30 transition-colors duration-500">
       {/* --- Navigation --- */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[#F5F5F0]/80 backdrop-blur-xl border-b border-[#E5E5E0] md:px-24">
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-4 py-4 bg-[#F5F5F0]/80 backdrop-blur-xl border-b border-[#E5E5E0] sm:px-6 md:px-10 lg:px-24">
         <div className="flex items-center gap-2 group cursor-pointer" onClick={() => router.push('/')}>
           <div className="w-9 h-9 bg-[#1A1A1A] rounded-xl flex items-center justify-center shadow-lg shadow-[#1A1A1A]/10 group-hover:scale-105 transition-transform">
             <Navigation className="w-5 h-5 text-[#FFD700] fill-current" strokeWidth={1.5} />
@@ -57,16 +54,16 @@ export default function Home() {
           <a href="#about" className="hover:text-[#1A1A1A] transition-colors">About</a>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {!isLoggedIn ? (
             <>
-              <a href="/login" className="hidden sm:block px-6 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#4A4A48] hover:text-[#1A1A1A] transition-colors">Login</a>
-              <a href="/register" className="px-6 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#1A1A1A] bg-[#FFD700] rounded-xl hover:bg-[#FFC000] transition-all shadow-xl shadow-[#FFD700]/15 active:scale-95">Register</a>
+              <a href="/login" className="hidden sm:block px-5 py-2.5 text-[11px] font-black uppercase tracking-widest text-[#4A4A48] hover:text-[#1A1A1A] transition-colors">Login</a>
+              <a href="/register" className="px-4 sm:px-6 py-2.5 text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-[#1A1A1A] bg-[#FFD700] rounded-xl hover:bg-[#FFC000] transition-all shadow-xl shadow-[#FFD700]/15 active:scale-95 whitespace-nowrap">Register</a>
             </>
           ) : (
             <button
               onClick={handleLogout}
-              className="px-6 py-2.5 text-[11px] font-black uppercase tracking-widest border-2 border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95"
+              className="px-4 sm:px-6 py-2.5 text-[10px] sm:text-[11px] font-black uppercase tracking-widest border-2 border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition-all active:scale-95 whitespace-nowrap"
             >
               Logout
             </button>
@@ -75,32 +72,32 @@ export default function Home() {
       </nav>
 
       {/* --- Hero Section --- */}
-      <section className="relative pt-32 pb-24 px-6 overflow-hidden md:pt-52 md:pb-40 bg-[radial-gradient(circle_at_50%_0%,_rgba(255,215,0,0.1)_0%,_transparent_60%)] font-[family-name:var(--font-montserrat)]">
+      <section className="relative pt-28 pb-20 px-4 overflow-hidden sm:px-6 md:pt-52 md:pb-40 bg-[radial-gradient(circle_at_50%_0%,_rgba(255,215,0,0.1)_0%,_transparent_60%)] font-[family-name:var(--font-montserrat)]">
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-[#E5E5E0] mb-10 shadow-sm">
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#B8860B]">The Future of Mobility</span>
           </div>
 
-          <h1 className="text-5xl md:text-8xl font-black tracking-tight text-[#1A1A1A] mb-10 leading-[0.9] uppercase">
+          <h1 className="text-4xl sm:text-5xl md:text-8xl font-black tracking-tight text-[#1A1A1A] mb-8 sm:mb-10 leading-[0.9] uppercase">
             Seamless <br />
             <span className="text-[#FFD700]">Travel.</span>
           </h1>
 
-          <p className="max-w-2xl mx-auto text-[#4A4A48] font-medium text-lg md:text-xl leading-relaxed mb-14 px-4 font-[family-name:var(--font-roboto)]">
+          <p className="max-w-2xl mx-auto text-[#4A4A48] font-medium text-base sm:text-lg md:text-xl leading-relaxed mb-10 sm:mb-14 px-2 sm:px-4 font-[family-name:var(--font-roboto)]">
             Experience the first all-in-one platform that combines on-demand taxi services with smart peer-to-peer ride-sharing.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4 sm:gap-6">
             <button
               onClick={() => router.push('/register')}
-              className="group relative flex items-center gap-3 px-10 py-5 bg-[#1A1A1A] text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all hover:-translate-y-1 shadow-2xl active:scale-95 overflow-hidden"
+              className="group relative flex items-center justify-center gap-3 px-8 sm:px-10 py-4 sm:py-5 bg-[#1A1A1A] text-white rounded-2xl font-black uppercase tracking-widest text-[11px] sm:text-xs transition-all hover:-translate-y-1 shadow-2xl active:scale-95 overflow-hidden w-full sm:w-auto"
             >
               Join as Passenger
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
               onClick={() => router.push('/register?role=DRIVER')}
-              className="flex items-center gap-3 px-10 py-5 bg-white border border-[#E5E5E0] rounded-2xl font-black uppercase tracking-widest text-xs text-[#1A1A1A] transition-all hover:bg-slate-50 hover:-translate-y-1 shadow-sm active:scale-95"
+              className="flex items-center justify-center gap-3 px-8 sm:px-10 py-4 sm:py-5 bg-white border border-[#E5E5E0] rounded-2xl font-black uppercase tracking-widest text-[11px] sm:text-xs text-[#1A1A1A] transition-all hover:bg-slate-50 hover:-translate-y-1 shadow-sm active:scale-95 w-full sm:w-auto"
             >
               Earn as Driver
             </button>
@@ -109,7 +106,7 @@ export default function Home() {
       </section>
 
       {/* --- For Users Section --- */}
-      <section id="how-it-works" className="py-32 px-6 md:px-24 max-w-7xl mx-auto scroll-mt-20">
+      <section id="how-it-works" className="py-20 sm:py-24 md:py-32 px-4 sm:px-6 md:px-12 lg:px-24 max-w-7xl mx-auto scroll-mt-20">
         <div className="text-center mb-24 font-[family-name:var(--font-montserrat)]">
           <h2 className="text-4xl font-black text-[#1A1A1A] mb-4 uppercase tracking-tight">How it Works</h2>
           <div className="w-20 h-1 bg-[#FFD700] mx-auto rounded-full mb-6"></div>
@@ -136,30 +133,30 @@ export default function Home() {
       </section>
 
       {/* --- Unique Feature Section --- */}
-      <section id="services" className="px-6 md:px-24 mb-32 scroll-mt-20">
+      <section id="services" className="px-4 sm:px-6 md:px-12 lg:px-24 mb-20 sm:mb-24 md:mb-32 scroll-mt-20">
         <div className="max-w-7xl mx-auto rounded-[48px] bg-[#1A1A1A] overflow-hidden flex flex-col lg:flex-row border border-white/5 shadow-2xl">
-          <div className="flex-1 p-12 md:p-20 flex flex-col justify-center relative">
+          <div className="flex-1 p-8 sm:p-10 md:p-20 flex flex-col justify-center relative">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 blur-[100px] -z-0"></div>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/20 mb-8 self-start">
               <ShieldCheck className="w-3.5 h-3.5 text-[#FFD700]" strokeWidth={1.5} />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFD700]">Unique Feature</span>
             </div>
 
-            <h2 className="text-4xl md:text-6xl font-black text-white mb-8 leading-[1] uppercase tracking-tighter font-[family-name:var(--font-montserrat)]">
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-black text-white mb-6 sm:mb-8 leading-[1] uppercase tracking-tighter font-[family-name:var(--font-montserrat)]">
               Share Your Ride, <br />
               <span className="text-[#FFD700]">Save Money.</span>
             </h2>
 
-            <p className="text-slate-400 font-medium text-lg mb-12 leading-relaxed max-w-xl font-[family-name:var(--font-roboto)]">
+            <p className="text-slate-400 font-medium text-base sm:text-lg mb-8 sm:mb-12 leading-relaxed max-w-xl font-[family-name:var(--font-roboto)]">
               Why travel alone? Our hybrid model allows passengers to become hosts. Reduce traffic congestion and earn credits while commuting your usual route.
             </p>
 
-            <button className="px-10 py-5 bg-[#FFD700] text-[#1A1A1A] rounded-2xl font-black uppercase tracking-widest text-xs self-start shadow-xl shadow-[#FFD700]/10 hover:bg-[#FFC000] hover:-translate-y-1 transition-all active:scale-95">
+            <button className="px-8 sm:px-10 py-4 sm:py-5 bg-[#FFD700] text-[#1A1A1A] rounded-2xl font-black uppercase tracking-widest text-[11px] sm:text-xs self-stretch sm:self-start shadow-xl shadow-[#FFD700]/10 hover:bg-[#FFC000] hover:-translate-y-1 transition-all active:scale-95">
               Try Ride Sharing Today
             </button>
           </div>
 
-          <div className="flex-1 h-[400px] lg:h-auto relative grayscale opacity-80 hover:grayscale-0 transition-all duration-700">
+          <div className="flex-1 h-[280px] sm:h-[360px] lg:h-auto relative grayscale opacity-80 hover:grayscale-0 transition-all duration-700">
             <Image
               src="/assets/passenger_service.png"
               alt="Passenger enjoying a ride"
@@ -172,7 +169,7 @@ export default function Home() {
       </section>
 
       {/* --- Footer --- */}
-      <footer id="about" className="pt-32 pb-16 px-6 md:px-24 bg-[#1A1A1A] text-white transition-colors duration-500 scroll-mt-20 font-[family-name:var(--font-roboto)]">
+      <footer id="about" className="pt-20 sm:pt-24 md:pt-32 pb-16 px-4 sm:px-6 md:px-12 lg:px-24 bg-[#1A1A1A] text-white transition-colors duration-500 scroll-mt-20 font-[family-name:var(--font-roboto)]">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-16 mb-24">
             <div className="lg:col-span-2">

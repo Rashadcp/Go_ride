@@ -1,13 +1,28 @@
 import { Server, Socket } from "socket.io";
 import Ride from "../../models/ride";
 import Vehicle from "../../models/vehicle";
+import Transaction from "../../models/transaction";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
 import User from "../../models/user";
+import { removeActiveDriver } from "../state";
 
 export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Carpool Join Request (Passenger -> Server -> Driver)
-    socket.on("carpool:join:request", async (data: { rideId: string; userId: string; name: string; seats: number; pickup: any; seatId?: string }) => {
+    socket.on("carpool:join:request", async (data: { 
+        rideId: string; 
+        userId: string; 
+        name: string; 
+        seats: number; 
+        pickup: any; 
+        pickupLabel?: string;
+        drop?: any;
+        dropLabel?: string;
+        seatId?: string; 
+        paymentMethod: string; 
+        photo?: string;
+        distance?: number;
+    }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL") return;
@@ -19,13 +34,17 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 
                 // Polyfill seats if the ride was created before seat tracking was fully initialized
                 if (seatsList.length === 0) {
-                    const defaultSeats = [
-                        { seatId: 'FRONT_PASSENGER', type: 'FRONT', status: 'AVAILABLE' },
-                        { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
-                        { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
-                        { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
-                    ];
-                    let offeredSeats = (ride as any).availableSeats || 4;
+                    const isBike = ride.requestedVehicleType === 'bike' || (ride as any).vehicleType === 'bike';
+                    const defaultSeats = isBike 
+                        ? [{ seatId: 'PILLION', type: 'MIDDLE', status: 'AVAILABLE' }]
+                        : [
+                            { seatId: 'FRONT_PASSENGER', type: 'FRONT', status: 'AVAILABLE' },
+                            { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                            { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
+                            { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
+                        ];
+
+                    let offeredSeats = (ride as any).availableSeats || (isBike ? 1 : 4);
                     seatsList = defaultSeats.map(seat => {
                         if (offeredSeats > 0) {
                             offeredSeats--;
@@ -66,6 +85,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             if (ride.driverId) {
                 io.to(`driver:${ride.driverId}`).emit("carpool:join:new_request", {
                     ...data,
+                    paymentMethod: data.paymentMethod || "CASH",
                     passengerSocketId: socket.id // Store socket to reply back
                 });
             }
@@ -76,7 +96,22 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     });
 
     // Carpool Join Accept (Driver -> Server -> Passenger)
-    socket.on("carpool:join:accept", async (data: { rideId: string; userId: string; name: string; seats: number; passengerSocketId: string; paymentMethod: string; photo?: string; passengerPhoto?: string; seatId?: string }) => {
+    socket.on("carpool:join:accept", async (data: { 
+        rideId: string; 
+        userId: string; 
+        name: string; 
+        seats: number; 
+        passengerSocketId: string; 
+        paymentMethod: string; 
+        photo?: string; 
+        passengerPhoto?: string; 
+        seatId?: string;
+        pickupLabel?: string;
+        pickup?: any;
+        dropLabel?: string;
+        drop?: any;
+        distance?: number;
+    }) => {
         try {
             const ride = await Ride.findOne({ rideId: data.rideId });
             if (!ride || ride.type !== "CARPOOL" || ride.availableSeats < data.seats) return;
@@ -105,7 +140,16 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 photo: data.photo || data.passengerPhoto, // Store photo from request
                 seats: data.seats,
                 tripStatus: "ACCEPTED",
-                paymentMethod: data.paymentMethod || "CASH"
+                paymentMethod: data.paymentMethod || "CASH",
+                pickup: {
+                    label: data.pickupLabel || "Shared Pickup",
+                    coords: data.pickup
+                },
+                drop: {
+                    label: data.dropLabel || "Shared Drop",
+                    coords: data.drop
+                },
+                distance: data.distance || 0
             });
             ride.availableSeats -= data.seats;
             if (ride.availableSeats === 0) ride.status = "FULL";
@@ -115,34 +159,6 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             const populatedRide = await Ride.findById(ride._id)
                 .populate('driverId', 'name email phone profilePhoto rating')
                 .populate('passengers.userId', 'name profilePhoto email');
-
-            const passengerUser = await User.findById(data.userId);
-
-            // Trigger Email Booking Confirmation to Passenger (Carpool)
-            try {
-                if (passengerUser && (passengerUser.email || passengerUser.phone)) {
-                    const driver = populatedRide?.driverId as any;
-                    const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
-                    const details = {
-                        rideId: ride.rideId,
-                        pickup: ride.pickup?.label || "Current Location",
-                        destination: ride.drop?.label || "Selected Destination",
-                        fare: ride.pricePerSeat || (ride.price / (ride.passengers.length || 1)), // Carpool price is usually per seat
-                        driverName: driver?.name || "Your Driver",
-                        vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
-                    };
-
-                    if (passengerUser.email) {
-                        await sendBookingConfirmation(passengerUser.email, details);
-                    }
-
-                    if (passengerUser.phone) {
-                        await sendWhatsAppConfirmation(passengerUser.phone, details);
-                    }
-                }
-            } catch (emailErr) {
-                console.error("Carpool booking email trigger error:", emailErr);
-            }
 
             const passengerRideView = populatedRide?.toObject
                 ? {
@@ -156,25 +172,61 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                     paymentMethod: data.paymentMethod || "CASH"
                 };
 
-            // Notify passenger using their persistent user room
+            // Notify passenger immediately so the UI updates without waiting on extra side effects.
             io.to(`user:${data.userId}`).emit("carpool:join:accepted", { 
                 rideId: data.rideId, 
                 ride: passengerRideView 
             });
-
-            // [FIX] Clean up any other "SEARCHING" taxi requests for this passenger 
-            // since they are now part of this carpool
-            await Ride.updateMany(
-                { createdBy: data.userId, status: "SEARCHING", type: "CARPOOL" },
-                { status: "CANCELLED", cancelledAt: new Date() }
-            );
-            
-            // Re-broadcast updated ride to the specific ride room and everyone
-            io.to(`ride:${data.rideId}`).emit("ride:update", populatedRide);
+            if (data.passengerSocketId) {
+                io.to(data.passengerSocketId).emit("carpool:join:accepted", {
+                    rideId: data.rideId,
+                    ride: passengerRideView
+                });
+            }
             io.to(`user:${data.userId}`).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride: passengerRideView });
-            
-            // Still broadcast globally for list updates if needed
+            if (data.passengerSocketId) {
+                io.to(data.passengerSocketId).emit("ride-status-update", { rideId: data.rideId, status: "ACCEPTED", ride: passengerRideView });
+            }
+            io.to(`ride:${data.rideId}`).emit("ride:update", populatedRide);
             io.emit("ride:update", populatedRide);
+
+            // Non-critical work continues in the background so acceptance feels instant.
+            void (async () => {
+                try {
+                    await Ride.updateMany(
+                        { createdBy: data.userId, status: "SEARCHING", type: "CARPOOL" },
+                        { status: "CANCELLED", cancelledAt: new Date() }
+                    );
+                } catch (cleanupErr) {
+                    console.error("Carpool accept cleanup error:", cleanupErr);
+                }
+
+                try {
+                    const passengerUser = await User.findById(data.userId);
+                    if (passengerUser && (passengerUser.email || passengerUser.phone)) {
+                        const driver = populatedRide?.driverId as any;
+                        const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
+                        const details = {
+                            rideId: ride.rideId,
+                            pickup: ride.pickup?.label || "Current Location",
+                            destination: ride.drop?.label || "Selected Destination",
+                            fare: ride.pricePerSeat || (ride.price / (ride.passengers.length || 1)),
+                            driverName: driver?.name || "Your Driver",
+                            vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
+                        };
+
+                        if (passengerUser.email) {
+                            await sendBookingConfirmation(passengerUser.email, details);
+                        }
+
+                        if (passengerUser.phone) {
+                            await sendWhatsAppConfirmation(passengerUser.phone, details);
+                        }
+                    }
+                } catch (emailErr) {
+                    console.error("Carpool booking email trigger error:", emailErr);
+                }
+            })();
             
             console.log(`✅ Carpool join approved for ride ${data.rideId}, user ${data.userId} joined`);
         } catch (error) {
@@ -301,7 +353,21 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
 
             const releasedSeats = Number(passenger.seats || 1);
 
-            ride.passengers = ride.passengers.filter((p: any) => String(p.userId?._id || p.userId) !== String(data.userId)) as any;
+            // Mark passenger as completed INSTEAD of deleting them, so payment settlement has their data
+            passenger.tripStatus = "COMPLETED";
+            
+            // Release the physical visual seats instantly back to the pool
+            if (ride.seats && ride.seats.length > 0) {
+                ride.seats.forEach((seat: any) => {
+                    if (String(seat.userId) === String(data.userId) || String(seat.userId?._id) === String(data.userId)) {
+                        seat.status = 'AVAILABLE';
+                        seat.userId = null;
+                        seat.lockedUntil = null;
+                    }
+                });
+                ride.markModified('seats');
+            }
+
             ride.availableSeats += releasedSeats;
 
             if (ride.status === "FULL" && ride.availableSeats > 0) {
@@ -309,6 +375,73 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             }
 
             await ride.save();
+
+            // ✅ Carpool Payment Processing & 15% Commission Deduction
+            try {
+                const driverId = ride.driverId?._id || ride.driverId;
+                const passengerId = data.userId;
+                const amount = (ride.pricePerSeat || 0) * releasedSeats;
+                const paymentMethod = passenger.paymentMethod || "CASH";
+
+                if (amount > 0 && driverId) {
+                    const driver = await User.findById(driverId);
+                    if (driver) {
+                        const feeRate = 0.15; // 15% for Carpool
+                        const platformFee = Math.round(amount * feeRate);
+                        
+                        if (paymentMethod === "WALLET") {
+                            // Deduct from passenger already happened? No, needs to happen here for Carpool
+                            const passUser = await User.findById(passengerId);
+                            if (passUser && (passUser.walletBalance || 0) >= amount) {
+                                passUser.walletBalance -= amount;
+                                await passUser.save();
+                                
+                                await new Transaction({
+                                    userId: passengerId,
+                                    rideId: ride._id,
+                                    type: 'DEBIT',
+                                    amount: amount,
+                                    description: `Payment for Carpool Ride ${ride.rideId}`,
+                                    status: 'SUCCESS',
+                                    method: 'WALLET'
+                                }).save();
+                                io.to(`user:${passengerId}`).emit("wallet-update", { balance: passUser.walletBalance });
+
+                                // Credit Driver
+                                const finalEarned = amount - platformFee;
+                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+                                await driver.save();
+                                await new Transaction({
+                                    userId: driverId,
+                                    rideId: ride._id,
+                                    type: 'CREDIT',
+                                    amount: finalEarned,
+                                    description: `Earnings for Carpool ${ride.rideId} (15% fee ₹${platformFee})`,
+                                    status: 'SUCCESS',
+                                    method: 'WALLET'
+                                }).save();
+                                io.to(`user:${driverId}`).emit("wallet-update", { balance: driver.walletBalance });
+                            }
+                        } else if (paymentMethod === "CASH" || paymentMethod === "UPI") {
+                            // Driver received full amount, deduct fee from their wallet
+                            driver.walletBalance = (driver.walletBalance || 0) - platformFee;
+                            await driver.save();
+                            await new Transaction({
+                                userId: driverId,
+                                rideId: ride._id,
+                                type: 'DEBIT',
+                                amount: platformFee,
+                                description: `Platform fee for Carpool ${ride.rideId} (Paid via ${paymentMethod})`,
+                                status: 'SUCCESS',
+                                method: 'WALLET'
+                                }).save();
+                            io.to(`user:${driverId}`).emit("wallet-update", { balance: driver.walletBalance });
+                        }
+                    }
+                }
+            } catch (payErr) {
+                console.error("Carpool payment automated error:", payErr);
+            }
 
             const updatedRide = await Ride.findById(ride._id)
                 .populate('driverId', 'name email phone profilePhoto rating')
@@ -373,6 +506,64 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             console.log(`✅ Carpool passenger status updated for ride ${data.rideId}, user ${data.userId}: ${data.status}`);
         } catch (error) {
             console.error("Carpool passenger status update error:", error);
+        }
+    });
+
+    socket.on("driver:session:end", async (data: { rideId: string; driverId: string }) => {
+        try {
+            const updatedRide = await Ride.findOneAndUpdate({ rideId: data.rideId }, {
+                status: 'COMPLETED',
+                completedAt: new Date()
+            }, { new: true })
+                .populate('driverId', 'name email phone profilePhoto rating')
+                .populate('passengers.userId', 'name profilePhoto email');
+            
+            // ✅ FIX: Remove from active drivers pool to clear map icon immediately
+            await removeActiveDriver(data.driverId);
+
+            if (updatedRide) {
+                io.to(`driver:${data.driverId}`).emit("ride-status-update", {
+                    rideId: data.rideId,
+                    status: "COMPLETED",
+                    ride: updatedRide
+                });
+                io.to(`ride:${data.rideId}`).emit("ride:update", updatedRide);
+                io.emit("ride:update", updatedRide);
+            }
+            
+            console.log(`🏁 Driver ${data.driverId} ended carpool session ${data.rideId} silently.`);
+        } catch (error) {
+            console.error("Driver session end error:", error);
+        }
+    });
+
+    socket.on("carpool:ride:cancel", async (data: { rideId: string; driverId: string }) => {
+        try {
+            const ride = await Ride.findOneAndUpdate({ rideId: data.rideId }, {
+                status: 'CANCELLED',
+                cancelledAt: new Date()
+            }, { new: true });
+
+            if (ride) {
+                // Notify all passengers that the ride was cancelled by the driver
+                ride.passengers.forEach((p: any) => {
+                    const passengerId = p.userId?._id || p.userId;
+                    if (passengerId) {
+                        io.to(`user:${passengerId}`).emit("ride:cancelled", { 
+                            rideId: data.rideId,
+                            reason: "The driver has cancelled this carpool session."
+                        });
+                    }
+                });
+                
+                // Broadcast to the ride room
+                io.to(`ride:${data.rideId}`).emit("ride:update", ride);
+            }
+            
+            await removeActiveDriver(data.driverId);
+            console.log(`❌ Driver ${data.driverId} cancelled carpool session ${data.rideId}.`);
+        } catch (error) {
+            console.error("Carpool ride cancel error:", error);
         }
     });
 };

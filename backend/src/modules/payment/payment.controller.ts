@@ -41,7 +41,7 @@ const getExpectedRideAmount = (ride: any, userId: string) => {
     }
 
     const joinedPassenger = ride.passengers?.find(
-        (passenger: any) => String(passenger.userId) === String(userId)
+        (passenger: any) => String(passenger.userId?._id || passenger.userId) === String(userId)
     );
 
     if (joinedPassenger) {
@@ -217,7 +217,9 @@ export const verifyPayment = async (req: any, res: Response) => {
                 return res.status(404).json({ message: "Driver account not found for this ride." });
             }
 
-            const finalEarned = Math.round(expectedAmount * (1 - PLATFORM_FEE_RATE));
+            const isCarpoolRide = ride.type === "CARPOOL" || ride.isSharedRide;
+            const currentFeeRate = isCarpoolRide ? 0.15 : PLATFORM_FEE_RATE;
+            const finalEarned = Math.round(expectedAmount * (1 - currentFeeRate));
             driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
             await driver.save();
 

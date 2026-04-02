@@ -39,17 +39,39 @@ export const getActiveDrivers = async () => {
 
 export const getAvailableDrivers = async () => {
   const drivers = await getActiveDrivers();
-  return drivers.filter((driver) => driver.status === "available");
+  const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 Minutes
+  const now = Date.now();
+
+  return drivers.filter((driver) =>
+    driver.status === "available" &&
+    (now - (driver.lastSeen || 0) < HEARTBEAT_TIMEOUT_MS)
+  );
 };
 
 export const getActiveDriver = async (driverId: string) => {
   const redis = getRedis();
-  if (!redis) {
-    return activeDriversMemory.get(driverId) ?? null;
+  const HEARTBEAT_TIMEOUT_MS = 2 * 60 * 1000; // 2 Minutes
+  const now = Date.now();
+
+  const presence = await (async () => {
+    if (!redis) {
+      return activeDriversMemory.get(driverId) ?? null;
+    }
+    const payload = await redis.hGet(DRIVER_HASH_KEY, driverId);
+    return payload ? (JSON.parse(payload) as DriverPresence) : null;
+  })();
+
+  if (!presence) return null;
+
+  // Check heartbeat to prevent "zombie" drivers from showing up
+  const lastSeen = presence.lastSeen || 0;
+  if (now - lastSeen > HEARTBEAT_TIMEOUT_MS) {
+    // If we're using Redis, we could also cleanup the record here
+    // await removeActiveDriver(driverId);
+    return null;
   }
 
-  const payload = await redis.hGet(DRIVER_HASH_KEY, driverId);
-  return payload ? (JSON.parse(payload) as DriverPresence) : null;
+  return presence;
 };
 
 export const setActiveDriver = async (driverId: string, presence: DriverPresence) => {

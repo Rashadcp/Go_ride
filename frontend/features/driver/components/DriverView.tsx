@@ -32,6 +32,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
    const [chatReceiver, setChatReceiver] = useState<any>(null);
    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
    const [processingPassengerId, setProcessingPassengerId] = useState<string | null>(null);
+   const [localConfirmedPassengers, setLocalConfirmedPassengers] = useState<any[]>([]);
 
    const resolveProfileImage = (rawPhoto: string | undefined, name: string) => {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5001';
@@ -60,11 +61,66 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       return Array.from(uniqueRequests.values());
    }, [incomingCarpoolRequests]);
 
-   const confirmedPassengers = rideState.activeRide?.passengers || [];
+   const ridePassengers = Array.isArray(rideState.activeRide?.passengers) ? rideState.activeRide.passengers : [];
+   const confirmedPassengers = (ridePassengers.length > 0 ? ridePassengers : localConfirmedPassengers).filter(
+      (p: any) => String(p?.tripStatus || "ACCEPTED").toUpperCase() !== "COMPLETED"
+   );
+   const displayedAvailableSeats = rideState.activeRide?.availableSeats ?? Math.max(0, seatsAvailable - confirmedPassengers.reduce((sum: number, p: any) => sum + Number(p?.seats || 1), 0));
+
+   useEffect(() => {
+      if (!rideState.activeRide) {
+         setLocalConfirmedPassengers((prev) => (prev.length > 0 ? [] : prev));
+         return;
+      }
+
+      if (ridePassengers.length === 0) {
+         return;
+      }
+
+      setLocalConfirmedPassengers((prev) => {
+         const isSame =
+            prev.length === ridePassengers.length &&
+            prev.every((entry: any, index: number) => {
+               const nextEntry = ridePassengers[index];
+               return (
+                  String(entry?.userId?._id || entry?.userId || "") === String(nextEntry?.userId?._id || nextEntry?.userId || "") &&
+                  String(entry?.tripStatus || "ACCEPTED") === String(nextEntry?.tripStatus || "ACCEPTED") &&
+                  Number(entry?.seats || 1) === Number(nextEntry?.seats || 1)
+               );
+            });
+
+         return isSame ? prev : ridePassengers;
+      });
+   }, [rideState.activeRide, ridePassengers]);
 
    const handleAcceptJoinRequest = (req: any) => {
       const requestKey = String(req.userId || req.passengerSocketId);
       setProcessingRequestId(requestKey);
+
+      // Remove the request card immediately so the host UI feels instant.
+      rideState.setIncomingCarpoolRequests((prev: any[]) =>
+         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
+      );
+
+      setLocalConfirmedPassengers((prev: any[]) => {
+         const alreadyAdded = prev.some(
+            (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === String(req.userId)
+         );
+         if (alreadyAdded) return prev;
+
+         return [
+            ...prev,
+            {
+               userId: req.userId,
+               name: req.name,
+               photo: req.photo || req.passengerPhoto || req.profilePhoto,
+               seats: req.seats || 1,
+               tripStatus: "ACCEPTED",
+               paymentMethod: req.paymentMethod || "CASH",
+               joinedAt: new Date().toISOString()
+            }
+         ];
+      });
 
       rideState.setActiveRide((prev: any) => {
          if (!prev) return prev;
@@ -89,6 +145,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                   name: req.name,
                   photo: req.photo || req.passengerPhoto || req.profilePhoto,
                   seats: req.seats || 1,
+                  tripStatus: "ACCEPTED",
                   paymentMethod: req.paymentMethod || "CASH",
                   joinedAt: new Date().toISOString()
                }
@@ -98,6 +155,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          };
       });
 
+      toast.success(`${req.name || "Passenger"} added to your ride`);
+
       socket.emit("carpool:join:accept", {
          rideId: rideState.activeRide?.rideId || req.rideId,
          userId: req.userId,
@@ -106,19 +165,27 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          seats: req.seats,
          passengerSocketId: req.passengerSocketId,
          paymentMethod: req.paymentMethod,
-         seatId: req.seatId
+         seatId: req.seatId,
+         pickupLabel: req.pickupLabel,
+         pickup: req.pickup,
+         dropLabel: req.dropLabel,
+         drop: req.drop || req.destination, // Standardize on drop/destination
+         distance: req.distance
       });
 
-      rideState.setIncomingCarpoolRequests((prev: any[]) =>
-         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
-      );
       setProcessingRequestId(null);
-      toast.success(`${req.name || "Passenger"} added to your ride`);
    };
 
    const handleRejectJoinRequest = (req: any) => {
       const requestKey = String(req.userId || req.passengerSocketId);
       setProcessingRequestId(requestKey);
+
+      // Drop the card from the queue before the socket round-trip.
+      rideState.setIncomingCarpoolRequests((prev: any[]) =>
+         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
+      );
+
+      toast.error("Request declined");
 
       socket.emit("carpool:join:reject", {
          rideId: rideState.activeRide?.rideId || req.rideId,
@@ -126,11 +193,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          passengerSocketId: req.passengerSocketId
       });
 
-      rideState.setIncomingCarpoolRequests((prev: any[]) =>
-         prev.filter((r) => String(r.userId || r.passengerSocketId) !== requestKey)
-      );
       setProcessingRequestId(null);
-      toast.error("Request declined");
    };
 
    const handleEndPassengerTrip = (passenger: any) => {
@@ -202,6 +265,14 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          };
       });
 
+      setLocalConfirmedPassengers((prev: any[]) =>
+         prev.map((entry: any) =>
+            String(entry.userId?._id || entry.userId || "") === passengerId
+               ? { ...entry, tripStatus: action.nextStatus }
+               : entry
+         )
+      );
+
       toast.success(`${passenger.name || "Passenger"} marked as ${action.label.toLowerCase()}`, { id: "ride-status" });
    };
 
@@ -213,6 +284,28 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          userId: user.id || user._id,
          role: "DRIVER"
       });
+
+      // Host needs this to render pending passenger cards.
+      // Backend emits `carpool:join:new_request` to `driver:${ride.driverId}`.
+      const handleCarpoolJoinNewRequest = (data: any) => {
+         const incoming = data || {};
+         if (!incoming.rideId) return;
+
+         rideState.setIncomingCarpoolRequests((prev: any[]) => {
+            const requestKey = String(incoming.userId || incoming.passengerSocketId || incoming.id || incoming._id || "");
+            if (!requestKey) return prev;
+
+            const alreadyExists = prev.some((r: any) => {
+               const rKey = String(r.userId || r.passengerSocketId || r.id || r._id || "");
+               return rKey && rKey === requestKey;
+            });
+            if (alreadyExists) return prev;
+
+            return [...prev, incoming];
+         });
+
+         toast.success(`New passenger request received`);
+      };
 
       const handleRideUpdate = (updatedRide: any) => {
          const currentRide = useRideStore.getState().activeRide;
@@ -227,11 +320,45 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       };
 
       socket.on("ride:update", handleRideUpdate);
+      socket.on("carpool:join:new_request", handleCarpoolJoinNewRequest);
 
       return () => {
          socket.off("ride:update", handleRideUpdate);
+         socket.off("carpool:join:new_request", handleCarpoolJoinNewRequest);
       };
    }, [user?.id, user?._id]);
+
+   const handleEndDriverTrip = async () => {
+      try {
+         if (rideState.activeRide?.rideId || rideState.activeRide?._id) {
+             socket.emit("driver:session:end", { 
+                rideId: rideState.activeRide.rideId || rideState.activeRide._id, 
+                driverId: user.id || user._id
+             });
+         }
+         rideState.resetRideState();
+         toast.success("Driving session ended. Going offline.");
+      } catch (err) {
+         toast.error("Failed to end driving session.");
+      }
+   };
+
+   const handleCancelDriverTrip = async () => {
+      if (!confirm("Are you sure you want to cancel this entire carpool trip? All passengers will be notified.")) return;
+      
+      try {
+          if (rideState.activeRide?.rideId || rideState.activeRide?._id) {
+              socket.emit("carpool:ride:cancel", { 
+                 rideId: rideState.activeRide.rideId || rideState.activeRide._id, 
+                 driverId: user.id || user._id
+              });
+          }
+          rideState.resetRideState();
+          toast.error("Trip cancelled. You are now offline.");
+      } catch (err) {
+          toast.error("Failed to cancel trip.");
+      }
+   };
 
    useEffect(() => {
       if (!userLoc) {
@@ -265,7 +392,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          name: user.name,
          profilePhoto: user.profilePhoto,
          rating: user?.rating,
-         vehicleType: (user as any).vehicleType || rideState.vehicleType || "go",
+         vehicleType: rideState.vehicleType || (user as any).vehicleType || "go",
          isCarpool: true
       });
 
@@ -337,21 +464,21 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
             />
          </div>
 
-         <div className="absolute top-20 lg:top-10 left-4 lg:left-10 right-4 lg:right-auto z-30 lg:w-[440px] pointer-events-none flex flex-col gap-6">
-            <div className="bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-100 overflow-hidden flex flex-col relative z-20 pointer-events-auto transition-all p-7">
-               <h3 className="text-[28px] font-black text-[#0A192F] mb-6 tracking-tight">Share My Ride</h3>
+         <div className="absolute top-20 lg:top-10 left-4 lg:left-10 right-4 lg:right-auto z-30 lg:w-[440px] pointer-events-none flex flex-col gap-4 lg:gap-6">
+            <div className="bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-slate-100 overflow-hidden flex flex-col relative z-20 pointer-events-auto transition-all p-5 sm:p-6 lg:p-7">
+               <h3 className="text-[24px] sm:text-[28px] font-black text-[#0A192F] mb-5 sm:mb-6 tracking-tight">Share My Ride</h3>
 
                <div className="relative flex flex-col gap-4">
                   <div className="absolute left-[23px] top-[26px] bottom-[26px] w-[3px] bg-slate-200" />
 
-                  <div className="relative flex items-center gap-4 z-10">
+                  <div className="relative flex items-center gap-3 sm:gap-4 z-10">
                      <div className="w-[12px] h-[12px] bg-black rounded-full shrink-0 ml-[17px]" />
                      <div className="flex-1 bg-slate-100/80 rounded-xl px-4 h-[50px] flex items-center shrink-0 border border-transparent">
                         <input className="w-full bg-transparent border-none outline-none text-[#000000] font-bold text-[15px] placeholder:text-slate-500" value="Current Location" readOnly disabled />
                      </div>
                   </div>
 
-                  <div className="relative flex items-center gap-4 z-10">
+                  <div className="relative flex items-center gap-3 sm:gap-4 z-10">
                      <div className="w-[14px] h-[14px] bg-white border-[3px] border-black shrink-0 ml-[16px]" />
                      <div className="flex-1 bg-slate-100/80 rounded-xl px-4 h-[50px] flex items-center focus-within:bg-slate-200/80 focus-within:border-slate-300 transition-all shrink-0 border border-transparent">
                         <input
@@ -392,11 +519,13 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            <p className="font-black text-[#0A192F] text-[17px]">Empty Seats</p>
                            <p className="text-[13px] font-bold text-slate-400 mt-0.5">Fill your car to earn more</p>
                         </div>
-                        <div className="flex items-center gap-4 bg-slate-100 rounded-2xl px-2 py-1.5 border border-slate-200">
-                           <button onClick={() => setSeatsAvailable(Math.max(1, seatsAvailable - 1))} className="w-10 h-10 flex items-center justify-center text-[#0A192F] hover:bg-white rounded-[10px] transition-colors shadow-sm"><span className="text-2xl font-black mt-[-4px]">-</span></button>
-                           <span className="text-xl font-black w-4 text-center text-[#0A192F]">{seatsAvailable}</span>
-                           <button onClick={() => setSeatsAvailable(Math.min(rideState.vehicleType === 'bike' ? 1 : 6, seatsAvailable + 1))} className={`w-10 h-10 flex items-center justify-center text-[#0A192F] rounded-[10px] transition-colors shadow-sm ${rideState.vehicleType === 'bike' && seatsAvailable >= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`} disabled={rideState.vehicleType === 'bike' && seatsAvailable >= 1}><Plus className="w-5 h-5" /></button>
-                        </div>
+                        {rideState.vehicleType !== 'bike' && (
+                           <div className="flex items-center gap-4 bg-slate-100 rounded-2xl px-2 py-1.5 border border-slate-200">
+                              <button onClick={() => setSeatsAvailable(Math.max(1, seatsAvailable - 1))} className="w-10 h-10 flex items-center justify-center text-[#0A192F] hover:bg-white rounded-[10px] transition-colors shadow-sm"><span className="text-2xl font-black mt-[-4px]">-</span></button>
+                              <span className="text-xl font-black w-4 text-center text-[#0A192F]">{seatsAvailable}</span>
+                              <button onClick={() => setSeatsAvailable(Math.min(6, seatsAvailable + 1))} className="w-10 h-10 flex items-center justify-center text-[#0A192F] rounded-[10px] transition-colors shadow-sm hover:bg-white"><Plus className="w-5 h-5" /></button>
+                           </div>
+                        )}
                      </div>
                      <button onClick={handleStartDriverTrip} className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50">
                         Start Driving Now
@@ -408,28 +537,38 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
          {isDriverTripActive && (
             <div className="absolute bottom-24 lg:bottom-10 left-4 lg:left-1/2 right-4 lg:right-auto lg:-translate-x-1/2 z-30 lg:w-[440px] pointer-events-none flex flex-col justify-end">
-               <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.5)] p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-hidden">
+               <div className="bg-[#0A192F]/95 backdrop-blur-3xl text-white rounded-[32px] shadow-[0_30px_60px_rgba(0,0,0,0.5)] p-5 sm:p-6 lg:p-8 border border-[#FFD700]/20 pointer-events-auto shrink-0 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/10 rounded-full blur-3xl -mr-10 -mt-20" />
-                  <div className="flex items-center gap-5 mb-8 relative z-10 border-b border-white/10 pb-6">
+                  <div className="flex items-start sm:items-center gap-3 sm:gap-5 mb-6 sm:mb-8 relative z-10 border-b border-white/10 pb-5 sm:pb-6">
                      <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 relative shrink-0">
                         <div className="absolute inset-0 rounded-2xl border border-[#FFD700]/40 animate-ping" />
                         <Compass className="w-7 h-7 text-[#FFD700] animate-pulse" />
                      </div>
-                     <div>
-                        <h3 className="text-2xl font-black text-white tracking-tight mb-1">
-                           {rideState.activeRide?.status === "ARRIVED" ? "I Have Arrived" :
-                              rideState.activeRide?.status === "STARTED" ? "Trip Started" :
-                                 (rideState.activeRide?.passengers?.length > 0) ? "Going to Pick Up" : "Waiting for Riders"}
-                        </h3>
-                        <p className="font-black text-[#FFD700] text-[12px] tracking-widest uppercase">
-                           {rideState.activeRide?.availableSeats !== undefined ? rideState.activeRide.availableSeats : seatsAvailable} SEAT{(rideState.activeRide?.availableSeats ?? seatsAvailable) > 1 ? 'S' : ''} AVAILABLE
-                        </p>
-                     </div>
+                      <div className="flex-1 min-w-0">
+                         <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-1">
+                            {rideState.activeRide?.status === "ARRIVED" ? "I Have Arrived" :
+                               rideState.activeRide?.status === "STARTED" ? "Trip Started" :
+                                  (confirmedPassengers.length > 0) ? "Passenger Pickup" : "Waiting for Riders"}
+                         </h3>
+                         <p className="font-black text-[#FFD700] text-[12px] tracking-widest uppercase">
+                            {rideState.activeRide?.requestedVehicleType === 'bike' 
+                               ? 'Bike Trip Live'
+                               : `${displayedAvailableSeats} SEAT${displayedAvailableSeats > 1 ? 'S' : ''} AVAILABLE`
+                            }
+                         </p>
+                      </div>
+                      <button 
+                         onClick={handleCancelDriverTrip}
+                         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-rose-500/20 bg-rose-500/10 text-rose-300 transition-all hover:bg-rose-500/20 active:scale-95"
+                         title="Cancel Entire Trip"
+                      >
+                         <XCircle className="h-6 w-6" />
+                      </button>
                   </div>
 
                   {(pendingRequests.length > 0 || confirmedPassengers.length > 0) ? (
                      <div className="flex flex-col gap-4 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar scroll-smooth">
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                            <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3">
                               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Pending</p>
                               <p className="mt-2 text-2xl font-black text-white">{pendingRequests.length}</p>
@@ -440,17 +579,14 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            </div>
                            <div className="rounded-[20px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
                               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300">Seats Left</p>
-                              <p className="mt-2 text-2xl font-black text-white">{rideState.activeRide?.availableSeats ?? seatsAvailable}</p>
+                              <p className="mt-2 text-2xl font-black text-white">{displayedAvailableSeats}</p>
                            </div>
                         </div>
 
                         {pendingRequests.length > 0 && (
                            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-4">
-                              <div className="mb-4 flex items-center justify-between gap-3">
-                                 <div>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Join Requests</p>
-                                    <p className="mt-1 text-sm font-bold text-slate-300">Each rider has a separate decision card, even while your trip is already active.</p>
-                                 </div>
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                 <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Join Requests</p>
                                  <div className="rounded-full border border-[#FFD700]/25 bg-[#FFD700]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#FFD700]">
                                     {pendingRequests.length} waiting
                                  </div>
@@ -501,7 +637,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                                    </div>
                                                 </div>
 
-                                                <div className="mt-3 flex gap-2">
+                                                <div className="mt-3 flex flex-col sm:flex-row gap-2">
                                                    <button
                                                       onClick={() => handleAcceptJoinRequest(req)}
                                                       disabled={!canAccept || isBusy}
@@ -534,38 +670,32 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
                         {confirmedPassengers.length > 0 && (
                            <div className="rounded-[28px] border border-[#FFD700]/20 bg-[#FFD700]/8 p-4">
-                              <div className="mb-4 flex items-center justify-between gap-3">
-                                 <div>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Confirmed Riders</p>
-                                    <p className="mt-1 text-sm font-bold text-slate-300">These riders are already in your shared trip.</p>
-                                 </div>
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                 <p className="text-[11px] font-black uppercase tracking-[0.26em] text-[#FFD700]">Confirmed Riders</p>
                                  <div className="rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
                                     live onboard
                                  </div>
                               </div>
 
-                              <div className="flex flex-col gap-3">
+                              <div className="flex flex-col gap-2">
                                  {confirmedPassengers.map((p: any, idx: number) => {
                                     const passengerId = String(p.userId?._id || p.userId || idx);
                                     const isEndingPassenger = processingPassengerId === passengerId;
                                     const tripAction = getPassengerTripAction(p);
 
                                     return (
-                                    <div key={`p-${idx}`} className="flex items-center justify-between rounded-[20px] border border-[#FFD700]/12 bg-[#091322]/92 px-3 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)]">
-                                       <div className="flex min-w-0 items-center gap-3">
-                                          <div className="h-10 w-10 overflow-hidden rounded-[14px] border border-white/10 bg-white shadow-sm shrink-0">
+                                    <div key={`p-${idx}`} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-[18px] border border-[#FFD700]/12 bg-[#091322]/92 px-3 py-2.5 shadow-[0_10px_24px_rgba(0,0,0,0.14)] gap-3">
+                                       <div className="flex min-w-0 items-center gap-2.5">
+                                          <div className="h-9 w-9 overflow-hidden rounded-[12px] border border-white/10 bg-white shadow-sm shrink-0">
                                              <img
-                                                src={resolveProfileImage(p.photo || p.profilePhoto, p.name || "Passenger")}
-                                                alt={p.name || "Passenger"}
+                                                src={resolveProfileImage(p.photo || p.profilePhoto || p.userId?.profilePhoto, p.name || p.userId?.name || "Passenger")}
+                                                alt={p.name || p.userId?.name || "Passenger"}
                                                 className="h-full w-full object-cover"
                                              />
                                           </div>
                                           <div className="min-w-0 text-left">
-                                             <p className="truncate text-[14px] font-black text-white">{p.name || "Confirmed Passenger"}</p>
-                                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                                <span className="rounded-full bg-[#FFD700]/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#FFD700]">
-                                                   Confirmed
-                                                </span>
+                                             <p className="truncate text-[13px] font-black text-white">{p.name || p.userId?.name || "Confirmed Passenger"}</p>
+                                             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                                <span className="rounded-full bg-white/8 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-slate-200">
                                                   {p.seats} seat{p.seats > 1 ? "s" : ""}
                                                </span>
@@ -576,11 +706,11 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                                           </div>
                                        </div>
 
-                                       <div className="ml-3 flex shrink-0 items-center gap-1.5">
+                                       <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-auto">
                                           <button
                                              onClick={() => handlePassengerTripProgress(p)}
                                              disabled={isEndingPassenger}
-                                             className={`rounded-xl border px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.14em] transition-all active:scale-95 disabled:opacity-40 ${tripAction.className}`}
+                                             className={`rounded-xl border px-2.5 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all active:scale-95 disabled:opacity-40 ${tripAction.className}`}
                                           >
                                              {tripAction.label}
                                           </button>
@@ -616,14 +746,33 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                         )}
                      </div>
                   ) : (
-                     <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-[24px] p-6 flex flex-col items-center justify-center gap-3 relative z-10 text-center">
-                        <div className="w-14 h-14 bg-white/5 rounded-full flex items-center justify-center">
+                     <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] border border-white/10 rounded-[24px] p-5 flex flex-col items-center justify-center gap-3 relative z-10 text-center">
+                        <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center">
                            <Users className="text-slate-400 w-6 h-6" />
                         </div>
-                        <p className="text-[15px] font-bold text-slate-300">No riders in queue yet. New join requests will appear here with separate accept and decline buttons.</p>
+                        <p className="text-[14px] font-bold text-slate-300">Waiting for riders</p>
                         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
                            <TimerReset className="h-3.5 w-3.5" />
                            waiting live
+                        </div>
+                        <div className="w-full mt-2">
+                           {(rideState.activeRide?.passengers?.length > 0) ? (
+                              <button
+                                 onClick={handleEndDriverTrip}
+                                 className="px-6 py-4 bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-widest text-[11px] rounded-[22px] hover:bg-emerald-500/30 transition-all font-black border border-emerald-500/30 w-full flex justify-center items-center gap-2 hover:scale-[1.02] active:scale-95 shadow-lg"
+                              >
+                                 <CheckCircle2 className="w-4 h-4" />
+                                 Complete Session
+                              </button>
+                           ) : (
+                              <button
+                                 onClick={handleCancelDriverTrip}
+                                 className="px-6 py-4 bg-rose-500/10 text-rose-300 font-bold uppercase tracking-widest text-[11px] rounded-[22px] hover:bg-rose-500/20 transition-all font-black border border-rose-500/20 w-full flex justify-center items-center gap-2 hover:scale-[1.02] active:scale-95 shadow-sm"
+                              >
+                                 <XCircle className="w-4 h-4" />
+                                 Cancel Trip
+                              </button>
+                           )}
                         </div>
                      </div>
                   )}

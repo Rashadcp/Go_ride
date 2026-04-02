@@ -86,18 +86,18 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
             <h1 className="text-3xl font-black text-[#0A192F] mb-1 tracking-tight">Ride History</h1>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-[11px]">See your past rides and spending</p>
           </div>
-          <div className="flex gap-4 w-full sm:w-auto">
-            <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex gap-4 w-full sm:w-auto">
+            <div className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-0 sm:min-w-[120px]">
               <span className="text-[9px] font-black text-rose-400 uppercase tracking-widest">{filter === 'ALL' ? 'Total Spent' : `Spent on ${filter}`}</span>
               <span className="text-lg font-black text-[#0A192F]">Rs {totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
             </div>
             {totalEarned > 0 && (
-              <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-[120px]">
+              <div className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-0 sm:min-w-[120px]">
                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">{filter === 'ALL' ? 'Total Earned' : `Earned from ${filter}`}</span>
                 <span className="text-lg font-black text-emerald-600">Rs {totalEarned.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</span>
               </div>
             )}
-            <div className="flex-1 sm:flex-none px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center">
+            <div className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center min-w-0 sm:min-w-[120px]">
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Distance</span>
               <span className="text-lg font-black text-[#00838F]">{totalDistance.toFixed(1)} km</span>
             </div>
@@ -135,13 +135,13 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
               className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-2xl hover:border-[#FFD700]/50 transition-all group cursor-pointer relative overflow-hidden flex flex-col lg:flex-row gap-8 items-start lg:items-center animate-fade-in" 
               style={{ animationDelay: `${i * 50}ms` }}
             >
-              <div className="flex items-center gap-5 min-w-[220px]">
+              <div className="flex items-center gap-4 sm:gap-5 min-w-0 lg:min-w-[220px] w-full lg:w-auto">
                 <div className="w-16 h-16 bg-[#0A192F] text-[#FFD700] rounded-[24px] flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-500 shrink-0">
                   {ride.requestedVehicleType === 'car' || ride.requestedVehicleType === 'go' || ride.requestedVehicleType === 'sedan' ? <Car className="w-8 h-8" /> : ride.requestedVehicleType === 'bike' ? <Bike className="w-8 h-8" /> : <AutoRickshawIcon className="w-9 h-9" />}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h4 className="font-black text-[#0A192F] text-[15px] uppercase tracking-tight">{ride.requestedVehicleType || 'Ride'}</h4>
+                    <h4 className="font-black text-[#0A192F] text-[15px] uppercase tracking-tight truncate">{ride.requestedVehicleType || 'Ride'}</h4>
                     <div className="w-1 h-1 rounded-full bg-slate-300" />
                     <span className="text-[10px] font-black text-emerald-500 uppercase">Completed</span>
                   </div>
@@ -194,14 +194,14 @@ export function HistoryTab({ ridesHistory, setActiveTab, user }: { ridesHistory:
                 </div>
               </div>
 
-              <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between w-full lg:w-[160px] gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50">
-                <div className="text-left lg:text-right">
+              <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between w-full lg:w-[160px] gap-4 sm:gap-6 pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50">
+                <div className="text-left lg:text-right w-full sm:w-auto">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 leading-none">
                     {new Date(ride.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} • {new Date(ride.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <p className="text-[13px] font-black text-[#00838F] mt-1">{ride.distance?.toFixed(1) || '0.0'} KM TRIP</p>
                 </div>
-                <div className="text-right">
+                <div className="text-left sm:text-right w-full sm:w-auto">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">
                     {((ride.driverId === userId) || (ride.driverId?._id === userId)) ? 'Revenue' : 'Paid Amount'}
                   </p>

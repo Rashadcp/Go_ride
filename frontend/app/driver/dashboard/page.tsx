@@ -447,10 +447,10 @@ export default function DriverDashboard() {
     };
 
     return (
-        <div className="h-screen w-screen bg-[#0A192F] flex flex-col lg:flex-row overflow-hidden font-sans selection:bg-[#FFD700] selection:text-[#0A192F]">
+        <div className="min-h-screen lg:h-screen w-screen bg-[#0A192F] flex flex-col lg:flex-row overflow-hidden font-sans selection:bg-[#FFD700] selection:text-[#0A192F]">
             <DriverSidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
 
-            <main className="flex-1 flex flex-col h-full bg-[#0A192F] relative overflow-hidden pb-16 lg:pb-0">
+            <main className="flex-1 flex flex-col h-full bg-[#0A192F] relative overflow-hidden pb-16 lg:pb-0 min-w-0">
                 {activeTab === "dashboard" ? (
                     <LiveConsole 
                         user={user} userLoc={userLoc} isOnline={isOnline} locationName={locationName}

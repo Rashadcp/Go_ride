@@ -10,10 +10,11 @@ export const useMapLogic = () => {
     setStops,
     setDriverDest,
     setRouteInfo,
-    setIsSearchOpen,
     setIsRouteSearched,
     setSearchStarted,
     setLoadingDrivers,
+    setIsSearchOpen,
+    setFocusedStopId,
     setDashboardStep,
     resetRideState,
     userLoc
@@ -152,6 +153,9 @@ export const useMapLogic = () => {
       setLoadingDrivers(false);
     }
 
+    setFocusedStopId(id);
+    setIsSearchOpen(true);
+
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     if (query.length >= 3) {
       debounceTimer.current = setTimeout(() => fetchSuggestions(id, query, biasLat, biasLon), 300);
@@ -187,6 +191,7 @@ export const useMapLogic = () => {
     })));
     
     setIsSearchOpen(false);
+    setFocusedStopId(null);
     
     if (stopId !== 'pickup') {
       setSearchStarted(true);

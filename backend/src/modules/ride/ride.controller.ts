@@ -26,6 +26,31 @@ export const getUserRides = async (req: any, res: Response) => {
         // Add vehicle info for each ride if it has a driver
         const ridesWithVehicle = await Promise.all(rides.map(async (ride) => {
             const rideObj: any = ride.toObject();
+            
+            // ✅ Fix: If user was a passenger, prioritize their specific trip data (KM, pickup, drop)
+            if (ride.type === 'CARPOOL' && String(ride.driverId?._id || ride.driverId) !== String(req.user._id)) {
+                const myEntry = ride.passengers.find((p: any) => String(p.userId?._id || p.userId) === String(req.user._id));
+                if (myEntry) {
+                    if (myEntry.distance) rideObj.distance = myEntry.distance;
+                    if (myEntry.pickup?.label) rideObj.pickup = myEntry.pickup;
+                    if (myEntry.drop?.label) rideObj.drop = myEntry.drop;
+                    if (myEntry.tripStatus) rideObj.status = myEntry.tripStatus;
+                    if (myEntry.paymentMethod) rideObj.paymentMethod = myEntry.paymentMethod;
+                    if (myEntry.joinedAt) rideObj.joinedAt = myEntry.joinedAt;
+
+                    const seatCount = Number(myEntry.seats || 1);
+                    const seatPrice = Number(ride.pricePerSeat || ride.price || 0);
+                    if (seatPrice > 0) {
+                        rideObj.price = seatPrice * seatCount;
+                        rideObj.pricePerSeat = seatPrice;
+                    }
+
+                    if (myEntry.tripStatus === "COMPLETED" && !rideObj.completedAt) {
+                        rideObj.completedAt = ride.completedAt || new Date(myEntry.joinedAt || ride.updatedAt || ride.createdAt);
+                    }
+                }
+            }
+
             if (ride.driverId) {
                 const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
                 if (vehicle) {

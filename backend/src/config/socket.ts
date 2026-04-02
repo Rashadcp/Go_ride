@@ -15,6 +15,7 @@ import {
     setSocketDriver,
     DriverPresence
 } from "../sockets/state";
+import User from "../models/user";
 
 let io: Server;
 
@@ -75,6 +76,16 @@ export const initSocket = async (server: HttpServer) => {
             void (async () => {
                 const driverId = data.driverId;
                 if (!driverId) return;
+
+                // ✅ SECURITY: Verify role and approval status
+                const user = await User.findById(driverId);
+                // Allow both DRIVER and USER roles to go online (supports rideshare)
+                // but block if the account is explicitly INACTIVE
+                if (!user || (user.role !== 'DRIVER' && user.role !== 'USER') || user.status === 'INACTIVE') {
+                    // Fail silently or notify if needed
+                    console.warn(`[SECURITY] Unauthorized driver-online attempt: ${driverId} (${user?.name || 'Unknown'})`);
+                    return;
+                }
 
                 const presence: DriverPresence = {
                     ...data,

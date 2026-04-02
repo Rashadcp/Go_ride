@@ -39,6 +39,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       if (!rideData) return rideData;
 
       const normalizedRide = { ...(previousRide || {}), ...rideData };
+      const currentUserId = String(user?.id || user?._id || "");
       const rawDriver = normalizedRide.driverId;
 
       if (rawDriver && typeof rawDriver === "object") {
@@ -62,6 +63,25 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
 
       if (!normalizedRide.rideId && normalizedRide._id) {
         normalizedRide.rideId = normalizedRide._id;
+      }
+
+      const isSharedPassengerRide =
+        !!currentUserId &&
+        (normalizedRide.type === "CARPOOL" || normalizedRide.isSharedRide) &&
+        String(normalizedRide.driverId?._id || normalizedRide.driverId || "") !== currentUserId;
+
+      if (isSharedPassengerRide && Array.isArray(normalizedRide.passengers)) {
+        const passengerEntry = normalizedRide.passengers.find(
+          (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === currentUserId
+        );
+
+        if (passengerEntry?.paymentMethod) {
+          normalizedRide.paymentMethod = passengerEntry.paymentMethod;
+        }
+
+        if (passengerEntry?.paymentStatus) {
+          normalizedRide.paymentStatus = passengerEntry.paymentStatus;
+        }
       }
 
       return normalizedRide;
@@ -130,12 +150,11 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
 
         toast.success("Destination reached!");
 
-        if (isSharedPassengerRide) {
-          setActiveRide(null);
-          setPendingRideId(null);
-          setIsRequestingRide(false);
+        if (isDriverViewingOwnRide) {
+          resetRideState();
           queryClient.invalidateQueries({ queryKey: ['ridesHistory'] });
           queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+          toast.success("Trip completed and saved to history!");
           return;
         }
 
@@ -203,10 +222,16 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
     socket.on("wallet-update", handleWalletUpdate);
     socket.on("available-carpools", (pools: any[]) => {
       const currentId = user?.id || user?._id;
-      const filtered = pools.filter(p => {
-        const dId = p.driverId?._id || p.driverId || p.createdBy?._id || p.createdBy;
-        return String(dId) !== String(currentId);
-      });
+      const filtered = pools
+        .filter(p => {
+          const dId = p.driverId?._id || p.driverId || p.createdBy?._id || p.createdBy;
+          return String(dId) !== String(currentId);
+        })
+        .map((pool: any) => ({
+          ...pool,
+          requestedVehicleType: pool.requestedVehicleType || pool.vehicleType || "car",
+          vehicleType: pool.vehicleType || pool.requestedVehicleType || "car"
+        }));
       setAvailableCarpools(filtered);
       setLoadingDrivers(false);
     });

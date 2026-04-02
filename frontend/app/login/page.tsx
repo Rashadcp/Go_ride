@@ -8,7 +8,7 @@ import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
 
-import { Eye, EyeOff, Navigation, ArrowRight, ShieldCheck, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Navigation, ArrowRight, ShieldCheck, Mail } from "lucide-react";
 
 export default function LoginPage() {
     const { setAuth } = useAuthStore();
@@ -47,9 +47,9 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] flex font-[family-name:var(--font-roboto)] overflow-hidden transition-all duration-500">
+        <div className="min-h-screen bg-[#F5F5F0] text-[#1A1A1A] flex font-[family-name:var(--font-roboto)] overflow-x-hidden transition-all duration-500">
             {/* Left Side: Editorial Form */}
-            <div className="w-full lg:w-[45%] flex flex-col px-6 sm:px-12 lg:px-20 py-8 relative z-10">
+            <div className="w-full lg:w-[45%] flex flex-col px-4 sm:px-8 lg:px-20 py-6 sm:py-8 relative z-10">
                 <div className="flex items-center gap-3 cursor-pointer group mb-12 sm:mb-20" onClick={() => router.push("/")}>
                     <div className="w-9 h-9 bg-[#1A1A1A] rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
                         <Navigation className="w-5 h-5 text-[#FFD700] fill-current" strokeWidth={1.5} />
@@ -57,7 +57,7 @@ export default function LoginPage() {
                     <span className="font-[family-name:var(--font-montserrat)] font-black text-xl tracking-tighter uppercase text-[#1A1A1A]">GO<span className="text-[#FFD700]">RIDE</span></span>
                 </div>
 
-                <div className="max-w-md w-full mx-auto lg:ml-0 my-auto pb-10">
+                <div className="max-w-md w-full mx-auto lg:ml-0 my-auto pb-8 sm:pb-10">
                     <div className="mb-10 font-[family-name:var(--font-montserrat)] text-center sm:text-left">
                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFD700] mb-3 block">Welcome Back</span>
                         <h1 className="text-4xl sm:text-5xl font-black mb-3 tracking-tighter uppercase leading-tight">Sign <br /> <span className="text-[#B8860B]">In</span></h1>
@@ -66,7 +66,7 @@ export default function LoginPage() {
                         </p>
                     </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
                 <div className="space-y-2">
                     <div className="flex items-center justify-between ml-1">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1A1A1A]">Email</label>
@@ -110,7 +110,7 @@ export default function LoginPage() {
                         <Button
                             type="submit"
                             loading={loading}
-                            className="w-full py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none"
+                            className="w-full py-4 sm:py-5 bg-[#1A1A1A] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-black transition-all active:scale-[0.98] text-[10px] flex items-center justify-center gap-3 border-none"
                         >
                             Sign In <ArrowRight className="w-4 h-4" />
                         </Button>

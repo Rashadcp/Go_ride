@@ -31,6 +31,7 @@ interface RideState {
   searchStarted: boolean;
   isRouteSearched: boolean;
   isSearchOpen: boolean;
+  focusedStopId: string | null;
   draggedIndex: number | null;
 
   // Data & Socket State
@@ -65,6 +66,7 @@ interface RideState {
   setSearchStarted: (v: boolean) => void;
   setIsRouteSearched: (v: boolean) => void;
   setIsSearchOpen: (v: boolean) => void;
+  setFocusedStopId: (id: string | null) => void;
   setDraggedIndex: (v: number | null) => void;
 
   setVisibleNearbyDrivers: (v: any[]) => void;
@@ -107,6 +109,7 @@ export const useRideStore = create<RideState>()(
       searchStarted: false,
       isRouteSearched: false,
       isSearchOpen: false,
+      focusedStopId: null,
       draggedIndex: null,
 
       visibleNearbyDrivers: [],
@@ -140,6 +143,7 @@ export const useRideStore = create<RideState>()(
       setSearchStarted: (searchStarted) => set({ searchStarted }),
       setIsRouteSearched: (isRouteSearched) => set({ isRouteSearched }),
       setIsSearchOpen: (isSearchOpen) => set({ isSearchOpen }),
+      setFocusedStopId: (focusedStopId) => set({ focusedStopId }),
       setDraggedIndex: (draggedIndex) => set({ draggedIndex }),
 
       setVisibleNearbyDrivers: (visibleNearbyDrivers) => set({ visibleNearbyDrivers }),
@@ -192,6 +196,8 @@ export const useRideStore = create<RideState>()(
         driverDest: { id: 'driver-dest', query: '', coords: null, suggestions: [], showSuggestions: false },
         chatHistory: {}, // Clear all chats on reset
         unreadChatMessages: {}, // Clear all unreads
+        isSharedRide: false,
+        isDriverTripActive: false,
       }),
     }),
     {
