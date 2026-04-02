@@ -44,7 +44,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   } = rideState;
 
   const [selectedCarpoolId, setSelectedCarpoolId] = useState<string | null>(null);
-  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
+  const [selectedSeats, setSelectedSeats] = useState<any[]>([]);
+  const [isSeatModalOpen, setIsSeatModalOpen] = useState(false);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPaymentDone, setIsPaymentDone] = useState(false);
@@ -301,7 +302,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           return;
         }
 
-        if (!selectedSeatId && pool.seats && pool.seats.length > 0) {
+        if (selectedSeats.length === 0 && pool.seats && pool.seats.length > 0) {
            toast.error("Please pick a seat in the car map first!");
            return;
         }
@@ -312,8 +313,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
           name: user?.name,
           photo: user?.profilePhoto, // Include photo
-          seats: 1,
-          seatId: selectedSeatId,
+          seats: selectedSeats.length || 1,
+          seatId: selectedSeats.map(s => s.seatId).join(','),
           pickup: userLoc,
           drop: dropLoc?.coords,
           paymentMethod
@@ -377,7 +378,9 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   };
 
   const handleJoinCarpool = (poolId: string) => {
-    setSelectedCarpoolId(prev => prev === poolId ? null : poolId); // Toggle selection
+    setSelectedCarpoolId(poolId);
+    setSelectedSeats([]);
+    setIsSeatModalOpen(true);
   };
   const pickup = stops.find((s: any) => s.id === 'pickup') || { id: 'pickup', query: '', coords: null, suggestions: [], showSuggestions: false };
   const dropoff = stops.find((s: any) => s.id === 'dropoff') || stops.find((s: any) => s.id === '1') || { id: 'dropoff', query: '', coords: null, suggestions: [], showSuggestions: false };
@@ -565,7 +568,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       return (
                         <div key={pool.rideId} className="flex flex-col gap-2 relative">
                         <button
-                          onClick={() => { handleJoinCarpool(pool.rideId); setSelectedSeatId(null); }}
+                          onClick={() => { handleJoinCarpool(pool.rideId); }}
                           className={`w-full flex items-center gap-3 p-3 rounded-2xl border-2 transition-all group shrink-0 relative overflow-hidden bg-white ${isSelected
                               ? 'border-[#0A192F] shadow-md ring-1 ring-[#0A192F] bg-slate-50/50'
                               : 'border-slate-50 hover:border-[#0A192F]/20 hover:bg-slate-50 shadow-sm'
@@ -652,14 +655,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                           )}
                         </button>
                         
-                        {isSelected && pool.seats && pool.seats.length > 0 && (
-                          <div className="animate-in slide-in-from-top-2 fade-in duration-200">
-                             <CarSeatSelector 
-                                seats={pool.seats} 
-                                onSelectSeat={(s) => setSelectedSeatId(s.seatId)} 
-                             />
-                          </div>
-                        )}
                         </div>
                       );
                     })
@@ -753,7 +748,13 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
             <div className="px-2 mt-3 shrink-0 pt-2 border-t border-slate-100 bg-white/95">
               <button
-                onClick={handleCreateRequest}
+                onClick={() => {
+                  if (isSharedRide && selectedCarpoolId && selectedSeats.length === 0) {
+                    setIsSeatModalOpen(true);
+                  } else {
+                    handleCreateRequest();
+                  }
+                }}
                 disabled={isRequestingRide || loadingDrivers || isProcessingPayment}
                 className="w-full py-4 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none flex flex-col items-center justify-center gap-1 shrink-0 px-4"
               >
@@ -1079,6 +1080,59 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           promotions={promotions}
           setActiveRide={rideState.setActiveRide}
         />
+      )}
+
+      {/* 💺 Seat Selection Modal */}
+      {isSeatModalOpen && selectedCarpoolId && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 pointer-events-auto">
+          <div className="absolute inset-0 bg-[#0A192F]/80 backdrop-blur-2xl" onClick={() => setIsSeatModalOpen(false)} />
+          
+          <div className="relative w-full max-w-[400px] bg-white rounded-[32px] shadow-[0_50px_120px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            {/* Header */}
+            <div className="bg-[#0A192F] p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-[#FFD700]" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl font-black text-white tracking-tight">Select a Seat</h2>
+                <p className="text-[#FFD700] font-medium text-xs mt-0.5">Pick your preferred spot</p>
+              </div>
+              <button onClick={() => setIsSeatModalOpen(false)} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(() => {
+              const pool = availableCarpools.find((p: any) => p.rideId === selectedCarpoolId);
+              if (!pool) return null;
+              
+              return (
+                <div className="p-6 space-y-6">
+                  {/* Seat Map */}
+                  <div className="py-4">
+                    <CarSeatSelector 
+                      seats={pool.seats || []} 
+                      onSelectSeats={(seats) => setSelectedSeats(seats)} 
+                    />
+                  </div>
+
+                  {/* Proceed Button */}
+                  <button
+                    onClick={() => {
+                      setIsSeatModalOpen(false);
+                      handleCreateRequest();
+                    }}
+                    disabled={selectedSeats.length === 0}
+                    className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[13px] uppercase tracking-[0.2em] transition-all shadow-xl disabled:opacity-50 flex items-center justify-center gap-3"
+                  >
+                    Proceed to Request
+                    <ArrowLeft className="w-5 h-5 rotate-180" />
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
 
       {/* 🚨 Emergency Report Modal */}

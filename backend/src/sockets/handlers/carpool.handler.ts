@@ -14,20 +14,51 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
 
             // Handle Seat Selection System
             if (data.seatId) {
-                const targetSeat = (ride as any).seats?.find((s: any) => s.seatId === data.seatId);
-                if (targetSeat && targetSeat.status === 'AVAILABLE') {
+                const requestedSeatIds = data.seatId.split(',');
+                let seatsList = (ride as any).seats || [];
+                
+                // Polyfill seats if the ride was created before seat tracking was fully initialized
+                if (seatsList.length === 0) {
+                    const defaultSeats = [
+                        { seatId: 'FRONT_PASSENGER', type: 'FRONT', status: 'AVAILABLE' },
+                        { seatId: 'BACK_LEFT', type: 'WINDOW', status: 'AVAILABLE' },
+                        { seatId: 'BACK_MIDDLE', type: 'MIDDLE', status: 'AVAILABLE' },
+                        { seatId: 'BACK_RIGHT', type: 'WINDOW', status: 'AVAILABLE' }
+                    ];
+                    let offeredSeats = (ride as any).availableSeats || 4;
+                    seatsList = defaultSeats.map(seat => {
+                        if (offeredSeats > 0) {
+                            offeredSeats--;
+                            return { ...seat, status: 'AVAILABLE' };
+                        }
+                        return { ...seat, status: 'BOOKED' };
+                    });
+                    
+                    // Save polyfilled seats to DB so arrayFilters work later
+                    await Ride.updateOne({ rideId: data.rideId }, { $set: { seats: seatsList } });
+                }
+                
+                const allAvailable = requestedSeatIds.every(id => {
+                    const s = seatsList.find((seat: any) => seat.seatId === id);
+                    return s && s.status === 'AVAILABLE';
+                });
+
+                if (allAvailable) {
                     await Ride.updateOne(
-                        { rideId: data.rideId, "seats.seatId": data.seatId },
+                        { rideId: data.rideId },
                         {
                             $set: {
-                                "seats.$.status": "LOCKED",
-                                "seats.$.userId": data.userId,
-                                "seats.$.lockedUntil": new Date(Date.now() + 5 * 60000)
+                                "seats.$[elem].status": "LOCKED",
+                                "seats.$[elem].userId": data.userId,
+                                "seats.$[elem].lockedUntil": new Date(Date.now() + 5 * 60000)
                             }
+                        },
+                        {
+                            arrayFilters: [{ "elem.seatId": { $in: requestedSeatIds } }]
                         }
                     );
                 } else {
-                    return socket.emit("ride-request-failed", { reason: "Seat is no longer available" });
+                    return socket.emit("ride-request-failed", { reason: "One or more selected seats are no longer available" });
                 }
             }
 
@@ -52,13 +83,17 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
 
             // Confirm Seat Booked
             if (data.seatId) {
+                const confirmedSeatIds = data.seatId.split(',');
                 await Ride.updateOne(
-                    { rideId: data.rideId, "seats.seatId": data.seatId, "seats.userId": data.userId },
+                    { rideId: data.rideId },
                     {
                         $set: {
-                            "seats.$.status": "BOOKED",
-                            "seats.$.lockedUntil": null
+                            "seats.$[elem].status": "BOOKED",
+                            "seats.$[elem].lockedUntil": null
                         }
+                    },
+                    {
+                        arrayFilters: [{ "elem.seatId": { $in: confirmedSeatIds }, "elem.userId": data.userId }]
                     }
                 );
             }
