@@ -9,7 +9,7 @@ EXPOSE 5001
 CMD ["npm", "run", "dev"]
 
 FROM base AS build
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
