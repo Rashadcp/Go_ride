@@ -13,7 +13,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
     socket.on("ride-request", async (data: any) => {
         try {
-            const { pickup, destination, passengerId, requestedVehicleType, fare, rideId, isSharedRide, promoCode } = data;
+            const { pickup, destination, passengerId, requestedVehicleType, fare, originalPrice, rideId, isSharedRide, promoCode } = data;
 
             let finalPrice = fare;
             let appliedDiscountId = null;
@@ -23,9 +23,6 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const discount = await Discount.findOne({ code: promoCode, active: true, expiryDate: { $gt: new Date() } });
                 if (discount && discount.currentUsage < discount.maxUsage) {
                     appliedDiscountId = discount._id;
-                    // Note: We trust the client fare for now as it matched the UI, but we could recalculate here
-                    // discount.currentUsage += 1; // Increment usage on dispatch or completion? usually dispatch
-                    await Discount.findByIdAndUpdate(discount._id, { $inc: { currentUsage: 1 } });
                 }
             }
 
@@ -53,7 +50,9 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType,
                 paymentMethod: data.paymentMethod || 'WALLET',
                 isSharedRide: isSharedRide || false,
-                discountId: appliedDiscountId
+                promoCode: promoCode || null,
+                discountId: appliedDiscountId,
+                originalPrice: originalPrice || finalPrice
             });
 
             // Find nearby drivers

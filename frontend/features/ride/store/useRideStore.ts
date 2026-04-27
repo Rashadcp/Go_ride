@@ -17,6 +17,7 @@ interface RideState {
 
   // Ride Settings
   vehicleType: "go" | "sedan" | "xl" | "auto" | "bike" | "car";
+  carType: "SUV" | "Sedan" | "Hatchback" | null;
   isSharedRide: boolean;
   isDriverMode: boolean;
   isDriverTripActive: boolean;
@@ -53,6 +54,7 @@ interface RideState {
   setIsNotificationsOpen: (v: boolean) => void;
   
   setVehicleType: (v: "go" | "sedan" | "xl" | "auto" | "bike" | "car") => void;
+  setCarType: (v: "SUV" | "Sedan" | "Hatchback" | null) => void;
   setIsSharedRide: (v: boolean) => void;
   setIsDriverMode: (v: boolean) => void;
   setIsDriverTripActive: (v: boolean) => void;
@@ -93,6 +95,7 @@ export const useRideStore = create<RideState>()(
       isNotificationsOpen: false,
 
       vehicleType: "go",
+      carType: "Sedan",
       isSharedRide: false,
       isDriverMode: false,
       isDriverTripActive: false,
@@ -130,6 +133,7 @@ export const useRideStore = create<RideState>()(
       setIsNotificationsOpen: (isNotificationsOpen) => set({ isNotificationsOpen }),
 
       setVehicleType: (vehicleType) => set({ vehicleType }),
+      setCarType: (carType) => set({ carType }),
       setIsSharedRide: (isSharedRide) => set({ isSharedRide }),
       setIsDriverMode: (isDriverMode) => set({ isDriverMode }),
       setIsDriverTripActive: (isDriverTripActive) => set({ isDriverTripActive }),
@@ -205,6 +209,7 @@ export const useRideStore = create<RideState>()(
       partialize: (state) => ({
         isDriverMode: state.isDriverMode,
         vehicleType: state.vehicleType,
+        carType: state.carType,
         isSharedRide: state.isSharedRide,
         seatsAvailable: state.seatsAvailable,
         isRouteSearched: state.isRouteSearched,

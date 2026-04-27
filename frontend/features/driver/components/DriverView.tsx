@@ -439,7 +439,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
             duration: rideState.routeInfo?.duration || 10,
             availableSeats: seatsAvailable,
             departureTime: new Date(Date.now() + 15 * 60000).toISOString(),
-            vehicleType: rideState.vehicleType || "go"
+            vehicleType: rideState.vehicleType || "go",
+            carType: rideState.vehicleType !== 'bike' ? rideState.carType : undefined
          });
 
          rideState.setActiveRide(response.data);
@@ -509,10 +510,24 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
                {!isDriverTripActive && (
                   <div className="mt-8 pt-6 border-t border-slate-100">
-                     <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6 shadow-inner mx-0">
-                        <button onClick={() => { rideState.setVehicleType('go'); setSeatsAvailable(4); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${rideState.vehicleType !== 'bike' ? 'bg-white shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Car</button>
-                        <button onClick={() => { rideState.setVehicleType('bike'); setSeatsAvailable(1); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${rideState.vehicleType === 'bike' ? 'bg-[#FFD700] shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Bike</button>
+                     <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-4 shadow-inner mx-0">
+                        <button onClick={() => { rideState.setVehicleType('go'); setSeatsAvailable(4); rideState.setCarType("Sedan"); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${rideState.vehicleType !== 'bike' ? 'bg-white shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Car</button>
+                        <button onClick={() => { rideState.setVehicleType('bike'); setSeatsAvailable(1); rideState.setCarType(null); }} className={`flex-1 py-3 rounded-xl text-[13px] font-black uppercase tracking-widest transition-all ${rideState.vehicleType === 'bike' ? 'bg-[#FFD700] shadow-md text-[#0A192F]' : 'text-slate-400 hover:text-slate-600'}`}>Bike</button>
                      </div>
+
+                     {rideState.vehicleType !== 'bike' && (
+                        <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6 shadow-inner mx-0">
+                           {["Hatchback", "Sedan", "SUV"].map((type) => (
+                              <button
+                                 key={type}
+                                 onClick={() => { rideState.setCarType(type as any); setSeatsAvailable(type === "SUV" ? 6 : 4); }}
+                                 className={`flex-1 py-2 rounded-xl text-[12px] font-bold uppercase tracking-wider transition-all ${rideState.carType === type ? 'bg-black shadow-md text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                              >
+                                 {type}
+                              </button>
+                           ))}
+                        </div>
+                     )}
 
                      <div className="flex items-center justify-between mb-6">
                         <div>

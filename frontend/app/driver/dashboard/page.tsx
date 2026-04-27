@@ -215,6 +215,29 @@ export default function DriverDashboard() {
             vehicleType: (user as any).vehicleType || "go"
         });
 
+        void (async () => {
+            try {
+                const { data } = await api.post("/taxi/pending-requests", {
+                    location: { lat: userLoc[0], lng: userLoc[1] },
+                    vehicleType: (user as any).vehicleType || vehicleData.vehicleType || "go"
+                });
+
+                if (Array.isArray(data?.requests) && data.requests.length > 0) {
+                    setIncomingRequests(prev => {
+                        const existingIds = new Set(prev.map((request: any) => request?.rideId || request?.id || request?._id));
+                        const nextRequests = data.requests.filter((request: any) => {
+                            const requestId = request?.rideId || request?.id || request?._id;
+                            return requestId && !existingIds.has(requestId);
+                        });
+
+                        return [...nextRequests, ...prev];
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch pending driver requests:", error);
+            }
+        })();
+
         const handleIncoming = (request: any) => {
             setIncomingRequests(prev => {
                 const id = request?.rideId || request?.id || request?._id;

@@ -13,9 +13,11 @@ import UserRideHistoryModal from "@/components/admin/UserRideHistoryModal";
 import EditUserModal from "@/components/admin/EditUserModal";
 import VerificationModal from "@/components/admin/drivers/VerificationModal";
 import DriverTable from "@/components/admin/drivers/DriverTable";
+import DriverActionModal from "@/components/admin/drivers/DriverActionModal";
 
 import { Driver } from "@/lib/types/admin";
 
+type DriverActionType = "APPROVED" | "REJECTED" | "BLOCK";
 
 export default function DriverVerificationPage() {
     const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -23,6 +25,7 @@ export default function DriverVerificationPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [filter, setFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+    const [actionDriver, setActionDriver] = useState<Driver | null>(null);
 
     const fetchDrivers = async () => {
         setLoading(true);
@@ -39,32 +42,6 @@ export default function DriverVerificationPage() {
     useEffect(() => {
         fetchDrivers();
     }, []);
-
-    const handleAction = async (vehicleId: string, status: "APPROVED" | "REJECTED") => {
-        try {
-            await api.put(`/admin/approve-driver/${vehicleId}`, { status });
-            toast.success(`Driver ${status.toLowerCase()} successfully`);
-            fetchDrivers();
-            setSelectedDriver(null);
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to update status");
-        }
-    };
-
-    const toggleBlockUser = async (id: string, currentlyBlocked: boolean) => {
-        const action = currentlyBlocked ? "unblock" : "block";
-        if (!currentlyBlocked && !window.confirm(`Are you sure you want to block this driver?`)) return;
-        try {
-            await api.put(`/admin/users/block/${id}`);
-            toast.success(`Driver ${action}ed successfully`);
-            fetchDrivers();
-            if (selectedDriver?._id === id) {
-                setSelectedDriver(prev => prev ? { ...prev, isBlocked: !currentlyBlocked } : null);
-            }
-        } catch (error: any) {
-            toast.error(`Failed to ${action} driver`);
-        }
-    };
 
     const handleSoftDelete = async (id: string) => {
         if (!window.confirm("Are you sure you want to delete this driver?")) return;
@@ -91,6 +68,36 @@ export default function DriverVerificationPage() {
     const handleEditDriver = (driver: any) => {
         setEditingUser(driver);
         setIsEditModalOpen(true);
+    };
+
+    const handleDriverAction = async (action: DriverActionType) => {
+        if (!actionDriver) {
+            return;
+        }
+
+        try {
+            if (action === "BLOCK") {
+                const currentlyBlocked = !!actionDriver.isBlocked;
+                await api.put(`/admin/users/block/${actionDriver._id}`);
+                toast.success(`Driver ${currentlyBlocked ? "unblocked" : "blocked"} successfully`);
+            } else {
+                if (!actionDriver.vehicle?._id) {
+                    toast.error("This driver does not have a vehicle record to review.");
+                    return;
+                }
+
+                await api.put(`/admin/approve-driver/${actionDriver.vehicle._id}`, { status: action });
+                toast.success(`Driver ${action.toLowerCase()} successfully`);
+            }
+
+            await fetchDrivers();
+            if (selectedDriver?._id === actionDriver._id) {
+                setSelectedDriver(null);
+            }
+            setActionDriver(null);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to update driver action");
+        }
     };
 
     const filteredDrivers = drivers.filter(d => {
@@ -169,9 +176,8 @@ export default function DriverVerificationPage() {
                     onViewDocuments={setSelectedDriver}
                     onEdit={handleEditDriver}
                     onViewHistory={viewRideHistory}
-                    onToggleBlock={toggleBlockUser}
                     onDelete={handleSoftDelete}
-                    onQuickAction={handleAction}
+                    onOpenActions={setActionDriver}
                     getImageUrl={getImageUrl}
                 />
             </div>
@@ -180,7 +186,18 @@ export default function DriverVerificationPage() {
                 <VerificationModal 
                     driver={selectedDriver}
                     onClose={() => setSelectedDriver(null)}
-                    onAction={handleAction}
+                    onOpenActions={(driver) => {
+                        setSelectedDriver(null);
+                        setActionDriver(driver);
+                    }}
+                />
+            )}
+
+            {actionDriver && (
+                <DriverActionModal
+                    driver={actionDriver}
+                    onClose={() => setActionDriver(null)}
+                    onConfirm={handleDriverAction}
                 />
             )}
 

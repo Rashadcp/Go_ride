@@ -2,7 +2,7 @@
 
 import React from "react";
 import { 
-    User, Eye, Edit2, History, Unlock, Ban, Trash2, Check, X 
+    User, Eye, Edit2, History, Trash2, Settings2
 } from "lucide-react";
 
 import { Driver } from "@/lib/types/admin";
@@ -13,9 +13,8 @@ interface DriverTableProps {
     onViewDocuments: (driver: Driver) => void;
     onEdit: (driver: Driver) => void;
     onViewHistory: (id: string) => void;
-    onToggleBlock: (id: string, currentlyBlocked: boolean) => void;
     onDelete: (id: string) => void;
-    onQuickAction: (vehicleId: string, status: "APPROVED" | "REJECTED") => void;
+    onOpenActions: (driver: Driver) => void;
     getImageUrl: (path?: string) => string;
 }
 
@@ -24,9 +23,8 @@ export default function DriverTable({
     onViewDocuments, 
     onEdit, 
     onViewHistory, 
-    onToggleBlock, 
     onDelete, 
-    onQuickAction,
+    onOpenActions,
     getImageUrl
 }: DriverTableProps) {
     return (
@@ -56,7 +54,6 @@ export default function DriverTable({
                                         <div>
                                             <p className="font-black text-[#0A192F] tracking-tight flex items-center gap-1.5 uppercase italic italic-none">
                                                 {driver.name}
-                                                {driver.isBlocked && <Ban className="w-3 h-3 text-rose-500" />}
                                             </p>
                                             <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest">{driver.email}</p>
                                         </div>
@@ -88,26 +85,6 @@ export default function DriverTable({
                                 </td>
                                 <td className="px-8 py-6">
                                     <div className="flex items-center justify-end gap-1.5">
-                                        {/* Verification Quick Actions */}
-                                        {(driver.status === 'PENDING' || driver.status === 'AWAITING_APPROVAL') && driver.vehicle && (
-                                            <div className="flex items-center gap-1 mr-3 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                                                <button
-                                                    onClick={() => driver.vehicle && onQuickAction(driver.vehicle._id, "APPROVED")}
-                                                    className="p-2 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-lg transition-all border border-transparent hover:border-emerald-200"
-                                                    title="Quick Approve"
-                                                >
-                                                    <Check className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => driver.vehicle && onQuickAction(driver.vehicle._id, "REJECTED")}
-                                                    className="p-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all border border-transparent hover:border-rose-200"
-                                                    title="Quick Reject"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        )}
-
                                         <button
                                             onClick={() => onViewDocuments(driver)}
                                             className="p-2.5 text-blue-500 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-xl transition-all shadow-sm"
@@ -129,13 +106,12 @@ export default function DriverTable({
                                         >
                                             <History className="w-4 h-4" />
                                         </button>
-                                        <div className="w-px h-5 bg-slate-100 mx-1.5" />
                                         <button
-                                            onClick={() => onToggleBlock(driver._id, !!driver.isBlocked)}
-                                            className={`p-2.5 rounded-xl transition-all border shadow-sm ${driver.isBlocked ? 'text-emerald-600 bg-emerald-100 border-emerald-200' : 'text-rose-500 bg-rose-50 border-rose-100 hover:bg-rose-100'}`}
-                                            title={driver.isBlocked ? "Unblock Unit" : "Block Unit"}
+                                            onClick={() => onOpenActions(driver)}
+                                            className="p-2.5 text-[#0A192F] bg-[#FFD700]/15 border border-[#FFD700]/30 hover:bg-[#FFD700] rounded-xl transition-all shadow-sm"
+                                            title="Open Driver Actions"
                                         >
-                                            {driver.isBlocked ? <Unlock className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                            <Settings2 className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => onDelete(driver._id)}

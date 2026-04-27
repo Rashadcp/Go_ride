@@ -155,12 +155,14 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     const distance = routeInfo?.distance || 0;
 
     // Initial fare based on car type and distance
-    let finalFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
+    let baseFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
 
     // Apply shared ride discount (e.g. 40% off) if in shared mode
     if (isSharedRide) {
-      finalFare = finalFare * 0.6;
+      baseFare = baseFare * 0.6;
     }
+
+    let finalFare = baseFare;
 
     // Apply specific promotion if selected
     if (selectedPromo) {
@@ -171,10 +173,14 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       }
     }
 
-    return Math.round(finalFare);
+    return {
+        base: Math.round(baseFare),
+        final: Math.round(finalFare)
+    };
   };
 
-  const estimatedRideFare = calculateFare(vehicleType);
+  const currentFareData = calculateFare(vehicleType);
+  const estimatedRideFare = currentFareData.final;
 
   const getRideSettlementAmount = (ride: any) => {
     if (!ride) return estimatedRideFare;
@@ -371,6 +377,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       requestedVehicleType: isSharedRide ? "carpool" : vehicleType,
       isSharedRide,
       fare: estimatedRideFare,
+      originalPrice: currentFareData.base,
       promoCode: selectedPromo?.code || null,
       distance: routeInfo?.distance || 0,
       duration: routeInfo?.duration || 0,
@@ -735,7 +742,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                 <div className="space-y-3 mt-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1 scroll-smooth">
                   {CAR_STYLES.map(style => {
                     const isSelected = vehicleType === style.id;
-                    const carFare = calculateFare(style.id);
+                    const fareData = calculateFare(style.id);
+                    const carFare = fareData.final;
                     return (
                       <button
                         key={style.id}

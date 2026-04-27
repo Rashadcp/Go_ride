@@ -60,6 +60,11 @@ const rideSchema = new mongoose.Schema(
             enum: ["bike", "auto", "car", "go", "sedan", "xl"],
             default: "car",
         },
+        carType: {
+            type: String,
+            enum: ["SUV", "Sedan", "Hatchback"],
+            required: false,
+        },
         passengers: [{
             userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
             name: String,
@@ -106,6 +111,10 @@ const rideSchema = new mongoose.Schema(
             required: true,
         },
         pricePerSeat: {
+            type: Number,
+            default: 0,
+        },
+        originalPricePerSeat: {
             type: Number,
             default: 0,
         },

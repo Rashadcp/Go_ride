@@ -18,16 +18,25 @@ interface Notification {
 interface NotificationsPopoverProps {
     isOpen: boolean;
     onClose: () => void;
+    onNotificationsChange?: (notifications: Notification[]) => void;
 }
 
-export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ isOpen, onClose }) => {
+export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ isOpen, onClose, onNotificationsChange }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const syncNotifications = (updater: Notification[] | ((prev: Notification[]) => Notification[])) => {
+        setNotifications(prev => {
+            const next = typeof updater === "function" ? (updater as (prev: Notification[]) => Notification[])(prev) : updater;
+            onNotificationsChange?.(next);
+            return next;
+        });
+    };
 
     const fetchNotifications = async () => {
         try {
             const { data } = await api.get("/notifications");
-            setNotifications(data);
+            syncNotifications(data);
         } catch (error) {
             console.error("Failed to fetch notifications:", error);
         } finally {
@@ -44,7 +53,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ isOp
     const markAsRead = async (id: string) => {
         try {
             await api.patch(`/notifications/${id}/read`);
-            setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+            syncNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
         } catch (error) {
             toast.error("Failed to mark as read");
         }
@@ -53,7 +62,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ isOp
     const markAllAsRead = async () => {
         try {
             await api.patch("/notifications/read-all");
-            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            syncNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             toast.success("All caught up!");
         } catch (error) {
             toast.error("Failed to mark all as read");
@@ -63,7 +72,7 @@ export const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({ isOp
     const deleteNotification = async (id: string) => {
         try {
             await api.delete(`/notifications/${id}`);
-            setNotifications(prev => prev.filter(n => n._id !== id));
+            syncNotifications(prev => prev.filter(n => n._id !== id));
             toast.success("Notification removed");
         } catch (error) {
             toast.error("Failed to delete notification");

@@ -5,7 +5,7 @@ import {
     markAllAsRead, 
     deleteNotification 
 } from "./notification.controller";
-import { protect } from "../../middleware/auth.middleware";
+import { protect } from "../../common/middleware/auth.middleware";
 
 const router = Router();
 

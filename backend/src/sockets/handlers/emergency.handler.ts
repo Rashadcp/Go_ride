@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
 import EmergencyReport from "../../models/emergencyReport";
 import Ride from "../../models/ride";
+import { createNotificationsForRole } from "../../modules/notification/notification.controller";
 
 export const registerEmergencyHandlers = (io: Server, socket: Socket) => {
     // Ride Emergency (Alert User -> Server -> Admin/Authorities)
@@ -48,6 +49,13 @@ export const registerEmergencyHandlers = (io: Server, socket: Socket) => {
                 driverName: data.driverName,
                 driverId: data.driverId,
             });
+
+            await createNotificationsForRole(
+                "ADMIN",
+                "Emergency Alert Received",
+                `${data.type || "OTHER"} emergency reported${data.driverName ? ` involving ${data.driverName}` : ""}. Immediate review recommended.`,
+                "SYSTEM"
+            );
             
             // Confirm to sender
             socket.emit("ride:emergency:received", { success: true, reportId: report._id });

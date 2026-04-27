@@ -12,16 +12,24 @@ import { Driver } from "@/lib/types/admin";
 interface VerificationModalProps {
     driver: Driver;
     onClose: () => void;
-    onAction: (vehicleId: string, status: "APPROVED" | "REJECTED") => void;
+    onOpenActions: (driver: Driver) => void;
 }
 
-export default function VerificationModal({ driver, onClose, onAction }: VerificationModalProps) {
+export default function VerificationModal({ driver, onClose, onOpenActions }: VerificationModalProps) {
     const getImageUrl = (path?: string) => {
         if (!path) return "";
         if (path.startsWith("http") || path.startsWith("data:")) return path;
         const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001").replace("/api", "");
         return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
     };
+
+    const vehicleObj = driver.vehicle as any;
+    const vehiclePhotos = [
+        ...(vehicleObj?.vehiclePhotos || []),
+        ...(vehicleObj?.photos || []),
+        ...(vehicleObj?.photo ? [vehicleObj.photo] : []),
+        ...(vehicleObj?.vehiclePhoto ? [vehicleObj.vehiclePhoto] : [])
+    ].filter(Boolean);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -107,33 +115,43 @@ export default function VerificationModal({ driver, onClose, onAction }: Verific
 
                             <div className="bg-white rounded-[32px] border border-slate-100 p-8 space-y-8 shadow-sm">
                                 {/* Vehicle Photos */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    {(() => {
-                                        const vehicleObj = driver.vehicle as any;
-                                        const photos = vehicleObj?.vehiclePhotos || 
-                                                      vehicleObj?.photos || 
-                                                      (vehicleObj?.photo ? [vehicleObj.photo] : 
-                                                      (vehicleObj?.vehiclePhoto ? [vehicleObj.vehiclePhoto] : []));
-                                        
-                                        if (photos && Array.isArray(photos) && photos.length > 0) {
-                                            return photos.map((photo: string, idx: number) => (
-                                                <div key={idx} className="aspect-video rounded-[24px] overflow-hidden border border-slate-100 group relative">
-                                                    <img src={getImageUrl(photo)} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                                                    <div className="absolute inset-0 bg-[#0A192F]/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                                        <a href={getImageUrl(photo)} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-white text-[#0A192F] flex items-center justify-center rounded-[18px] shadow-2xl hover:scale-110 transition-all">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {vehiclePhotos.length > 0 ? (
+                                        vehiclePhotos.map((photo: string, idx: number) => (
+                                            <div
+                                                key={`${photo}-${idx}`}
+                                                className="group relative overflow-hidden rounded-[24px] border border-slate-100 bg-slate-100 shadow-sm"
+                                            >
+                                                <div className="relative aspect-[4/3] sm:aspect-video min-h-[180px]">
+                                                    <img
+                                                        src={getImageUrl(photo)}
+                                                        alt={`Vehicle photo ${idx + 1}`}
+                                                        loading="lazy"
+                                                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                                                    />
+                                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0A192F]/45 via-[#0A192F]/10 to-transparent" />
+                                                    <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[9px] font-black uppercase tracking-[0.25em] text-[#0A192F] shadow-sm backdrop-blur">
+                                                        View {idx + 1}
+                                                    </div>
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-[#0A192F]/35 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                                                        <a
+                                                            href={getImageUrl(photo)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-white text-[#0A192F] shadow-2xl transition-all hover:scale-110"
+                                                        >
                                                             <ExternalLink className="w-5 h-5" />
                                                         </a>
                                                     </div>
                                                 </div>
-                                            ));
-                                        }
-                                        return (
-                                            <div className="col-span-2 py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[24px] text-slate-200 border border-dashed border-slate-200">
-                                                <Car className="w-12 h-12 mb-3 opacity-10" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Exterior Images Unavailable</span>
                                             </div>
-                                        );
-                                    })()}
+                                        ))
+                                    ) : (
+                                        <div className="sm:col-span-2 py-12 flex flex-col items-center justify-center bg-slate-50 rounded-[24px] text-slate-200 border border-dashed border-slate-200">
+                                            <Car className="w-12 h-12 mb-3 opacity-10" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Exterior Images Unavailable</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-8">
@@ -181,16 +199,10 @@ export default function VerificationModal({ driver, onClose, onAction }: Verific
                     {driver.vehicle ? (
                         <>
                             <button
-                                onClick={() => onAction(driver.vehicle!._id, "REJECTED")}
-                                className="px-10 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] italic text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white transition-all shadow-sm border border-rose-100"
-                            >
-                                Decline Intent
-                            </button>
-                            <button
-                                onClick={() => onAction(driver.vehicle!._id, "APPROVED")}
+                                onClick={() => onOpenActions(driver)}
                                 className="px-10 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-[0.2em] italic text-[#FFD700] bg-[#0A192F] hover:bg-black transition-all shadow-xl shadow-[#0A192F]/10 border border-[#0A192F]"
                             >
-                                Authorize Driver
+                                Open Review Actions
                             </button>
                         </>
                     ) : (

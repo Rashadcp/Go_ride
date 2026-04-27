@@ -135,3 +135,51 @@ export const sendBookingConfirmation = async (userEmail: string, rideDetails: an
     return { success: false, message: error.message || "Email failed" };
   }
 };
+
+export const sendDriverApprovalEmail = async (
+  email: string,
+  driverName: string
+) => {
+  const isMockMode = !process.env.EMAIL_USER || !process.env.EMAIL_PASS;
+
+  if (isMockMode) {
+    console.log("-----------------------------------------");
+    console.log(`[DEV MODE] Driver approval email for ${email}`);
+    console.log(`Driver: ${driverName}`);
+    console.log("-----------------------------------------");
+    return { message: "Mock driver approval email sent" };
+  }
+
+  const mailOptions = {
+    from: `"GoRide" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "GoRide - Driver Approval Confirmed",
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 14px; background-color: #ffffff;">
+        <h1 style="color: #111827; text-align: center; margin-bottom: 24px; font-size: 28px; font-weight: 800;">Go<span style="color: #fbbf24;">Ride</span></h1>
+        <p style="color: #374151; font-size: 16px;">Hello ${driverName || "Driver"},</p>
+        <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+          Your driver profile has been approved. You can now sign in, go online, and start accepting rides on GoRide.
+        </p>
+        <div style="margin: 24px 0; padding: 18px; border-radius: 10px; background: #111827; color: #ffffff;">
+          <p style="margin: 0; font-size: 14px; color: #fbbf24; text-transform: uppercase; letter-spacing: 1px;">Status</p>
+          <p style="margin: 8px 0 0; font-size: 24px; font-weight: 800;">Approved</p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+          Please make sure your app is updated and your vehicle details are accurate before starting your first trip.
+        </p>
+        <hr style="border: 0; border-top: 1px solid #f3f4f6; margin: 24px 0;">
+        <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">&copy; 2026 GoRide Platforms Inc.</p>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Driver approval email sent: ${info.messageId}`);
+    return info;
+  } catch (error: any) {
+    console.error("Failed to send driver approval email. Error details:", error);
+    return { success: false, message: error.message || "Email failed" };
+  }
+};

@@ -20,12 +20,25 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "react-hot-toast";
 import api from "@/lib/axios";
+import { NotificationsPopover } from "@/features/dashboard/components/NotificationsPopover";
+import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
+
+interface NotificationItem {
+    _id: string;
+    title: string;
+    message: string;
+    type: "INFO" | "RIDE_UPDATE" | "PAYMENT" | "SYSTEM";
+    isRead: boolean;
+    createdAt: string;
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
     const { user, clearAuth } = useAuthStore();
     const [stats, setStats] = React.useState<any>(null);
+    const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
+    const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -40,16 +53,60 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, []);
 
     useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const { data } = await api.get("/notifications");
+                setNotifications(data);
+            } catch (error) {
+                console.error("Failed to fetch admin notifications");
+            }
+        };
+
+        if (user?.role === "ADMIN") {
+            fetchNotifications();
+        }
+    }, [user?.role]);
+
+    useEffect(() => {
         if (user && user.role !== "ADMIN") {
             toast.error("Access denied");
             router.push("/user/dashboard");
         }
     }, [user, router]);
 
+    useEffect(() => {
+        if (!user || user.role !== "ADMIN") {
+            return;
+        }
+
+        connectSocket();
+        const userId = user.id || user._id;
+
+        if (userId) {
+            socket.emit("join", { userId, role: "ADMIN" });
+        }
+
+        const handleNotification = (notification: NotificationItem) => {
+            setNotifications((prev) => {
+                const next = [notification, ...prev.filter((item) => item._id !== notification._id)];
+                return next;
+            });
+        };
+
+        socket.on("notification:new", handleNotification);
+
+        return () => {
+            socket.off("notification:new", handleNotification);
+            disconnectSocket();
+        };
+    }, [user]);
+
     const handleLogout = () => {
         clearAuth();
         router.push("/login");
     };
+
+    const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
     const navItems = [
         { id: "dashboard", href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -142,7 +199,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-hidden bg-[#F8FAFC]">
-                <header className="h-20 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-8 flex-shrink-0 z-10">
+                <header className="relative h-20 bg-white border-b border-[#E2E8F0] flex items-center justify-between px-8 flex-shrink-0 z-10">
                     <div>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 block">Platform System</span>
                         <h2 className="text-sm font-black text-[#0A192F] tracking-wide uppercase italic">
@@ -154,10 +211,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div className="flex items-center gap-6">
 
                         <div className="flex items-center gap-4 pl-6 border-l border-slate-100">
-                            <button className="relative p-2 text-slate-400 hover:text-[#0A192F] hover:bg-slate-50 rounded-xl transition-all">
+                            <button
+                                onClick={() => setIsNotificationsOpen((prev) => !prev)}
+                                className={`relative p-2 rounded-xl transition-all ${
+                                    isNotificationsOpen
+                                        ? "bg-slate-100 text-[#0A192F]"
+                                        : "text-slate-400 hover:text-[#0A192F] hover:bg-slate-50"
+                                }`}
+                            >
                                 <Bell className="w-5 h-5" />
-                                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white shadow-sm"></span>
+                                )}
                             </button>
+                            <NotificationsPopover
+                                isOpen={isNotificationsOpen}
+                                onClose={() => setIsNotificationsOpen(false)}
+                                onNotificationsChange={setNotifications}
+                            />
                             {user && (
                                 <div className="flex items-center gap-3 ml-2 group cursor-pointer">
                                     <div className="text-right hidden sm:block">

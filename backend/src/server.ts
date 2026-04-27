@@ -17,6 +17,8 @@ import notificationRoutes from "./modules/notification/notification.routes";
 
 import passport from "./config/passport";
 import { closeRedisConnections, connectRedis } from "./config/redis";
+import { registerAdminEventHandlers } from "./modules/admin/admin.events";
+import { errorHandler, notFoundHandler } from "./common/middleware/error.middleware";
 
 dotenv.config();
 
@@ -92,19 +94,8 @@ app.use("/api/notifications", notificationRoutes);
 app.get("/", (req, res) => res.send("Go Ride API Running"));
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Global Error Context:", {
-    method: req.method,
-    url: req.url,
-    error: err.message || err,
-    stack: process.env.NODE_ENV === "development" ? err.stack : undefined
-  });
-
-  res.status(err.status || 500).json({
-    message: err.message || "An unexpected error occurred on the server.",
-    error: process.env.NODE_ENV === "development" ? err : undefined
-  });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = Number(process.env.PORT) || 5000;
 
@@ -112,6 +103,7 @@ const bootstrap = async () => {
   await connectMongo();
   await connectRedis();
   await initSocket(httpServer);
+  registerAdminEventHandlers();
 
   httpServer.listen(PORT, () => {
     console.log(`Server + real-time system on port ${PORT}`);

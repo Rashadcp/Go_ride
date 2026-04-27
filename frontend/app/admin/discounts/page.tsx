@@ -223,7 +223,16 @@ export default function AdminDiscountsPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Expiry Date</label>
-                                    <input type="date" required value={formData.expiryDate} onChange={e => setFormData({...formData, expiryDate: e.target.value})} className="w-full h-12 px-5 bg-slate-50 rounded-xl border border-slate-200 focus:border-[#FFD700] focus:ring-2 ring-[#FFD700]/10 font-bold text-sm text-[#0A192F] outline-none transition-all" />
+                                    <label className="relative block">
+                                        <Calendar className="pointer-events-none absolute left-4 top-1/2 w-4 h-4 -translate-y-1/2 text-[#FFD700]" />
+                                        <input
+                                            type="date"
+                                            required
+                                            value={formData.expiryDate}
+                                            onChange={e => setFormData({...formData, expiryDate: e.target.value})}
+                                            className="calendar-input w-full h-12 appearance-none rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-5 font-bold text-sm text-[#0A192F] outline-none transition-all focus:border-[#FFD700] focus:ring-2 ring-[#FFD700]/10"
+                                        />
+                                    </label>
                                 </div>
                             </div>
                             <div className="space-y-2">
@@ -246,6 +255,14 @@ export default function AdminDiscountsPage() {
                     </div>
                 </div>
             )}
+
+            <style jsx>{`
+                .calendar-input::-webkit-calendar-picker-indicator {
+                    opacity: 1;
+                    cursor: pointer;
+                    filter: invert(14%) sepia(19%) saturate(1171%) hue-rotate(175deg) brightness(93%) contrast(99%);
+                }
+            `}</style>
         </div>
     );
 }

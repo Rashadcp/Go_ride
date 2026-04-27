@@ -7,14 +7,15 @@ import {
     TrendingUp,
     ArrowUpRight,
     ArrowDownRight,
-    DollarSign,
     Calendar,
     Filter,
     Download,
     Loader2,
-    PieChart,
     Activity,
-    CreditCard
+    CreditCard,
+    Search,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -23,8 +24,10 @@ interface Transaction {
     _id: string;
     userId: { name: string, email: string };
     amount: number;
-    type: string;
-    status: string;
+    type: "CREDIT" | "DEBIT";
+    status: "SUCCESS" | "PENDING" | "FAILED";
+    method?: "ONLINE" | "WALLET" | "CASH";
+    description?: string;
     createdAt: string;
 }
 
@@ -32,19 +35,44 @@ export default function AdminRevenuePage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<any>(null);
+    const [filters, setFilters] = useState({
+        search: "",
+        type: "CREDIT",
+        status: "ALL",
+        method: "ALL",
+        dateFrom: "",
+        dateTo: "",
+        page: 1,
+        limit: 12
+    });
+    const [pagination, setPagination] = useState({
+        currentPage: 1,
+        totalPages: 1,
+        totalTransactions: 0
+    });
 
     const fetchData = async () => {
         setLoading(true);
         try {
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== "" && value !== "ALL") {
+                    params.set(key, String(value));
+                }
+            });
+
             const [txRes, statsRes] = await Promise.all([
-                api.get("/admin/transactions?type=CREDIT&limit=50"),
+                api.get(`/admin/transactions?${params.toString()}`),
                 api.get("/admin/stats")
             ]);
-            // Handle paginated or direct array response
+
             if (txRes.data && txRes.data.transactions) {
                 setTransactions(txRes.data.transactions);
-            } else if (Array.isArray(txRes.data)) {
-                setTransactions(txRes.data);
+                setPagination({
+                    currentPage: txRes.data.currentPage || 1,
+                    totalPages: txRes.data.totalPages || 1,
+                    totalTransactions: txRes.data.totalTransactions || txRes.data.transactions.length
+                });
             }
             setStats(statsRes.data.stats);
         } catch (error: any) {
@@ -56,7 +84,15 @@ export default function AdminRevenuePage() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [filters]);
+
+    const updateFilter = (key: keyof typeof filters, value: string | number) => {
+        setFilters(prev => ({
+            ...prev,
+            [key]: value,
+            ...(key !== "page" ? { page: 1 } : {})
+        }));
+    };
 
     const handleExportPDF = () => {
         const doc = new jsPDF();
@@ -168,15 +204,81 @@ export default function AdminRevenuePage() {
 
             {/* Transaction Ledger */}
             <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col flex-1">
-                <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-                    <h2 className="font-black text-[#0A192F] uppercase tracking-widest text-[11px] flex items-center gap-3 italic">
-                        <Activity className="w-5 h-5 text-[#FFD700]" />
-                        Payment History
-                    </h2>
-                    <div className="flex gap-4">
-                        <button className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:text-[#0A192F] hover:bg-slate-100 transition-all border border-slate-100">
-                            <Filter className="w-5 h-5" />
-                        </button>
+                <div className="space-y-6 border-b border-slate-50 p-8">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <h2 className="font-black text-[#0A192F] uppercase tracking-widest text-[11px] flex items-center gap-3 italic">
+                            <Activity className="w-5 h-5 text-[#FFD700]" />
+                            Payment History
+                        </h2>
+                        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+                            <Filter className="w-4 h-4 text-[#FFD700]" />
+                            {pagination.totalTransactions} Records
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(0,0.7fr))]">
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 w-4 h-4 -translate-y-1/2 text-slate-300" />
+                            <input
+                                type="text"
+                                value={filters.search}
+                                onChange={(e) => updateFilter("search", e.target.value)}
+                                placeholder="Search by name, email, or description..."
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-bold text-[#0A192F] outline-none transition-all focus:border-[#FFD700] focus:ring-2 ring-[#FFD700]/10"
+                            />
+                        </div>
+
+                        <select
+                            value={filters.type}
+                            onChange={(e) => updateFilter("type", e.target.value)}
+                            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[11px] font-black uppercase tracking-widest text-[#0A192F] outline-none"
+                        >
+                            <option value="CREDIT">Credits</option>
+                            <option value="DEBIT">Debits</option>
+                            <option value="ALL">All Types</option>
+                        </select>
+
+                        <select
+                            value={filters.status}
+                            onChange={(e) => updateFilter("status", e.target.value)}
+                            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[11px] font-black uppercase tracking-widest text-[#0A192F] outline-none"
+                        >
+                            <option value="ALL">All Statuses</option>
+                            <option value="SUCCESS">Success</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="FAILED">Failed</option>
+                        </select>
+
+                        <select
+                            value={filters.method}
+                            onChange={(e) => updateFilter("method", e.target.value)}
+                            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-[11px] font-black uppercase tracking-widest text-[#0A192F] outline-none"
+                        >
+                            <option value="ALL">All Methods</option>
+                            <option value="ONLINE">Online</option>
+                            <option value="WALLET">Wallet</option>
+                            <option value="CASH">Cash</option>
+                        </select>
+
+                        <label className="relative block">
+                            <Calendar className="pointer-events-none absolute left-4 top-1/2 w-4 h-4 -translate-y-1/2 text-[#FFD700]" />
+                            <input
+                                type="date"
+                                value={filters.dateFrom}
+                                onChange={(e) => updateFilter("dateFrom", e.target.value)}
+                                className="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-[11px] font-black uppercase tracking-widest text-[#0A192F] outline-none calendar-input"
+                            />
+                        </label>
+
+                        <label className="relative block">
+                            <Calendar className="pointer-events-none absolute left-4 top-1/2 w-4 h-4 -translate-y-1/2 text-[#FFD700]" />
+                            <input
+                                type="date"
+                                value={filters.dateTo}
+                                onChange={(e) => updateFilter("dateTo", e.target.value)}
+                                className="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-[11px] font-black uppercase tracking-widest text-[#0A192F] outline-none calendar-input"
+                            />
+                        </label>
                     </div>
                 </div>
 
@@ -201,7 +303,7 @@ export default function AdminRevenuePage() {
                                             </div>
                                             <div>
                                                 <p className="font-black text-sm text-[#0A192F] tracking-tight">{tx.userId?.name || "System"}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{tx.type} RECORD</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{tx.method || tx.type} RECORD</p>
                                             </div>
                                         </div>
                                     </td>
@@ -240,7 +342,39 @@ export default function AdminRevenuePage() {
                         </tbody>
                     </table>
                 </div>
+
+                <div className="flex flex-col gap-4 border-t border-slate-100 bg-slate-50/70 px-8 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+                        Page {pagination.currentPage} of {pagination.totalPages}
+                    </p>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => updateFilter("page", Math.max(1, filters.page - 1))}
+                            disabled={pagination.currentPage <= 1}
+                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                            Prev
+                        </button>
+                        <button
+                            onClick={() => updateFilter("page", Math.min(pagination.totalPages || 1, filters.page + 1))}
+                            disabled={pagination.currentPage >= pagination.totalPages}
+                            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            Next
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            <style jsx>{`
+                .calendar-input::-webkit-calendar-picker-indicator {
+                    opacity: 1;
+                    cursor: pointer;
+                    filter: invert(14%) sepia(19%) saturate(1171%) hue-rotate(175deg) brightness(93%) contrast(99%);
+                }
+            `}</style>
         </div>
     );
 }
