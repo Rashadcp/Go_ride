@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import type { NextFunction } from "express";
 import { forgotPassword, resetPassword } from "../../../src/modules/auth/auth.controller";
 import User from "../../../src/models/user";
 import { sendOTP } from "../../../src/config/mail";
@@ -78,6 +79,9 @@ const createRes = () => {
   return res;
 };
 
+const createNext = () => jest.fn() as jest.MockedFunction<NextFunction>;
+const getNextError = (next: jest.MockedFunction<NextFunction>) => next.mock.calls[0]?.[0] as unknown as Error;
+
 describe("auth.controller password flows", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -88,13 +92,13 @@ describe("auth.controller password flows", () => {
 
     const req: any = { body: { email: "nobody@example.com" } };
     const res = createRes();
+    const next = createNext();
 
-    await forgotPassword(req, res);
+    await forgotPassword(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining("not registered") })
-    );
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(getNextError(next).message).toContain("not registered");
   });
 
   it("forgotPassword returns fallback message when email sending fails", async () => {
@@ -108,14 +112,16 @@ describe("auth.controller password flows", () => {
 
     const req: any = { body: { email: "user@example.com" } };
     const res = createRes();
+    const next = createNext();
 
-    await forgotPassword(req, res);
+    await forgotPassword(req, res, next);
 
     expect(userDoc.save).toHaveBeenCalledTimes(1);
     expect(mockedSendOTP).toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ message: expect.stringContaining("Real email failed") })
     );
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("forgotPassword returns success when OTP dispatch succeeds", async () => {
@@ -129,10 +135,12 @@ describe("auth.controller password flows", () => {
 
     const req: any = { body: { email: "user@example.com" } };
     const res = createRes();
+    const next = createNext();
 
-    await forgotPassword(req, res);
+    await forgotPassword(req, res, next);
 
     expect(res.json).toHaveBeenCalledWith({ message: "OTP sent to email" });
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("resetPassword returns 400 for invalid OTP", async () => {
@@ -142,11 +150,13 @@ describe("auth.controller password flows", () => {
       body: { email: "user@example.com", otp: "123456", newPassword: "new-pass" },
     };
     const res = createRes();
+    const next = createNext();
 
-    await resetPassword(req, res);
+    await resetPassword(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: "Invalid or expired OTP" });
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(getNextError(next).message).toBe("Invalid or expired OTP");
   });
 
   it("resetPassword updates hash and clears reset fields", async () => {
@@ -164,8 +174,9 @@ describe("auth.controller password flows", () => {
       body: { email: "user@example.com", otp: "123456", newPassword: "new-pass" },
     };
     const res = createRes();
+    const next = createNext();
 
-    await resetPassword(req, res);
+    await resetPassword(req, res, next);
 
     expect(mockedBcrypt.hash).toHaveBeenCalledWith("new-pass", 10);
     expect(userDoc.password).toBe("new_hash");
@@ -173,5 +184,6 @@ describe("auth.controller password flows", () => {
     expect(userDoc.resetPasswordExpires).toBeUndefined();
     expect(userDoc.save).toHaveBeenCalledTimes(1);
     expect(res.json).toHaveBeenCalledWith({ message: "Password reset successful" });
+    expect(next).not.toHaveBeenCalled();
   });
 });

@@ -10,10 +10,7 @@ services:
     restart: always
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: prod
+    image: ${DOCKERHUB_USERNAME}/go-ride-backend:latest
     container_name: goride-backend-prod
     ports:
       - "5001:5001"

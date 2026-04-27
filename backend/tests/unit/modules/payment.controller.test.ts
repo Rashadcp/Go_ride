@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { NextFunction } from "express";
 import { createPayment, verifyPayment } from "../../../src/modules/payment/payment.controller";
 import Ride from "../../../src/models/ride";
 import Transaction from "../../../src/models/transaction";
@@ -61,6 +62,9 @@ const createRes = () => {
   return res;
 };
 
+const createNext = () => jest.fn() as jest.MockedFunction<NextFunction>;
+const getNextError = (next: jest.MockedFunction<NextFunction>) => next.mock.calls[0]?.[0] as unknown as Error;
+
 describe("payment.controller", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -70,11 +74,13 @@ describe("payment.controller", () => {
   it("createPayment returns 400 for invalid amount", async () => {
     const req: any = { body: { amount: 0 }, user: { id: "u1" } };
     const res = createRes();
+    const next = createNext();
 
-    await createPayment(req, res);
+    await createPayment(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: "Please provide a valid payment amount." });
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(getNextError(next).message).toBe("Please provide a valid payment amount.");
   });
 
   it("createPayment creates Razorpay order for wallet top-up", async () => {
@@ -82,8 +88,9 @@ describe("payment.controller", () => {
 
     const req: any = { body: { amount: 100, method: "RAZORPAY" }, user: { id: "u1" } };
     const res = createRes();
+    const next = createNext();
 
-    await createPayment(req, res);
+    await createPayment(req, res, next);
 
     expect(razorpayOrderCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 10000, currency: "INR" })
@@ -95,6 +102,7 @@ describe("payment.controller", () => {
         paymentContext: expect.objectContaining({ purpose: "WALLET_TOPUP", amount: 100 }),
       })
     );
+    expect(next).not.toHaveBeenCalled();
   });
 
   it("createPayment returns 404 when ride payment target is not found", async () => {
@@ -106,11 +114,13 @@ describe("payment.controller", () => {
       user: { id: "u1" },
     };
     const res = createRes();
+    const next = createNext();
 
-    await createPayment(req, res);
+    await createPayment(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ message: "Ride not found for payment." });
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(getNextError(next).message).toBe("Ride not found for payment.");
   });
 
   it("verifyPayment returns 400 when signature is invalid", async () => {
@@ -124,11 +134,13 @@ describe("payment.controller", () => {
       user: { id: "u1" },
     };
     const res = createRes();
+    const next = createNext();
 
-    await verifyPayment(req, res);
+    await verifyPayment(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ message: "Signature verification failed" });
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(getNextError(next).message).toBe("Signature verification failed");
   });
 
   it("verifyPayment credits wallet and creates transaction for top-up", async () => {
@@ -155,8 +167,9 @@ describe("payment.controller", () => {
       user: { id: "u1" },
     };
     const res = createRes();
+    const next = createNext();
 
-    await verifyPayment(req, res);
+    await verifyPayment(req, res, next);
 
     expect(userDoc.walletBalance).toBe(100);
     expect(userDoc.save).toHaveBeenCalledTimes(1);
@@ -179,5 +192,6 @@ describe("payment.controller", () => {
         type: "TOPUP",
       })
     );
+    expect(next).not.toHaveBeenCalled();
   });
 });
