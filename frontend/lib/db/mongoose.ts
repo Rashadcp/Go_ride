@@ -1,11 +1,5 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGO_URI;
-
-if (!MONGODB_URI) {
-  throw new Error("MONGO_URI is missing. Add it to frontend/.env.local for Next API routes.");
-}
-
 declare global {
   // eslint-disable-next-line no-var
   var _mongooseConnection:
@@ -23,8 +17,13 @@ global._mongooseConnection = cached;
 export async function connectToDatabase() {
   if (cached.conn) return cached.conn;
 
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri) {
+    throw new Error("MONGO_URI is missing. Add it to frontend/.env.local for Next API routes.");
+  }
+
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI as string, {
+    cached.promise = mongoose.connect(mongoUri, {
       dbName: process.env.MONGO_DB_NAME,
       bufferCommands: false,
     });
