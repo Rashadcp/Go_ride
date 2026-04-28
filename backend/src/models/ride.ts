@@ -26,6 +26,14 @@ const rideSchema = new mongoose.Schema(
             ref: "User",
             required: true,
         },
+        passengerName: {
+            type: String,
+            default: null,
+        },
+        passengerPhoto: {
+            type: String,
+            default: null,
+        },
         driverId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -33,8 +41,8 @@ const rideSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED", "OPEN", "FULL", "NO_DRIVER"],
-            default: "SEARCHING",
+            enum: ["PENDING", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "COMPLETED", "CANCELLED", "OPEN", "FULL", "NO_DRIVER", "EXPIRED"],
+            default: "PENDING",
             uppercase: true,
         },
         pickup: {
@@ -135,6 +143,18 @@ const rideSchema = new mongoose.Schema(
             },
             rejectedAt: Date,
         }],
+        expiresAt: {
+            type: Date,
+            default: null,
+        },
+        expiredAt: {
+            type: Date,
+            default: null,
+        },
+        broadcastedDrivers: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+        }],
         acceptedAt: Date,
         arrivedAt: Date,
         startedAt: Date,
@@ -183,6 +203,8 @@ rideSchema.set('toObject', { virtuals: true });
 rideSchema.index({ createdBy: 1, status: 1 });
 rideSchema.index({ driverId: 1, status: 1 });
 rideSchema.index({ status: 1 });
+rideSchema.index({ expiresAt: 1, status: 1 });
+rideSchema.index({ broadcastedDrivers: 1, status: 1 });
 rideSchema.index({ "pickup.location": "2dsphere" });
 rideSchema.index({ "drop.location": "2dsphere" });
 rideSchema.index({ type: 1 });

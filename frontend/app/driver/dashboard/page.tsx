@@ -19,6 +19,8 @@ import { NotificationsTab } from "@/features/driver/components/NotificationsTab"
 import { Loader2, MessageCircle, Info } from "lucide-react";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 
+const getRequestKey = (request: any) => request?.rideId || request?.dbId || request?.id || request?._id;
+
 export default function DriverDashboard() {
     const router = useRouter();
     const { user, clearAuth } = useAuthStore();
@@ -224,9 +226,9 @@ export default function DriverDashboard() {
 
                 if (Array.isArray(data?.requests) && data.requests.length > 0) {
                     setIncomingRequests(prev => {
-                        const existingIds = new Set(prev.map((request: any) => request?.rideId || request?.id || request?._id));
+                        const existingIds = new Set(prev.map((request: any) => getRequestKey(request)));
                         const nextRequests = data.requests.filter((request: any) => {
-                            const requestId = request?.rideId || request?.id || request?._id;
+                            const requestId = getRequestKey(request);
                             return requestId && !existingIds.has(requestId);
                         });
 
@@ -240,8 +242,8 @@ export default function DriverDashboard() {
 
         const handleIncoming = (request: any) => {
             setIncomingRequests(prev => {
-                const id = request?.rideId || request?.id || request?._id;
-                if (id && prev.find(r => (r.rideId || r.id || r._id) === id)) return prev;
+                const id = getRequestKey(request);
+                if (id && prev.find(r => getRequestKey(r) === id)) return prev;
                 return [request, ...prev];
             });
             toast.success("New Ride Request Nearby!", { icon: "🚗" });
@@ -249,7 +251,7 @@ export default function DriverDashboard() {
 
         const handleCancelled = (data: any) => {
             const id = data?.rideId || data?.id;
-            setIncomingRequests(prev => prev.filter(r => (r.rideId || r.id) !== id));
+            setIncomingRequests(prev => prev.filter(r => getRequestKey(r) !== id));
             setActiveTrip((prev: any) => {
                 if (id && prev?.rideId === id) {
                     toast.error("Passenger cancelled the ride.");
@@ -260,6 +262,10 @@ export default function DriverDashboard() {
         };
 
         const handleStatusUpdate = (data: any) => {
+            if (data?.rideId && data.status === "ACCEPTED") {
+                setIncomingRequests(prev => prev.filter(r => getRequestKey(r) !== data.rideId));
+            }
+
             setActiveTrip((prev: any) => {
                 if (!prev || prev.rideId !== data.rideId) return prev;
                 if (data.status === "COMPLETED" || data.status === "CANCELLED") {
@@ -351,13 +357,13 @@ export default function DriverDashboard() {
     }, [userLoc, isOnline, user]);
 
     const handleDeclineRequest = (id: string, rideId: string) => {
-        setIncomingRequests(prev => prev.filter(r => r.rideId !== rideId));
+        setIncomingRequests(prev => prev.filter(r => getRequestKey(r) !== rideId));
         if (user) socket.emit("ride-reject", { rideId, driverId: user.id || user._id });
         toast.error("Request dismissed");
     };
 
     const handleAcceptRequest = (request: any) => {
-        setIncomingRequests(prev => prev.filter(r => r.rideId !== request.rideId));
+        setIncomingRequests(prev => prev.filter(r => getRequestKey(r) !== request.rideId));
         if (user) {
             socket.emit("join-ride", { rideId: request.rideId });
             socket.emit("ride-accept", {

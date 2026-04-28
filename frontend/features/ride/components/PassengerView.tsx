@@ -884,7 +884,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
             <div className="p-8 pb-6 relative z-10 border-b border-slate-100/50 bg-slate-50/30">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                  {activeRide.status === "SEARCHING" ? "Searching for driver" :
+                  {["PENDING", "SEARCHING"].includes(activeRide.status) ? "Searching for driver" :
                     activeRide.status === "ACCEPTED" ? "Driver arriving" :
                       activeRide.status === "ARRIVED" ? "Driver is here" :
                         activeRide.status === "STARTED" ? "Trip in progress" : "Trip Summary"}
@@ -932,7 +932,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       {activeRide.status === "ARRIVED" ? "Driver Here" :
                         activeRide.status === "STARTED" ? "Trip Started" :
                           activeRide.status === "ACCEPTED" ? "Driver Arriving" :
-                            activeRide.status === "SEARCHING" ? "Searching..." :
+                            ["PENDING", "SEARCHING"].includes(activeRide.status) ? "Searching..." :
                               (activeRide.eta || (dist ? `${dist.toFixed(1)} km away` : 'On the Way'))}
                     </h2>
                     <div className="flex items-center gap-2 mt-0.5">

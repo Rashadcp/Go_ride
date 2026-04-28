@@ -1,16 +1,19 @@
 import { Response } from "express";
 import Ride from "../../models/ride";
 import asyncHandler from "express-async-handler";
-import { getPendingRideRequestsForDriver } from "./taxi.service";
+import {
+    createPendingTaxiRideRequest,
+    getPendingRideRequestsForDriver,
+    markRideRequestsBroadcastedToDriver,
+    rideRequestToDriverPayload
+} from "./taxi.service";
 
 export const requestTaxi = asyncHandler(async (req: any, res: Response) => {
     const { rideId, pickup, drop, price, distance, duration, requestedVehicleType } = req.body;
     
-    const newRide = new Ride({
+    const newRide = await createPendingTaxiRideRequest({
         rideId,
-        type: "TAXI",
         createdBy: req.user.id,
-        status: "SEARCHING",
         pickup,
         drop,
         price,
@@ -18,8 +21,6 @@ export const requestTaxi = asyncHandler(async (req: any, res: Response) => {
         duration,
         requestedVehicleType
     });
-
-    await newRide.save();
     res.status(201).json(newRide);
 });
 
@@ -42,8 +43,14 @@ export const getPendingDriverRequests = asyncHandler(async (req: any, res: Respo
     const pendingRequests = await getPendingRideRequestsForDriver({
         driverId: req.user.id,
         location,
-        vehicleType
+        vehicleType,
+        excludePreviouslyBroadcasted: false
     });
 
-    res.json({ requests: pendingRequests });
+    await markRideRequestsBroadcastedToDriver({
+        driverId: req.user.id,
+        rideIds: pendingRequests.map((ride: any) => ride._id)
+    });
+
+    res.json({ requests: pendingRequests.map((ride: any) => rideRequestToDriverPayload(ride)) });
 });

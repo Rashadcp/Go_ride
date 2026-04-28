@@ -8,6 +8,13 @@ import Discount from "../../models/discount";
 import Vehicle from "../../models/vehicle";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
+import {
+    createPendingTaxiRideRequest,
+    expirePendingRideRequests,
+    getEligibleOnlineDriversForRide,
+    markRideRequestsBroadcastedToDriver,
+    rideRequestToDriverPayload
+} from "../../modules/taxi/taxi.service";
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
@@ -26,11 +33,12 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 }
             }
 
+            await expirePendingRideRequests();
+
             // Create ride record using 'createdBy' for passengerId
-            const newRide = await Ride.create({
+            const newRide = await createPendingTaxiRideRequest({
                 rideId: rideId || `RIDE-${Date.now()}`,
                 createdBy: passengerId,
-                type: isSharedRide ? 'CARPOOL' : 'TAXI',
                 pickup: {
                     lat: pickup.lat,
                     lng: pickup.lng,
@@ -46,60 +54,43 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 price: finalPrice,
                 distance: parseFloat(data.distance) || 0,
                 duration: parseFloat(data.duration) || 0,
-                status: 'SEARCHING',
                 requestedVehicleType: requestedVehicleType === 'carpool' ? 'car' : requestedVehicleType,
                 paymentMethod: data.paymentMethod || 'WALLET',
                 isSharedRide: isSharedRide || false,
                 promoCode: promoCode || null,
                 discountId: appliedDiscountId,
-                originalPrice: originalPrice || finalPrice
+                originalPrice: originalPrice || finalPrice,
+                passengerName: data.passengerName,
+                passengerPhoto: data.passengerPhoto
             });
 
-            // Find nearby drivers
-            // For TAXI, look for available drivers of specific type
-            // Distance helper (Haversine formula)
-            const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-                const R = 6371; // km
-                const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                return R * c;
-            };
-
-            const nearbyDrivers = (await getAvailableDrivers()).filter(d => {
-                if (!d.location?.lat || !d.location?.lng) return false;
-                
-                const distance = getDistance(pickup.lat, pickup.lng, d.location.lat, d.location.lng);
-                const driverVehicleType = (d.vehicleType || "").toLowerCase();
-                const passengerRequestedType = (requestedVehicleType || "").toLowerCase();
-                
-                // Only notify if within 20km AND (it's carpool OR vehicle type matches)
-                const isMatch = d.status === "available" && distance <= 20 && 
-                    (isSharedRide ? d.isCarpool === true : (driverVehicleType === passengerRequestedType && !d.isCarpool));
-
-                return isMatch;
+            const nearbyDrivers = await getEligibleOnlineDriversForRide({
+                ride: newRide,
+                requestedVehicleType,
+                isSharedRide,
+                availableDrivers: await getAvailableDrivers()
             });
 
             // Notify them
             console.log(`📡 [DISPATCH] Searching for ${requestedVehicleType} drivers (Shared: ${isSharedRide})`);
             
+            const deliveredDriverIds: string[] = [];
+
             nearbyDrivers.forEach(driver => {
-                io.to(driver.socketId).emit("ride-request", {
-                    rideId: newRide.rideId,
-                    dbId: newRide._id,
-                    passengerId,
-                    passengerName: data.passengerName,
-                    passengerPhoto: data.passengerPhoto,
-                    pickup,
-                    destination,
-                    fare,
-                    distance: data.distance,
-                    isSharedRide
-                });
+                io.to(driver.socketId).emit("ride-request", rideRequestToDriverPayload(newRide));
+                deliveredDriverIds.push(driver.driverId);
             });
+
+            if (deliveredDriverIds.length > 0) {
+                await Promise.all(
+                    deliveredDriverIds.map((driverId) =>
+                        markRideRequestsBroadcastedToDriver({
+                            driverId,
+                            rideIds: [newRide._id]
+                        })
+                    )
+                );
+            }
 
             // [FIX] Search for existing carpool offers matching this route to help manual intervention
             let matchingPools: any[] = [];
@@ -148,7 +139,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     socket.on("cancel-ride-request", async (data: { passengerId: string }) => {
         try {
             await Ride.findOneAndUpdate(
-                { createdBy: data.passengerId, status: 'SEARCHING' },
+                { createdBy: data.passengerId, status: { $in: ["PENDING", "SEARCHING"] } },
                 { status: 'CANCELLED', cancelledAt: new Date() },
                 { new: true }
             );
@@ -242,14 +233,36 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
         try {
             const { rideId, driverId, driverInfo } = data;
             const finalDriverId = driverId || socket.data.user?.id || socket.data.user?._id;
+            await expirePendingRideRequests();
             
-            const updatedRide = await Ride.findOneAndUpdate({ rideId }, {
+            const updatedRide = await Ride.findOneAndUpdate({
+                rideId,
+                status: { $in: ["PENDING", "SEARCHING"] },
+                $and: [
+                    {
+                        $or: [
+                            { driverId: { $exists: false } },
+                            { driverId: null }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { expiresAt: { $exists: false } },
+                            { expiresAt: null },
+                            { expiresAt: { $gt: new Date() } }
+                        ]
+                    }
+                ]
+            }, {
                 driverId: finalDriverId,
                 status: 'ACCEPTED',
                 acceptedAt: new Date()
             }, { new: true }).populate('createdBy').populate('driverId');
 
-            if (!updatedRide) return;
+            if (!updatedRide) {
+                socket.emit("ride-request-failed", { reason: "This ride request is no longer available." });
+                return;
+            }
 
             // Trigger Email Booking Confirmation to Passenger
             try {
@@ -304,6 +317,17 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 }
             });
 
+            const notifiedDriverIds = (updatedRide.broadcastedDrivers || []).map((id: any) => String(id));
+            notifiedDriverIds
+                .filter((id: string) => id !== String(finalDriverId))
+                .forEach((id: string) => {
+                    io.to(`driver:${id}`).emit("ride-status-update", {
+                        rideId,
+                        status: "ACCEPTED",
+                        ride: updatedRide.toObject()
+                    });
+                });
+
             if (finalDriverId) {
                 await updateDriverStatus(finalDriverId.toString(), "busy");
 
@@ -317,7 +341,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             // and cancel them so they don't get stuck waiting forever
             const otherStuckRides = await Ride.find({
                 rideId: { $ne: rideId },
-                status: 'SEARCHING',
+                status: { $in: ["PENDING", "SEARCHING"] },
                 requestedVehicleType: updatedRide.requestedVehicleType,
                 type: updatedRide.type,
                 createdAt: { $gte: new Date(Date.now() - 5 * 60 * 1000) } // within last 5 min

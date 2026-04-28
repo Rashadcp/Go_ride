@@ -24,6 +24,7 @@ dotenv.config();
 
 import { createServer } from "http";
 import { initSocket } from "./config/socket";
+import { expirePendingRideRequests } from "./modules/taxi/taxi.service";
 
 const app = express();
 const httpServer = createServer(app);
@@ -104,6 +105,13 @@ const bootstrap = async () => {
   await connectRedis();
   await initSocket(httpServer);
   registerAdminEventHandlers();
+  await expirePendingRideRequests();
+
+  setInterval(() => {
+    void expirePendingRideRequests().catch((error) => {
+      console.error("Pending ride expiry sweep failed:", error);
+    });
+  }, 60 * 1000);
 
   httpServer.listen(PORT, () => {
     console.log(`Server + real-time system on port ${PORT}`);

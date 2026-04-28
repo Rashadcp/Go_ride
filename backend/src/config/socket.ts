@@ -16,6 +16,11 @@ import {
     DriverPresence
 } from "../sockets/state";
 import User from "../models/user";
+import {
+    getPendingRideRequestsForDriver,
+    markRideRequestsBroadcastedToDriver,
+    rideRequestToDriverPayload
+} from "../modules/taxi/taxi.service";
 
 let io: Server;
 
@@ -76,7 +81,6 @@ export const initSocket = async (server: HttpServer) => {
             }
         });
 
-        // ✅ FIX: Respond to individual user requesting the current driver list
         socket.on("get-active-drivers", () => {
             void (async () => {
                 const availableDrivers = await getAvailableDrivers();
@@ -91,13 +95,9 @@ export const initSocket = async (server: HttpServer) => {
                 const driverId = data.driverId;
                 if (!driverId) return;
 
-                // ✅ SECURITY: Verify role and approval status
                 const user = await User.findById(driverId);
-                // Allow both DRIVER and USER roles to go online (supports rideshare)
-                // but block if the account is explicitly INACTIVE
-                if (!user || (user.role !== 'DRIVER' && user.role !== 'USER') || user.status === 'INACTIVE') {
-                    // Fail silently or notify if needed
-                    console.warn(`[SECURITY] Unauthorized driver-online attempt: ${driverId} (${user?.name || 'Unknown'})`);
+                if (!user || (user.role !== "DRIVER" && user.role !== "USER") || user.status === "INACTIVE") {
+                    console.warn(`[SECURITY] Unauthorized driver-online attempt: ${driverId} (${user?.name || "Unknown"})`);
                     return;
                 }
 
@@ -109,24 +109,40 @@ export const initSocket = async (server: HttpServer) => {
                     status: "available"
                 };
 
-                // Track if this is a fresh online notification for this socket
                 const isNewSession = !(socket as any).isDriverOnline;
-                
+
                 await setActiveDriver(driverId, presence);
                 await setSocketDriver(socket.id, driverId);
-                
+
                 socket.join(`driver:${driverId}`);
                 socket.join("drivers-pool");
 
-                // Only log when first going online or reconnecting
                 if (isNewSession) {
                     (socket as any).isDriverOnline = true;
                     const availableDrivers = await getAvailableDrivers();
-                    console.log(`✅ [DRIVER ONLINE] ${data.name || driverId} (${socket.id}). Total: ${availableDrivers.length}`);
+                    console.log(`[DRIVER ONLINE] ${data.name || driverId} (${socket.id}). Total: ${availableDrivers.length}`);
                     io.emit("active-drivers", availableDrivers);
+
+                    if (data.location?.lat && data.location?.lng) {
+                        const pendingRequests = await getPendingRideRequestsForDriver({
+                            driverId,
+                            location: data.location,
+                            vehicleType: data.vehicleType,
+                            excludePreviouslyBroadcasted: true
+                        });
+
+                        if (pendingRequests.length > 0) {
+                            pendingRequests.forEach((ride: any) => {
+                                socket.emit("ride-request", rideRequestToDriverPayload(ride));
+                            });
+
+                            await markRideRequestsBroadcastedToDriver({
+                                driverId,
+                                rideIds: pendingRequests.map((ride: any) => ride._id)
+                            });
+                        }
+                    }
                 } else {
-                    // Just broadcast the individual update instead of full list to save bandwidth
-                    // Most clients only need to know who moved, not the full list every 500ms
                     io.emit("driver:location:updated", {
                         driverId,
                         location: data.location,

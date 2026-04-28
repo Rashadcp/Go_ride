@@ -81,7 +81,7 @@ export const getActiveRide = asyncHandler(async (req: any, res: Response) => {
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
     const ride = await Ride.findOne({
         $or: [
-            { createdBy: req.user._id, status: { $in: ["REQUESTED", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } },
+            { createdBy: req.user._id, status: { $in: ["REQUESTED", "PENDING", "SEARCHING", "ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } },
             { driverId: req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } },
             { "passengers.userId": req.user._id, status: { $in: ["ACCEPTED", "ARRIVED", "STARTED", "OPEN", "FULL", "COMPLETED"] } }
         ],
