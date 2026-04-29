@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { AxiosError } from "axios";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import {
@@ -33,14 +34,12 @@ import {
     Smartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { useUser } from "@/hooks/useAuth";
-import { useAuthStore } from "@/store/authStore";
+import { logoutUser } from "@/lib/logout";
 
 export default function DriverOnboardingPage() {
     const { user, isLoading: userLoading, refetch: refetchUser } = useUser();
     const router = useRouter();
-    const clearAuth = useAuthStore(state => state.clearAuth);
     const [loading, setLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -115,17 +114,17 @@ export default function DriverOnboardingPage() {
             await api.put("/auth/driver/onboarding", formData);
             toast.success("Details submitted for verification!");
             refetchUser();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Submission Error:", error);
-            const msg = error.response?.data?.message || "Submission failed";
-            toast.error(`${msg}`);
+            const msg = error instanceof AxiosError ? error.response?.data?.message : null;
+            toast.error(msg || "Submission failed");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleNavigateHome = () => {
-        clearAuth();
+    const handleNavigateHome = async () => {
+        await logoutUser();
         router.push("/");
     };
 
@@ -161,8 +160,9 @@ export default function DriverOnboardingPage() {
                             </Button>
                             <button
                                 onClick={() => {
-                                    clearAuth();
-                                    window.location.href = "/login";
+                                    void logoutUser().finally(() => {
+                                        window.location.href = "/login";
+                                    });
                                 }}
                                 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-3 hover:text-[#1A1A1A] transition-colors"
                             >

@@ -1,4 +1,5 @@
 import axios, { AxiosHeaders, InternalAxiosRequestConfig } from 'axios';
+import { useAuthStore } from '@/store/authStore';
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
@@ -18,7 +19,7 @@ const redirectToLogin = () => {
     const publicPaths = ['/login', '/register', '/forgot-password', '/'];
 
     if (!publicPaths.includes(currentPath)) {
-        localStorage.clear();
+        useAuthStore.getState().clearAuth();
         window.location.href = '/login?expired=true';
     }
 };
@@ -32,27 +33,22 @@ const setAuthorizationHeader = (config: RetryableRequestConfig, token: string) =
 const refreshAccessToken = async () => {
     if (typeof window === 'undefined') return null;
 
-    const storedRefreshToken = localStorage.getItem('refreshToken');
-    if (!storedRefreshToken) return null;
-
     if (!refreshRequest) {
         refreshRequest = api
-            .post('/auth/refresh-token', { token: storedRefreshToken })
+            .post('/auth/refresh-token')
             .then((response) => {
-                const { accessToken, refreshToken } = response.data;
+                const { accessToken } = response.data;
 
-                if (!accessToken || !refreshToken) {
+                if (!accessToken) {
                     throw new Error('Token refresh response is incomplete');
                 }
 
-                localStorage.setItem('accessToken', accessToken);
-                localStorage.setItem('refreshToken', refreshToken);
+                useAuthStore.getState().setAccessToken(accessToken);
 
                 return accessToken as string;
             })
             .catch((refreshError) => {
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('refreshToken');
+                useAuthStore.getState().clearAuth();
                 throw refreshError;
             })
             .finally(() => {
@@ -65,7 +61,7 @@ const refreshAccessToken = async () => {
 
 api.interceptors.request.use(
     (config) => {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+        const token = typeof window !== 'undefined' ? useAuthStore.getState().accessToken : null;
 
         if (token) {
             setAuthorizationHeader(config as RetryableRequestConfig, token);

@@ -19,8 +19,10 @@ interface User {
 interface AuthState {
     user: User | null;
     accessToken: string | null;
-    refreshToken: string | null;
-    setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+    sessionChecked: boolean;
+    setAuth: (user: User, accessToken: string) => void;
+    setAccessToken: (accessToken: string | null) => void;
+    setSessionChecked: (sessionChecked: boolean) => void;
     clearAuth: () => void;
     setUser: (user: User) => void;
 }
@@ -30,25 +32,21 @@ export const useAuthStore = create<AuthState>()(
         (set) => ({
             user: null,
             accessToken: null,
-            refreshToken: null,
-            setAuth: (user, accessToken, refreshToken) => {
-                set({ user, accessToken, refreshToken });
-                // Also set in localStorage for non-zustand access if needed
-                localStorage.setItem("accessToken", accessToken);
-                localStorage.setItem("refreshToken", refreshToken);
-                localStorage.setItem("userRole", user.role);
-            },
+            sessionChecked: false,
+            setAuth: (user, accessToken) => set({ user, accessToken, sessionChecked: true }),
+            setAccessToken: (accessToken) => set({ accessToken }),
+            setSessionChecked: (sessionChecked) => set({ sessionChecked }),
             clearAuth: () => {
-                set({ user: null, accessToken: null, refreshToken: null });
-                localStorage.removeItem("accessToken");
-                localStorage.removeItem("refreshToken");
-                localStorage.removeItem("userRole");
+                set({ user: null, accessToken: null, sessionChecked: true });
             },
             setUser: (user) => set({ user }),
         }),
         {
             name: "auth-storage",
             storage: createJSONStorage(() => localStorage),
+            partialize: (state) => ({
+                user: state.user,
+            }),
         }
     )
 );

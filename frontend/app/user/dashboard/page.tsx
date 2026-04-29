@@ -6,7 +6,7 @@ import { Loader2, Bell, HelpCircle, Wallet, IndianRupee } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { useUser } from "@/hooks/useAuth";
-import { useAuthStore } from "@/store/authStore";
+import { logoutUser } from "@/lib/logout";
 
 // Stores
 import { useRideStore } from "@/features/ride/store/useRideStore";
@@ -29,7 +29,6 @@ import { NotificationsPopover } from "@/features/dashboard/components/Notificati
 export default function UserDashboard() {
   const router = useRouter();
   const { user, isLoading: userLoading } = useUser();
-  const { clearAuth } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [profileData, setProfileData] = useState({ firstName: "", lastName: "", phone: "" });
@@ -90,8 +89,8 @@ export default function UserDashboard() {
     return null;
   }
 
-  const handleLogout = () => {
-    clearAuth();
+  const handleLogout = async () => {
+    await logoutUser();
     router.push("/login");
   };
 

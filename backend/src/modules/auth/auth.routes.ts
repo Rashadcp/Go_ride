@@ -4,7 +4,8 @@ import { register, login, getMe, updateProfile, getProfilePhoto, forgotPassword,
 import { upload } from "../../common/middleware/upload.middleware";
 import { protect } from "../../common/middleware/auth.middleware";
 import passport from "../../config/passport";
-import jwt from "jsonwebtoken";
+import { generateRefreshToken } from "../../common/utils/token";
+import { setRefreshTokenCookie } from "../../common/utils/auth-cookie";
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.post(
 
 router.post("/login", login);
 router.post("/refresh-token", refreshToken);
-router.post("/logout", protect, logout);
+router.post("/logout", logout);
 router.get("/me", protect, getMe);
 router.get("/profile-photo/:key", getProfilePhoto);
 router.put("/me", protect, upload.single("profilePhoto"), updateProfile);
@@ -50,25 +51,16 @@ router.get(
   async (req: any, res: any) => {
     try {
       const user = req.user as any;
-      const accessToken = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_ACCESS_SECRET || "access_secret",
-        { expiresIn: "15m" }
-      );
-      const refreshTokenValue = jwt.sign(
-        { id: user._id },
-        process.env.JWT_REFRESH_SECRET || "refresh_secret",
-        { expiresIn: "7d" }
-      );
+      const refreshTokenValue = generateRefreshToken(user);
 
-      // Save refresh token to user
       user.refreshToken = refreshTokenValue;
       await user.save();
+      setRefreshTokenCookie(res, refreshTokenValue);
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       console.log(`Google Login Success: ${user.email} (${user.role}), Syncing via callback`);
 
-      return res.redirect(`${frontendUrl}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshTokenValue}`);
+      return res.redirect(`${frontendUrl}/auth/callback`);
     } catch (err) {
       console.error("Google Auth Callback Error:", err);
       return res.redirect(`${process.env.FRONTEND_URL || "http://localhost:3000"}/login?error=auth_failed`);

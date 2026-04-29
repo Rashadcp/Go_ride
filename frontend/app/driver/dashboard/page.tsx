@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "react-hot-toast";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
+import { logoutUser } from "@/lib/logout";
 
 // Modular Components
 import { DriverSidebar } from "@/features/driver/components/DriverSidebar";
@@ -23,7 +24,7 @@ const getRequestKey = (request: any) => request?.rideId || request?.dbId || requ
 
 export default function DriverDashboard() {
     const router = useRouter();
-    const { user, clearAuth } = useAuthStore();
+    const { user } = useAuthStore();
     const [isOnline, setIsOnline] = useState(false);
     const [activeTab, setActiveTab] = useState("dashboard");
     const { addChatMessage, incrementUnreadCount } = useRideStore();
@@ -195,8 +196,8 @@ export default function DriverDashboard() {
         });
     };
 
-    const handleLogout = () => {
-        clearAuth();
+    const handleLogout = async () => {
+        await logoutUser();
         router.push("/login");
     };
 

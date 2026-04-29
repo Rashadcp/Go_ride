@@ -41,6 +41,7 @@ import { Toaster } from "react-hot-toast";
 
 import QueryProvider from "@/components/providers/QueryProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import AuthBootstrap from "@/components/providers/AuthBootstrap";
 
 export default function RootLayout({
   children,
@@ -60,6 +61,7 @@ export default function RootLayout({
       >
         <QueryProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <AuthBootstrap />
             <Toaster position="top-center" reverseOrder={false} />
             {children}
           </ThemeProvider>

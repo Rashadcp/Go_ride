@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import SocialAuth from "@/components/auth/SocialAuth";
+import { AxiosError } from "axios";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import { Camera, X, Eye, EyeOff, Navigation, ArrowLeft, UserPlus } from "lucide-react";
@@ -58,8 +59,8 @@ export default function RegisterPage() {
                 },
             });
 
-            const { accessToken, refreshToken, user } = response.data;
-            setAuth(user, accessToken, refreshToken);
+            const { accessToken, user } = response.data;
+            setAuth(user, accessToken);
 
             toast.success("Account created successfully!");
 
@@ -68,8 +69,9 @@ export default function RegisterPage() {
             } else {
                 router.push("/user/dashboard");
             }
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Registration failed");
+        } catch (error) {
+            const message = error instanceof AxiosError ? error.response?.data?.message : null;
+            toast.error(message || "Registration failed");
         } finally {
             setLoading(false);
         }

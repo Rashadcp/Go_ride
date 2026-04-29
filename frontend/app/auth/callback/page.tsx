@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
@@ -9,49 +9,44 @@ import { Loader2 } from "lucide-react";
 
 function AuthCallbackContent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { setAuth } = useAuthStore();
 
-    async function handleSocialLogin(accessToken: string, refreshToken: string) {
-        try {
-            localStorage.setItem("accessToken", accessToken);
-            localStorage.setItem("refreshToken", refreshToken);
-
-            const { data: user } = await api.get("/auth/me");
-
-            setAuth(user, accessToken, refreshToken);
-
-            toast.success(`Welcome back, ${user.firstName}!`);
-
-            if (user.role === "ADMIN") {
-                router.push("/admin/dashboard");
-            } else if (user.role === "DRIVER") {
-                if (user.status === "PENDING" || user.status === "AWAITING_APPROVAL") {
-                    router.push("/driver/onboarding");
-                } else {
-                    router.push("/driver/dashboard");
-                }
-            } else {
-                router.push("/user/dashboard");
-            }
-        } catch (error: any) {
-            console.error("Social login sync error:", error);
-            toast.error("Authentication synchronization failed");
-            router.push("/login?error=sync_failed");
-        }
-    }
-
     useEffect(() => {
-        const accessToken = searchParams.get("accessToken");
-        const refreshToken = searchParams.get("refreshToken");
+        const syncSocialLogin = async () => {
+            try {
+                const refreshResponse = await api.post("/auth/refresh-token");
+                const accessToken = refreshResponse.data?.accessToken;
 
-        if (accessToken && refreshToken) {
-            handleSocialLogin(accessToken, refreshToken);
-        } else {
-            console.error("No tokens found in callback URL");
-            router.push("/login?error=no_tokens");
-        }
-    }, [searchParams, router]);
+                if (!accessToken) {
+                    throw new Error("Missing access token after social login");
+                }
+
+                const { data: user } = await api.get("/auth/me");
+
+                setAuth(user, accessToken);
+
+                toast.success(`Welcome back, ${user.name}!`);
+
+                if (user.role === "ADMIN") {
+                    router.push("/admin/dashboard");
+                } else if (user.role === "DRIVER") {
+                    if (user.status === "PENDING" || user.status === "AWAITING_APPROVAL") {
+                        router.push("/driver/onboarding");
+                    } else {
+                        router.push("/driver/dashboard");
+                    }
+                } else {
+                    router.push("/user/dashboard");
+                }
+            } catch (error) {
+                console.error("Social login sync error:", error);
+                toast.error("Authentication synchronization failed");
+                router.push("/login?error=sync_failed");
+            }
+        };
+
+        void syncSocialLogin();
+    }, [router, setAuth]);
 
     return (
         <div className="h-screen bg-bg-main flex flex-col items-center justify-center gap-6 transition-colors duration-500">

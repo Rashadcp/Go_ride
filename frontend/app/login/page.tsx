@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import SocialAuth from "@/components/auth/SocialAuth";
+import { AxiosError } from "axios";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "@/store/authStore";
@@ -23,9 +24,9 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const response = await api.post("/auth/login", { email, password });
-            const { accessToken, refreshToken, user } = response.data;
+            const { accessToken, user } = response.data;
 
-            setAuth(user, accessToken, refreshToken);
+            setAuth(user, accessToken);
             toast.success(`Welcome back, ${user.name}!`);
 
             if (user.role === "ADMIN") {
@@ -39,8 +40,9 @@ export default function LoginPage() {
             } else {
                 router.push("/user/dashboard");
             }
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Login failed");
+        } catch (error) {
+            const message = error instanceof AxiosError ? error.response?.data?.message : null;
+            toast.error(message || "Login failed");
         } finally {
             setLoading(false);
         }

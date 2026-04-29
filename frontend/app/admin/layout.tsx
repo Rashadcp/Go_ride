@@ -20,6 +20,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "react-hot-toast";
 import api from "@/lib/axios";
+import { logoutUser } from "@/lib/logout";
 import { NotificationsPopover } from "@/features/dashboard/components/NotificationsPopover";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 
@@ -35,7 +36,7 @@ interface NotificationItem {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, clearAuth } = useAuthStore();
+    const { user } = useAuthStore();
     const [stats, setStats] = React.useState<any>(null);
     const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
     const [notifications, setNotifications] = React.useState<NotificationItem[]>([]);
@@ -101,8 +102,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         };
     }, [user]);
 
-    const handleLogout = () => {
-        clearAuth();
+    const handleLogout = async () => {
+        await logoutUser();
         router.push("/login");
     };
 

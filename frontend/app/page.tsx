@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   UserPlus,
@@ -15,24 +15,26 @@ import {
   Twitter,
   Facebook
 } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import { logoutUser } from "@/lib/logout";
 
 export default function Home() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, sessionChecked } = useAuthStore();
+  const isLoggedIn = !!user;
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-    setIsLoggedIn(!!token);
-    if (token) {
+    if (!sessionChecked) {
+      return;
+    }
+
+    if (user) {
       router.push("/dashboard");
     }
-  }, [router]);
+  }, [router, sessionChecked, user]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userRole");
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    await logoutUser();
     router.push("/login");
   };
 

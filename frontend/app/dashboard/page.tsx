@@ -1,72 +1,45 @@
 "use client";
 
 import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import api from "@/lib/axios";
+import { useAuthStore } from "@/store/authStore";
 
 function DashboardRedirectContent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { setUser, sessionChecked } = useAuthStore();
 
     useEffect(() => {
-        const accessToken = searchParams.get("accessToken");
-        const refreshToken = searchParams.get("refreshToken");
-
-        if (accessToken && refreshToken) {
-            localStorage.setItem("accessToken", accessToken);
-            localStorage.setItem("refreshToken", refreshToken);
-
-            // Fetch user info to store role and handle redirection
-            const verifyUser = async () => {
-                try {
-                    const response = await api.get("/auth/me");
-                    const user = response.data;
-                    localStorage.setItem("userRole", user.role);
-
-                    toast.success(`Welcome back, ${user.name}!`);
-
-                    if (user.role === "DRIVER" && user.status === "PENDING") {
-                        router.push("/driver/onboarding");
-                    } else if (user.role === "ADMIN") {
-                        router.push("/admin/dashboard");
-                    } else if (user.role === "USER") {
-                        router.push("/user/dashboard");
-                    } else {
-                        // For approved drivers or other roles
-                        router.push("/user/dashboard");
-                    }
-                } catch (error) {
-                    console.error("Verification failed", error);
-                    router.push("/login");
-                }
-            };
-
-            verifyUser();
-        } else {
-            // Check if already logged in or redirect
-            const token = localStorage.getItem("accessToken");
-            if (!token) {
-                router.push("/login");
-            } else {
-                // If already has token, we also check role
-                const checkRole = async () => {
-                   try {
-                     const response = await api.get("/auth/me");
-                     const user = response.data;
-                     if (user.role === "ADMIN") {
-                        router.push("/admin/dashboard");
-                     } else {
-                        router.push("/user/dashboard");
-                     }
-                   } catch (e) {
-                      router.push("/login");
-                   }
-                }
-                checkRole();
-            }
+        if (!sessionChecked) {
+            return;
         }
-    }, [searchParams, router]);
+
+        const verifyUser = async () => {
+            try {
+                const response = await api.get("/auth/me");
+                const user = response.data;
+                setUser(user);
+
+                toast.success(`Welcome back, ${user.name}!`);
+
+                if (user.role === "DRIVER" && (user.status === "PENDING" || user.status === "AWAITING_APPROVAL")) {
+                    router.push("/driver/onboarding");
+                } else if (user.role === "ADMIN") {
+                    router.push("/admin/dashboard");
+                } else if (user.role === "DRIVER") {
+                    router.push("/driver/dashboard");
+                } else {
+                    router.push("/user/dashboard");
+                }
+            } catch (error) {
+                console.error("Verification failed", error);
+                router.push("/login");
+            }
+        };
+
+        void verifyUser();
+    }, [router, sessionChecked, setUser]);
 
     return (
         <div className="min-h-screen bg-[#0B1215] flex items-center justify-center">

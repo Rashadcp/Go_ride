@@ -1,8 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/axios';
+import { useAuthStore } from '@/store/authStore';
+
+type ChangePasswordPayload = {
+  oldPassword: string;
+  newPassword: string;
+};
+
+type SavedAddress = {
+  label: string;
+  address: string;
+};
 
 export const useDashboardData = () => {
   const queryClient = useQueryClient();
+  const { accessToken, sessionChecked, user } = useAuthStore();
+  const canQuery = sessionChecked && (!!accessToken || !!user);
 
   // Queries
   const { data: activeRide, isLoading: loadingActiveRide } = useQuery({
@@ -11,8 +24,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/rides/active');
       return data;
     },
-    // Only run if token exists
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
+    enabled: canQuery,
     // Don't retry since it throws 404 naturally when no active ride
     retry: false, 
   });
@@ -23,7 +35,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/rides/history');
       return data;
     },
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
+    enabled: canQuery,
   });
 
   const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
@@ -32,7 +44,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/auth/transactions');
       return data;
     },
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
+    enabled: canQuery,
   });
 
   const { data: stats, isLoading: loadingStats } = useQuery({
@@ -41,7 +53,7 @@ export const useDashboardData = () => {
       const { data } = await api.get('/auth/stats');
       return data;
     },
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('accessToken'),
+    enabled: canQuery,
   });
 
   // Mutations
@@ -70,7 +82,7 @@ export const useDashboardData = () => {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: ChangePasswordPayload) => {
       await api.put('/auth/change-password', payload);
     },
   });
@@ -87,7 +99,7 @@ export const useDashboardData = () => {
   });
 
   const updateAddressesMutation = useMutation({
-    mutationFn: async (addresses: any[]) => {
+    mutationFn: async (addresses: SavedAddress[]) => {
       await api.put('/auth/me', { addresses });
     },
     onSuccess: () => {

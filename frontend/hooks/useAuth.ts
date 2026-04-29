@@ -4,7 +4,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useEffect } from "react";
 
 export const useUser = () => {
-    const { setUser, user: storeUser } = useAuthStore();
+    const { setUser, user: storeUser, accessToken, sessionChecked } = useAuthStore();
 
     const query = useQuery({
         queryKey: ["user", "me"],
@@ -12,8 +12,7 @@ export const useUser = () => {
             const { data } = await api.get("/auth/me");
             return data;
         },
-        // Only run if we have a token or need refreshing
-        enabled: typeof window !== "undefined" && !!localStorage.getItem("accessToken"),
+        enabled: sessionChecked && (!!accessToken || !!storeUser),
     });
 
     // Sync with zustand store

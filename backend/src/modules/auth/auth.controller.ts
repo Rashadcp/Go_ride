@@ -7,6 +7,7 @@ import Vehicle from "../../models/vehicle";
 import Transaction from "../../models/transaction";
 import { sendOTP } from "../../config/mail";
 import { generateAccessToken, generateRefreshToken } from "../../common/utils/token";
+import { clearRefreshTokenCookie, getRefreshTokenFromRequest, setRefreshTokenCookie } from "../../common/utils/auth-cookie";
 import { createNotification, createNotificationsForRole } from "../notification/notification.controller";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from "../../config/s3";
@@ -80,6 +81,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   newUser.refreshToken = refreshTokenValue;
   await newUser.save();
+  setRefreshTokenCookie(res, refreshTokenValue);
 
   await createNotification(
     newUser._id.toString(),
@@ -91,7 +93,6 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({
     message: "User registered successfully",
     accessToken,
-    refreshToken: refreshTokenValue,
     user: {
       id: newUser._id,
       name: newUser.name,
@@ -131,6 +132,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
   userDoc.refreshToken = refreshToken;
   await userDoc.save();
+  setRefreshTokenCookie(res, refreshToken);
 
   let vehicle = null;
   if (userDoc.role === "DRIVER") {
@@ -139,7 +141,6 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
   res.json({
     accessToken,
-    refreshToken,
     user: {
       id: userDoc._id,
       name: userDoc.name,
@@ -155,38 +156,51 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
-  const { token } = req.body;
-  if (!token) {
+  const token = getRefreshTokenFromRequest(req);
+  if (token === null) {
     throwHttpError(res, 401, "Refresh Token is required");
   }
+  const refreshTokenValue = token as string;
 
-  const user = await User.findOne({ refreshToken: token });
+  const user = await User.findOne({ refreshToken: refreshTokenValue });
   if (!user) {
     throwHttpError(res, 403, "Invalid Refresh Token");
   }
 
   const userDoc = user as NonNullable<typeof user>;
 
-  jwt.verify(token, process.env.JWT_REFRESH_SECRET || "refresh_secret");
+  jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET || "refresh_secret");
 
   const accessToken = generateAccessToken(userDoc);
   const newRefreshToken = generateRefreshToken(userDoc);
 
   userDoc.refreshToken = newRefreshToken;
   await userDoc.save();
+  setRefreshTokenCookie(res, newRefreshToken);
 
   res.json({
     accessToken,
-    refreshToken: newRefreshToken,
   });
 });
 
 export const logout = asyncHandler(async (req: any, res: Response) => {
-  const user = await User.findById(req.user.id);
-  if (user) {
-    user.refreshToken = undefined;
-    await user.save();
+  const refreshToken = getRefreshTokenFromRequest(req);
+
+  if (refreshToken) {
+    const user = await User.findOne({ refreshToken });
+    if (user) {
+      user.refreshToken = undefined;
+      await user.save();
+    }
+  } else if (req.user?.id) {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      user.refreshToken = undefined;
+      await user.save();
+    }
   }
+
+  clearRefreshTokenCookie(res);
 
   res.json({ message: "Logged out successfully" });
 });
