@@ -93,6 +93,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({
     message: "User registered successfully",
     accessToken,
+    refreshToken: refreshTokenValue,
     user: {
       id: newUser._id,
       name: newUser.name,
@@ -143,6 +144,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
   res.json({
     accessToken,
+    refreshToken,
     user: {
       id: userDoc._id,
       name: userDoc.name,
@@ -158,8 +160,8 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
-  const token = getRefreshTokenFromRequest(req);
-  if (token === null) {
+  const token = req.body?.refreshToken || getRefreshTokenFromRequest(req);
+  if (!token) {
     throwHttpError(res, 401, "Refresh Token is required");
   }
   const refreshTokenValue = token as string;
@@ -193,11 +195,12 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 
   res.json({
     accessToken,
+    refreshToken: newRefreshToken,
   });
 });
 
 export const logout = asyncHandler(async (req: any, res: Response) => {
-  const refreshToken = getRefreshTokenFromRequest(req);
+  const refreshToken = req.body?.refreshToken || getRefreshTokenFromRequest(req);
 
   if (refreshToken) {
     const user = await User.findOne({ refreshToken });

@@ -19,11 +19,16 @@ export default function AuthBootstrap() {
                 let currentAccessToken = accessToken;
 
                 if (!currentAccessToken) {
-                    const refreshResponse = await api.post("/auth/refresh-token");
+                    const currentRefreshToken = useAuthStore.getState().refreshToken;
+                    const refreshResponse = await api.post("/auth/refresh-token", { refreshToken: currentRefreshToken });
                     currentAccessToken = refreshResponse.data?.accessToken || null;
+                    const newRefreshToken = refreshResponse.data?.refreshToken || null;
 
                     if (currentAccessToken) {
                         setAccessToken(currentAccessToken);
+                    }
+                    if (newRefreshToken) {
+                        useAuthStore.getState().setRefreshToken(newRefreshToken);
                     }
                 }
 

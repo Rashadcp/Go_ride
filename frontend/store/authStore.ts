@@ -19,9 +19,11 @@ interface User {
 interface AuthState {
     user: User | null;
     accessToken: string | null;
+    refreshToken: string | null;
     sessionChecked: boolean;
-    setAuth: (user: User, accessToken: string) => void;
+    setAuth: (user: User, accessToken: string, refreshToken?: string) => void;
     setAccessToken: (accessToken: string | null) => void;
+    setRefreshToken: (refreshToken: string | null) => void;
     setSessionChecked: (sessionChecked: boolean) => void;
     clearAuth: () => void;
     setUser: (user: User) => void;
@@ -32,12 +34,15 @@ export const useAuthStore = create<AuthState>()(
         (set) => ({
             user: null,
             accessToken: null,
+            refreshToken: null,
             sessionChecked: false,
-            setAuth: (user, accessToken) => set({ user, accessToken, sessionChecked: true }),
+            setAuth: (user, accessToken, refreshToken) => 
+                set((state) => ({ user, accessToken, refreshToken: refreshToken || state.refreshToken, sessionChecked: true })),
             setAccessToken: (accessToken) => set({ accessToken }),
+            setRefreshToken: (refreshToken) => set({ refreshToken }),
             setSessionChecked: (sessionChecked) => set({ sessionChecked }),
             clearAuth: () => {
-                set({ user: null, accessToken: null, sessionChecked: true });
+                set({ user: null, accessToken: null, refreshToken: null, sessionChecked: true });
             },
             setUser: (user) => set({ user }),
         }),
@@ -46,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 user: state.user,
+                refreshToken: state.refreshToken,
             }),
         }
     )

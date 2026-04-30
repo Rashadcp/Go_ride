@@ -60,7 +60,7 @@ router.get(
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       console.log(`Google Login Success: ${user.email} (${user.role}), Syncing via callback`);
 
-      return res.redirect(`${frontendUrl}/auth/callback`);
+      return res.redirect(`${frontendUrl}/auth/callback?refreshToken=${refreshTokenValue}`);
     } catch (err) {
       console.error("Google Auth Callback Error:", err);
       return res.redirect(`${process.env.FRONTEND_URL || "http://localhost:3000"}/login?error=auth_failed`);

@@ -34,16 +34,20 @@ const refreshAccessToken = async () => {
     if (typeof window === 'undefined') return null;
 
     if (!refreshRequest) {
+        const currentRefreshToken = useAuthStore.getState().refreshToken;
         refreshRequest = api
-            .post('/auth/refresh-token')
+            .post('/auth/refresh-token', { refreshToken: currentRefreshToken })
             .then((response) => {
-                const { accessToken } = response.data;
+                const { accessToken, refreshToken } = response.data;
 
                 if (!accessToken) {
                     throw new Error('Token refresh response is incomplete');
                 }
 
                 useAuthStore.getState().setAccessToken(accessToken);
+                if (refreshToken) {
+                    useAuthStore.getState().setRefreshToken(refreshToken);
+                }
 
                 return accessToken as string;
             })

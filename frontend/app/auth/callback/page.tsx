@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import api from "@/lib/axios";
 import { toast } from "react-hot-toast";
@@ -9,13 +9,22 @@ import { Loader2 } from "lucide-react";
 
 function AuthCallbackContent() {
     const router = useRouter();
-    const { setAuth } = useAuthStore();
+    const searchParams = useSearchParams();
+    const { setAuth, setRefreshToken } = useAuthStore();
 
     useEffect(() => {
         const syncSocialLogin = async () => {
             try {
-                const refreshResponse = await api.post("/auth/refresh-token");
+                const urlRefreshToken = searchParams.get("refreshToken");
+                if (urlRefreshToken) {
+                    setRefreshToken(urlRefreshToken);
+                }
+
+                const currentRefreshToken = urlRefreshToken || useAuthStore.getState().refreshToken;
+
+                const refreshResponse = await api.post("/auth/refresh-token", { refreshToken: currentRefreshToken });
                 const accessToken = refreshResponse.data?.accessToken;
+                const newRefreshToken = refreshResponse.data?.refreshToken;
 
                 if (!accessToken) {
                     throw new Error("Missing access token after social login");
@@ -23,7 +32,7 @@ function AuthCallbackContent() {
 
                 const { data: user } = await api.get("/auth/me");
 
-                setAuth(user, accessToken);
+                setAuth(user, accessToken, newRefreshToken || currentRefreshToken);
 
                 toast.success(`Welcome back, ${user.name}!`);
 

@@ -59,8 +59,8 @@ export default function RegisterPage() {
                 },
             });
 
-            const { accessToken, user } = response.data;
-            setAuth(user, accessToken);
+            const { accessToken, refreshToken, user } = response.data;
+            setAuth(user, accessToken, refreshToken);
 
             toast.success("Account created successfully!");
 

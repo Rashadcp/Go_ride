@@ -24,9 +24,9 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const response = await api.post("/auth/login", { email, password });
-            const { accessToken, user } = response.data;
+            const { accessToken, refreshToken, user } = response.data;
 
-            setAuth(user, accessToken);
+            setAuth(user, accessToken, refreshToken);
             toast.success(`Welcome back, ${user.name}!`);
 
             if (user.role === "ADMIN") {
