@@ -130,8 +130,10 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   const accessToken = generateAccessToken(userDoc);
   const refreshToken = generateRefreshToken(userDoc);
 
-  userDoc.refreshToken = refreshToken;
-  await userDoc.save();
+  await User.updateOne(
+    { _id: userDoc._id },
+    { $set: { refreshToken } }
+  );
   setRefreshTokenCookie(res, refreshToken);
 
   let vehicle = null;
@@ -172,8 +174,10 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   try {
     jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET || "refresh_secret");
   } catch (_error) {
-    userDoc.refreshToken = undefined;
-    await userDoc.save();
+    await User.updateOne(
+      { _id: userDoc._id },
+      { $unset: { refreshToken: 1 } }
+    );
     clearRefreshTokenCookie(res);
     throwHttpError(res, 403, "Refresh token expired or invalid");
   }
@@ -181,8 +185,10 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   const accessToken = generateAccessToken(userDoc);
   const newRefreshToken = generateRefreshToken(userDoc);
 
-  userDoc.refreshToken = newRefreshToken;
-  await userDoc.save();
+  await User.updateOne(
+    { _id: userDoc._id },
+    { $set: { refreshToken: newRefreshToken } }
+  );
   setRefreshTokenCookie(res, newRefreshToken);
 
   res.json({
@@ -196,14 +202,12 @@ export const logout = asyncHandler(async (req: any, res: Response) => {
   if (refreshToken) {
     const user = await User.findOne({ refreshToken });
     if (user) {
-      user.refreshToken = undefined;
-      await user.save();
+      await User.updateOne({ _id: user._id }, { $unset: { refreshToken: 1 } });
     }
   } else if (req.user?.id) {
     const user = await User.findById(req.user.id);
     if (user) {
-      user.refreshToken = undefined;
-      await user.save();
+      await User.updateOne({ _id: user._id }, { $unset: { refreshToken: 1 } });
     }
   }
 

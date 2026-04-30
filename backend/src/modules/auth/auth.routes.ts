@@ -6,6 +6,7 @@ import { protect } from "../../common/middleware/auth.middleware";
 import passport from "../../config/passport";
 import { generateRefreshToken } from "../../common/utils/token";
 import { setRefreshTokenCookie } from "../../common/utils/auth-cookie";
+import User from "../../models/user";
 
 const router = express.Router();
 
@@ -53,8 +54,7 @@ router.get(
       const user = req.user as any;
       const refreshTokenValue = generateRefreshToken(user);
 
-      user.refreshToken = refreshTokenValue;
-      await user.save();
+      await User.updateOne({ _id: user._id }, { $set: { refreshToken: refreshTokenValue } });
       setRefreshTokenCookie(res, refreshTokenValue);
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
