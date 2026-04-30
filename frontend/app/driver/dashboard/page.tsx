@@ -56,6 +56,11 @@ export default function DriverDashboard() {
     const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
     const [reviews, setReviews] = useState<any[]>([]);
     const [trips, setTrips] = useState<any[]>([]);
+    const resolvedVehicleType =
+        (user as any)?.vehicleType ||
+        vehicle?.vehicleType ||
+        vehicleData.vehicleType ||
+        "";
 
     const fetchTrips = async () => {
         try {
@@ -207,6 +212,11 @@ export default function DriverDashboard() {
             return;
         }
 
+        if (!resolvedVehicleType) {
+            console.warn("Driver is online, but vehicle type is still unavailable. Delaying socket registration.");
+            return;
+        }
+
         connectSocket();
         socket.emit("join", { userId: user.id || user._id, role: "DRIVER" });
         socket.emit("driver-online", {
@@ -215,14 +225,14 @@ export default function DriverDashboard() {
             name: user.name,
             profilePhoto: user.profilePhoto,
             rating: user?.rating || 5.0,
-            vehicleType: (user as any).vehicleType || "go"
+            vehicleType: resolvedVehicleType
         });
 
         void (async () => {
             try {
                 const { data } = await api.post("/taxi/pending-requests", {
                     location: { lat: userLoc[0], lng: userLoc[1] },
-                    vehicleType: (user as any).vehicleType || vehicleData.vehicleType || "go"
+                    vehicleType: resolvedVehicleType
                 });
 
                 if (Array.isArray(data?.requests) && data.requests.length > 0) {
@@ -346,7 +356,7 @@ export default function DriverDashboard() {
             socket.off("system:alert");
             disconnectSocket();
         };
-    }, [isOnline, user, userLoc]);
+    }, [isOnline, user, userLoc, resolvedVehicleType]);
 
     useEffect(() => {
         if (isOnline && userLoc && user) {

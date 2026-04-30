@@ -7,6 +7,7 @@ import { useMapLogic } from "@/features/map/hooks/useMapLogic";
 import api from "@/lib/axios";
 import toast from "react-hot-toast";
 import { socket, connectSocket } from "@/lib/socket";
+import { calculateRideQuote } from "@/features/ride/utils/pricing";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
    ssr: false, loading: () => <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center">Loading Map...</div>
@@ -424,19 +425,22 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
       try {
          const rideId = `POOL-${Date.now()}`;
-         const isBike = rideState.vehicleType === 'bike';
-         const perSeat = isBike ? 40 : 100;
-         const totalFare = perSeat * seatsAvailable;
          const distance = rideState.routeInfo?.distance || 5;
+         const duration = rideState.routeInfo?.duration || 10;
+         const quote = calculateRideQuote({
+            vehicleType: rideState.vehicleType || "go",
+            distanceKm: distance,
+            durationMinutes: duration,
+            isSharedRide: true,
+            seatCount: seatsAvailable
+         });
 
          const response = await api.post('/rides/create-pool', {
             rideId,
             pickup: { lat: userLoc[0], lng: userLoc[1], label: "Current Location" },
             drop: { lat: driverDest.coords[0], lng: driverDest.coords[1], label: driverDest.query },
-            price: totalFare,
-            pricePerSeat: perSeat,
             distance,
-            duration: rideState.routeInfo?.duration || 10,
+            duration,
             availableSeats: seatsAvailable,
             departureTime: new Date(Date.now() + 15 * 60000).toISOString(),
             vehicleType: rideState.vehicleType || "go",
@@ -446,7 +450,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          rideState.setActiveRide(response.data);
          setIsDriverTripActive(true);
          socket.emit("join-ride", { driverId: user.id || user._id, rideId: response.data.rideId || response.data._id });
-         toast.success("Trip activated! Looking for riders.", { id: 'ride-status' });
+         toast.success(`Trip activated at ₹${quote.perSeatFare}/seat. Looking for riders.`, { id: 'ride-status' });
       } catch (err: any) {
          console.error("❌ Driver trip activation error:", err);
          toast.error(err.response?.data?.message || "Failed to start trip");

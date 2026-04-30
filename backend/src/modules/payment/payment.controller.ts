@@ -219,6 +219,20 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
         driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
         await driver.save();
 
+        if (isCarpoolRide) {
+            const passengerEntry: any = ride.passengers?.find(
+                (passenger: any) => String(passenger.userId?._id || passenger.userId) === String(req.user.id)
+            );
+            if (passengerEntry) {
+                passengerEntry.paymentStatus = "COMPLETED";
+                ride.markModified("passengers");
+                await ride.save();
+            }
+        } else {
+            (ride as any).paymentStatus = "COMPLETED";
+            await ride.save();
+        }
+
         await new Transaction({
             userId: driver._id,
             rideId: ride._id,

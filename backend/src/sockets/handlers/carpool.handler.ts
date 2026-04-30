@@ -6,6 +6,7 @@ import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
 import User from "../../models/user";
 import { removeActiveDriver } from "../state";
+import { calculateRideQuote } from "../../common/utils/fare-engine";
 
 export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Carpool Join Request (Passenger -> Server -> Driver)
@@ -141,6 +142,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 seats: data.seats,
                 tripStatus: "ACCEPTED",
                 paymentMethod: data.paymentMethod || "CASH",
+                paymentStatus: "PENDING",
                 pickup: {
                     label: data.pickupLabel || "Shared Pickup",
                     coords: data.pickup
@@ -149,7 +151,11 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                     label: data.dropLabel || "Shared Drop",
                     coords: data.drop
                 },
-                distance: data.distance || 0
+                distance: data.distance || 0,
+                originalSeatPrice: Number(ride.originalPricePerSeat || ride.pricePerSeat || 0),
+                finalSeatPrice: Number(ride.pricePerSeat || 0),
+                promoCode: null,
+                discountAmount: 0
             });
             ride.availableSeats -= data.seats;
             if (ride.availableSeats === 0) ride.status = "FULL";
@@ -237,7 +243,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
     // Driver Starts a New Shared Trip (Driver -> Server)
     socket.on("driver:trip:start", async (data: any) => {
         try {
-            const { driverId, vehicleType, seats, pickup, drop, distance, duration, price } = data;
+            const { driverId, vehicleType, seats, pickup, drop, distance, duration } = data;
             
             const rideId = `POOL-${Date.now()}`;
             
@@ -276,6 +282,13 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 }
                 return { ...seat, status: 'BOOKED' };
             });
+            const quote = calculateRideQuote({
+                vehicleType,
+                distanceKm: parseFloat(distance) || 0,
+                durationMinutes: parseFloat(duration) || 0,
+                isSharedRide: true,
+                seatCount: parseInt(seats) || 1
+            });
             const newRide = await Ride.create({
                 rideId,
                 createdBy: driverId,
@@ -297,8 +310,10 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 requestedVehicleType: vehicleType || 'car',
                 availableSeats: seats || 1,
                 seats: finalSeats,
-                price: price || (vehicleType === 'bike' ? 40 : 100),
-                pricePerSeat: price || (vehicleType === 'bike' ? 40 : 100),
+                price: quote.totalFare,
+                originalPrice: quote.totalFare,
+                pricePerSeat: quote.perSeatFare,
+                originalPricePerSeat: quote.perSeatFare,
                 distance: parseFloat(distance) || 0,
                 duration: parseFloat(duration) || 0,
                 isSharedRide: true
@@ -380,7 +395,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             try {
                 const driverId = ride.driverId?._id || ride.driverId;
                 const passengerId = data.userId;
-                const amount = (ride.pricePerSeat || 0) * releasedSeats;
+                const amount = Number((passenger as any).finalSeatPrice || ride.pricePerSeat || 0) * releasedSeats;
                 const paymentMethod = passenger.paymentMethod || "CASH";
 
                 if (amount > 0 && driverId) {
@@ -395,6 +410,9 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                             if (passUser && (passUser.walletBalance || 0) >= amount) {
                                 passUser.walletBalance -= amount;
                                 await passUser.save();
+                                (passenger as any).paymentStatus = "COMPLETED";
+                                ride.markModified("passengers");
+                                await ride.save();
                                 
                                 await new Transaction({
                                     userId: passengerId,
@@ -423,6 +441,9 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                                 io.to(`user:${driverId}`).emit("wallet-update", { balance: driver.walletBalance });
                             }
                         } else if (paymentMethod === "CASH" || paymentMethod === "UPI") {
+                            (passenger as any).paymentStatus = "COMPLETED";
+                            ride.markModified("passengers");
+                            await ride.save();
                             // Driver received full amount, deduct fee from their wallet
                             driver.walletBalance = (driver.walletBalance || 0) - platformFee;
                             await driver.save();

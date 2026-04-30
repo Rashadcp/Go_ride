@@ -164,12 +164,19 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 
   const user = await User.findOne({ refreshToken: refreshTokenValue });
   if (!user) {
+    clearRefreshTokenCookie(res);
     throwHttpError(res, 403, "Invalid Refresh Token");
   }
 
   const userDoc = user as NonNullable<typeof user>;
-
-  jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET || "refresh_secret");
+  try {
+    jwt.verify(refreshTokenValue, process.env.JWT_REFRESH_SECRET || "refresh_secret");
+  } catch (_error) {
+    userDoc.refreshToken = undefined;
+    await userDoc.save();
+    clearRefreshTokenCookie(res);
+    throwHttpError(res, 403, "Refresh token expired or invalid");
+  }
 
   const accessToken = generateAccessToken(userDoc);
   const newRefreshToken = generateRefreshToken(userDoc);

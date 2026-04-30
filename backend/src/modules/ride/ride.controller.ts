@@ -8,7 +8,7 @@ import Vehicle from "../../models/vehicle";
 import Transaction from "../../models/transaction";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
-import { calculateDiscountedAmount } from "../../common/utils/ride-pricing";
+import { calculateDiscountedAmount } from "../../common/utils/fare-engine";
 
 const throwHttpError = (res: Response, status: number, message: string): never => {
     res.status(status);
@@ -42,10 +42,16 @@ export const getUserRides = asyncHandler(async (req: any, res: Response) => {
                 if (myEntry.joinedAt) rideObj.joinedAt = myEntry.joinedAt;
 
                 const seatCount = Number(myEntry.seats || 1);
-                const seatPrice = Number(ride.pricePerSeat || ride.price || 0);
+                const seatPrice = Number(myEntry.finalSeatPrice || ride.pricePerSeat || ride.price || 0);
+                const originalSeatPrice = Number(myEntry.originalSeatPrice || ride.originalPricePerSeat || seatPrice || 0);
                 if (seatPrice > 0) {
                     rideObj.price = seatPrice * seatCount;
                     rideObj.pricePerSeat = seatPrice;
+                    rideObj.originalPrice = originalSeatPrice * seatCount;
+                    rideObj.originalPricePerSeat = originalSeatPrice;
+                    rideObj.discount = Math.max(0, (originalSeatPrice - seatPrice) * seatCount);
+                    rideObj.promoCode = myEntry.promoCode || null;
+                    rideObj.paymentStatus = myEntry.paymentStatus || rideObj.paymentStatus;
                 }
 
                 if (myEntry.tripStatus === "COMPLETED" && !rideObj.completedAt) {
@@ -106,6 +112,17 @@ export const getActiveRide = asyncHandler(async (req: any, res: Response) => {
     rideObj.fare = rideObj.price;
     if (passengerEntry?.tripStatus) {
         rideObj.status = passengerEntry.tripStatus;
+        const seatCount = Number(passengerEntry.seats || 1);
+        const seatPrice = Number(passengerEntry.finalSeatPrice || rideObj.pricePerSeat || rideObj.price || 0);
+        const originalSeatPrice = Number(passengerEntry.originalSeatPrice || rideObj.originalPricePerSeat || seatPrice || 0);
+        rideObj.price = seatPrice * seatCount;
+        rideObj.pricePerSeat = seatPrice;
+        rideObj.originalPrice = originalSeatPrice * seatCount;
+        rideObj.originalPricePerSeat = originalSeatPrice;
+        rideObj.discount = Math.max(0, (originalSeatPrice - seatPrice) * seatCount);
+        rideObj.promoCode = passengerEntry.promoCode || null;
+        rideObj.paymentMethod = passengerEntry.paymentMethod || rideObj.paymentMethod;
+        rideObj.paymentStatus = passengerEntry.paymentStatus || rideObj.paymentStatus;
     }
 
     if (ride.driverId) {
@@ -299,10 +316,6 @@ export const applyPromoCode = asyncHandler(async (req: any, res: Response) => {
         throwHttpError(res, 404, "Ride not found");
     }
     const rideDoc = ride as NonNullable<typeof ride>;
-    if (rideDoc.promoCode) {
-        throwHttpError(res, 400, "A promo code is already applied to this ride");
-    }
-
     const discount = await Discount.findOne({
         code: { $regex: new RegExp(`^${code}$`, "i") },
         active: true,
@@ -315,6 +328,49 @@ export const applyPromoCode = asyncHandler(async (req: any, res: Response) => {
     const discountDoc = discount as NonNullable<typeof discount>;
     if (discountDoc.currentUsage >= discountDoc.maxUsage) {
         throwHttpError(res, 400, "Promo code limit reached");
+    }
+
+    if (rideDoc.type === "CARPOOL" || rideDoc.isSharedRide) {
+        const passengerIndex = rideDoc.passengers.findIndex((p: any) => String(p.userId?._id || p.userId) === String(req.user._id));
+        if (passengerIndex === -1) {
+            throwHttpError(res, 400, "Promo codes for shared rides can only be applied by joined passengers.");
+        }
+
+        const passengerEntry: any = rideDoc.passengers[passengerIndex];
+        if (passengerEntry.promoCode) {
+            throwHttpError(res, 400, "A promo code is already applied to this booking");
+        }
+
+        const originalSeatPrice = Number(passengerEntry.originalSeatPrice || rideDoc.originalPricePerSeat || rideDoc.pricePerSeat || 0);
+        if (!originalSeatPrice) {
+            throwHttpError(res, 400, "Shared ride price is unavailable for this booking");
+        }
+
+        passengerEntry.originalSeatPrice = originalSeatPrice;
+        passengerEntry.finalSeatPrice = Math.round(calculateDiscountedAmount(originalSeatPrice, {
+            type: discountDoc.type,
+            value: discountDoc.value
+        }));
+        passengerEntry.promoCode = discountDoc.code;
+        passengerEntry.discountId = discountDoc._id;
+        passengerEntry.discountAmount = Math.max(0, originalSeatPrice - passengerEntry.finalSeatPrice);
+        rideDoc.markModified("passengers");
+        await rideDoc.save();
+
+        Discount.findByIdAndUpdate(discountDoc._id, { $inc: { currentUsage: 1 } }).catch(console.error);
+
+        res.json({
+            message: "Promo code applied successfully",
+            price: passengerEntry.finalSeatPrice * Number(passengerEntry.seats || 1),
+            originalPrice: originalSeatPrice * Number(passengerEntry.seats || 1),
+            discountValue: discountDoc.value,
+            discountType: discountDoc.type
+        });
+        return;
+    }
+
+    if (rideDoc.promoCode) {
+        throwHttpError(res, 400, "A promo code is already applied to this ride");
     }
 
     const originalPrice = rideDoc.originalPrice || rideDoc.price;

@@ -104,6 +104,32 @@ const rideSchema = new mongoose.Schema(
                 },
             },
             distance: Number,
+            originalSeatPrice: {
+                type: Number,
+                default: 0,
+            },
+            finalSeatPrice: {
+                type: Number,
+                default: 0,
+            },
+            promoCode: {
+                type: String,
+                default: null,
+            },
+            discountId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Discount",
+                default: null,
+            },
+            discountAmount: {
+                type: Number,
+                default: 0,
+            },
+            paymentStatus: {
+                type: String,
+                enum: ["PENDING", "COMPLETED", "FAILED"],
+                default: "PENDING",
+            },
         }],
         availableSeats: {
             type: Number,
@@ -171,6 +197,11 @@ const rideSchema = new mongoose.Schema(
             type: String,
             enum: ["WALLET", "CASH", "UPI"],
             default: "WALLET",
+        },
+        paymentStatus: {
+            type: String,
+            enum: ["PENDING", "COMPLETED", "FAILED"],
+            default: "PENDING",
         },
         isSharedRide: {
             type: Boolean,

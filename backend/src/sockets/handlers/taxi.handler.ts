@@ -8,6 +8,7 @@ import Discount from "../../models/discount";
 import Vehicle from "../../models/vehicle";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
+import { calculateDiscountedAmount, calculateRideQuote } from "../../common/utils/fare-engine";
 import {
     createPendingTaxiRideRequest,
     expirePendingRideRequests,
@@ -20,9 +21,18 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
     socket.on("ride-request", async (data: any) => {
         try {
-            const { pickup, destination, passengerId, requestedVehicleType, fare, originalPrice, rideId, isSharedRide, promoCode } = data;
+            const { pickup, destination, passengerId, requestedVehicleType, rideId, isSharedRide, promoCode, pricingVehicleType } = data;
+            const pricingVehicle = pricingVehicleType || (requestedVehicleType === "carpool" ? "go" : requestedVehicleType);
+            const quote = calculateRideQuote({
+                vehicleType: pricingVehicle,
+                distanceKm: parseFloat(data.distance) || 0,
+                durationMinutes: parseFloat(data.duration) || 0,
+                isSharedRide: !!isSharedRide,
+                seatCount: 1,
+            });
 
-            let finalPrice = fare;
+            let finalPrice = isSharedRide ? quote.perSeatFare : quote.totalFare;
+            let computedOriginalPrice = finalPrice;
             let appliedDiscountId = null;
 
             // Optional Server side validation of discount
@@ -30,6 +40,8 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const discount = await Discount.findOne({ code: promoCode, active: true, expiryDate: { $gt: new Date() } });
                 if (discount && discount.currentUsage < discount.maxUsage) {
                     appliedDiscountId = discount._id;
+                    computedOriginalPrice = finalPrice;
+                    finalPrice = calculateDiscountedAmount(finalPrice, { type: discount.type, value: discount.value });
                 }
             }
 
@@ -59,7 +71,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 isSharedRide: isSharedRide || false,
                 promoCode: promoCode || null,
                 discountId: appliedDiscountId,
-                originalPrice: originalPrice || finalPrice,
+                originalPrice: computedOriginalPrice,
                 passengerName: data.passengerName,
                 passengerPhoto: data.passengerPhoto
             });

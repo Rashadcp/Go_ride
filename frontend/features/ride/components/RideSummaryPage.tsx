@@ -58,6 +58,15 @@ export function RideSummaryPage({
 
     return passengerEntry?.paymentMethod || activeRide?.paymentMethod || "CASH";
   }, [activeRide, user?.id, user?._id]);
+  const currentPassengerEntry = useMemo(() => {
+    const currentUserId = String(user?.id || user?._id || "");
+    return Array.isArray(activeRide?.passengers)
+      ? activeRide.passengers.find(
+          (passenger: any) => String(passenger.userId?._id || passenger.userId || "") === currentUserId
+        )
+      : null;
+  }, [activeRide, user?.id, user?._id]);
+  const appliedPromoCode = currentPassengerEntry?.promoCode || activeRide?.promoCode;
 
   // If already paid (WALLET or CASH), we mark it as done 
   useEffect(() => {
@@ -211,11 +220,11 @@ export function RideSummaryPage({
                       <span>Base Fare</span>
                       <span className="text-[#0A192F]">₹{activeRide.originalPrice || activeRide.price || 0}</span>
                     </div>
-                    {activeRide.promoCode && (
+                    {appliedPromoCode && (
                       <div className="flex justify-between items-center text-emerald-500 bg-emerald-50 px-4 py-3 rounded-2xl border border-emerald-100">
                         <div className="flex items-center gap-2">
                           <Tag className="w-4 h-4" />
-                          <span className="text-xs font-black uppercase tracking-tight">{activeRide.promoCode}</span>
+                          <span className="text-xs font-black uppercase tracking-tight">{appliedPromoCode}</span>
                         </div>
                         <span className="font-bold text-sm">-₹{activeRide.discount || 0}</span>
                       </div>
@@ -234,7 +243,7 @@ export function RideSummaryPage({
                     </div>
                   </div>
 
-                  {!activeRide.promoCode && (
+                  {!appliedPromoCode && (
                     <div className="pt-6 border-t border-slate-100 space-y-4">
                       <div className="flex items-center justify-between">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Offers</p>

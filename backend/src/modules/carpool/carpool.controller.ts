@@ -1,9 +1,10 @@
 import { Response } from "express";
 import asyncHandler from "express-async-handler";
 import Ride from "../../models/ride";
+import { calculateRideQuote } from "../../common/utils/fare-engine";
 
 export const createCarpool = asyncHandler(async (req: any, res: Response) => {
-    const { rideId, pickup, drop, price, pricePerSeat, distance, duration, departureTime, availableSeats, vehicleType, carType } = req.body;
+    const { rideId, pickup, drop, distance, duration, departureTime, availableSeats, vehicleType, carType } = req.body;
     
     await Ride.updateMany(
         { driverId: req.user.id, type: "CARPOOL", status: "OPEN" },
@@ -16,6 +17,14 @@ export const createCarpool = asyncHandler(async (req: any, res: Response) => {
         throw new Error("Pickup and destination coordinates are required.");
     }
     
+    const quote = calculateRideQuote({
+        vehicleType,
+        distanceKm: distance,
+        durationMinutes: duration,
+        isSharedRide: true,
+        seatCount: Number(availableSeats || 1),
+    });
+
     const newRide = new Ride({
         rideId,
         type: "CARPOOL",
@@ -30,14 +39,17 @@ export const createCarpool = asyncHandler(async (req: any, res: Response) => {
             ...drop,
             location: { type: "Point", coordinates: [drop.lng, drop.lat] }
         },
-        price,
-        pricePerSeat,
+        price: quote.totalFare,
+        originalPrice: quote.totalFare,
+        pricePerSeat: quote.perSeatFare,
+        originalPricePerSeat: quote.perSeatFare,
         distance,
         duration,
         departureTime,
         availableSeats,
         requestedVehicleType: vehicleType || "go",
-        carType
+        carType,
+        isSharedRide: true
     });
 
     await newRide.save();

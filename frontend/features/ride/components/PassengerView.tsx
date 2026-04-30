@@ -16,13 +16,12 @@ import { ChatModal } from "@/features/chat/components/ChatModal";
 import { RideSummaryPage } from "./RideSummaryPage";
 import { CarSeatSelector } from "./CarSeatSelector";
 import { MessageCircle } from "lucide-react";
+import { calculateRideQuote } from "@/features/ride/utils/pricing";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center font-medium text-slate-400">Loading Map...</div>
 });
-
-const formatCurrency = (amount: number) => `Rs ${amount.toLocaleString('en-IN')}`;
 
 export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpen }: any) {
   const rideState = useRideStore();
@@ -48,14 +47,12 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const [isSeatModalOpen, setIsSeatModalOpen] = useState(false);
   const [searchCountdown, setSearchCountdown] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [isPaymentDone, setIsPaymentDone] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const lastAutoOpenedChatRef = useRef<string | null>(null);
 
   // Promotion State
   const [promotions, setPromotions] = useState<any[]>([]);
   const [selectedPromo, setSelectedPromo] = useState<any | null>(null);
-  const [promoCodeInput, setPromoCodeInput] = useState("");
   const [manualPromoCode, setManualPromoCode] = useState("");
   const [isVerifyingPromo, setIsVerifyingPromo] = useState(false);
 
@@ -143,26 +140,25 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     return () => clearInterval(interval);
   }, [isRequestingRide, activeRide]);
   const CAR_STYLES = [
-    { id: 'bike', name: 'Bike', baseFare: 20, ratePerKm: 6, icon: Bike, desc: 'Fast & Cheap', time: '2 min', person: 1 },
-    { id: 'auto', name: 'Auto Rickshaw', baseFare: 40, ratePerKm: 10, icon: Users, desc: 'Fast local rides', time: '3 min', person: 3 },
-    { id: 'go', name: 'Go', baseFare: 60, ratePerKm: 15, icon: Car, desc: 'Budget rides for every day', time: '5 min', person: 4 },
-    { id: 'sedan', name: 'Sedan', baseFare: 80, ratePerKm: 20, icon: Car, desc: 'More space & comfort', time: '6 min', person: 4 },
-    { id: 'xl', name: 'XL', baseFare: 110, ratePerKm: 28, icon: Users, desc: 'Big cars for groups', time: '8 min', person: 6 }
+    { id: 'bike', name: 'Bike', icon: Bike, desc: 'Fast & Cheap', time: '2 min', person: 1 },
+    { id: 'auto', name: 'Auto Rickshaw', icon: Users, desc: 'Fast local rides', time: '3 min', person: 3 },
+    { id: 'go', name: 'Go', icon: Car, desc: 'Budget rides for every day', time: '5 min', person: 4 },
+    { id: 'sedan', name: 'Sedan', icon: Car, desc: 'More space & comfort', time: '6 min', person: 4 },
+    { id: 'xl', name: 'XL', icon: Users, desc: 'Big cars for groups', time: '8 min', person: 6 }
   ];
 
   const calculateFare = (vType: string) => {
-    const style = CAR_STYLES.find(s => s.id === vType) || CAR_STYLES[2];
     const distance = routeInfo?.distance || 0;
+    const duration = routeInfo?.duration || 0;
+    const quote = calculateRideQuote({
+      vehicleType: vType,
+      distanceKm: distance,
+      durationMinutes: duration,
+      isSharedRide,
+      seatCount: 1
+    });
 
-    // Initial fare based on car type and distance
-    let baseFare = Math.max(style.baseFare, style.baseFare + (distance * style.ratePerKm));
-
-    // Apply shared ride discount (e.g. 40% off) if in shared mode
-    if (isSharedRide) {
-      baseFare = baseFare * 0.6;
-    }
-
-    let finalFare = baseFare;
+    let finalFare = isSharedRide ? quote.perSeatFare : quote.totalFare;
 
     // Apply specific promotion if selected
     if (selectedPromo) {
@@ -174,7 +170,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     }
 
     return {
-        base: Math.round(baseFare),
+        base: quote.privateFare,
         final: Math.round(finalFare)
     };
   };
@@ -197,11 +193,11 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
     if (passengerEntry) {
       const seatCount = Number(passengerEntry.seats || 1);
-      const seatPrice = Number(ride.pricePerSeat || ride.price || 0);
+      const seatPrice = Number(passengerEntry.finalSeatPrice || ride.pricePerSeat || ride.price || 0);
       return seatPrice * seatCount;
     }
 
-    return Number(ride.pricePerSeat || ride.price || (vehicleType === "bike" ? 40 : 100));
+    return Number(ride.pricePerSeat || ride.price || estimatedRideFare);
   };
 
   const activeChatKey = `${activeRide?.rideId || activeRide?._id || ""}_${[
@@ -302,7 +298,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       if (pool) {
         const poolVehicleType = pool.requestedVehicleType || pool.vehicleType;
         const isBike = poolVehicleType === 'bike';
-        const sharedFare = isBike ? 40 : 100;
+        const seatCount = isBike ? 1 : (selectedSeats.length || 1);
+        const sharedFare = Number(pool.pricePerSeat || pool.price || 0) * seatCount;
 
         if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
           toast.error(`Insufficient balance (Rs ${sharedFare} min)`);
@@ -320,7 +317,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
           name: user?.name,
           photo: user?.profilePhoto, // Include photo
-          seats: isBike ? 1 : (selectedSeats.length || 1),
+          seats: seatCount,
           seatId: isBike ? "PILLION" : selectedSeats.map(s => s.seatId).join(','),
           pickup: userLoc,
           pickupLabel: pickup.query || "Current Location",
@@ -344,7 +341,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       return;
     }
 
-    const currentFare = isSharedRide ? (vehicleType === 'bike' ? 40 : 100) : estimatedRideFare;
+    const currentFare = estimatedRideFare;
     const activeMethod = methodOverride || paymentMethod;
 
     if (activeMethod === "WALLET" && (user.walletBalance || 0) < currentFare) {
@@ -363,8 +360,6 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
     if (isRequestingRide) return;
 
     rideState.setIsRequestingRide(true);
-    const isBike = vehicleType === 'bike';
-    const sharedFare = isBike ? 40 : 100;
 
     const payload = {
       passengerId: user.id || user._id || "507f1f77bcf86cd799439011",
@@ -375,6 +370,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
         : { lat: userLoc[0], lng: userLoc[1], label: "Current Location" },
       destination: { lat: dropLoc.coords[0], lng: dropLoc.coords[1], label: dropLoc.query },
       requestedVehicleType: isSharedRide ? "carpool" : vehicleType,
+      pricingVehicleType: vehicleType,
       isSharedRide,
       fare: estimatedRideFare,
       originalPrice: currentFareData.base,
@@ -415,7 +411,8 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
 
     const poolVehicleType = pool.requestedVehicleType || pool.vehicleType;
     const isBike = poolVehicleType === 'bike';
-    const sharedFare = isBike ? 40 : 100;
+    const seatCount = isBike ? 1 : (selectedSeats.length || 1);
+    const sharedFare = Number(pool.pricePerSeat || pool.price || 0) * seatCount;
 
     if (paymentMethod === "WALLET" && (user.walletBalance || 0) < sharedFare) {
       toast.error(`Insufficient balance (Rs ${sharedFare} min)`);
@@ -428,7 +425,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
       userId: user?.id || user?._id || "507f1f77bcf86cd799439011",
       name: user?.name,
       photo: user?.profilePhoto,
-      seats: isBike ? 1 : (selectedSeats.length || 1),
+      seats: seatCount,
       seatId: isBike ? 'PILLION' : selectedSeats.map(s => s.seatId).join(','),
       pickup: userLoc,
       pickupLabel: pickup.query || "Current Location",
@@ -733,7 +730,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                       </div>
                       <h4 className="text-[#0A192F] font-black text-[18px] mb-2 tracking-tight">No shared rides nearby.</h4>
                       <p className="text-slate-500 font-medium text-[13px] leading-relaxed">
-                        Don't see a match? Start a shared ride yourself and <span className="text-emerald-600 font-bold">save 40%</span>.
+                        Don't see a match? Start a shared ride yourself and <span className="text-emerald-600 font-bold">save on longer routes</span>.
                       </p>
                     </div>
                   )}
@@ -744,6 +741,13 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                     const isSelected = vehicleType === style.id;
                     const fareData = calculateFare(style.id);
                     const carFare = fareData.final;
+                    const startingFare = calculateRideQuote({
+                      vehicleType: style.id,
+                      distanceKm: 0,
+                      durationMinutes: 0,
+                      isSharedRide: false,
+                      seatCount: 1
+                    }).totalFare;
                     return (
                       <button
                         key={style.id}
@@ -768,7 +772,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
                         </div>
                         <div className="text-left sm:text-right relative z-10 w-full sm:w-auto">
                           <p className={`font-black text-[22px] tracking-tighter leading-none ${isSelected ? 'text-[#0A192F]' : 'text-slate-400'}`}>₹{carFare}</p>
-                          <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Starts at ₹{style.baseFare}</p>
+                          <p className={`text-[10px] font-black uppercase mt-1 ${isSelected ? 'text-[#0A192F]/40' : 'text-slate-300'}`}>Starts at ₹{startingFare}</p>
                         </div>
                       </button>
                     );

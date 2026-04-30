@@ -1,23 +1,5 @@
 import Discount from "../../models/discount";
-
-const roundCurrency = (value: number) => Number(value.toFixed(2));
-
-export const calculateDiscountedAmount = (
-  originalAmount: number,
-  discount: { type: "PERCENTAGE" | "FLAT"; value: number }
-) => {
-  if (!Number.isFinite(originalAmount) || originalAmount <= 0) {
-    return 0;
-  }
-
-  if (discount.type === "PERCENTAGE") {
-    return roundCurrency(
-      Math.max(0, originalAmount - originalAmount * (discount.value / 100))
-    );
-  }
-
-  return roundCurrency(Math.max(0, originalAmount - discount.value));
-};
+import { calculateDiscountedAmount, roundMoney } from "./fare-engine";
 
 export const recalculateRideCheckoutAmount = async (ride: any, userId: string) => {
   const isSharedRide = ride.type === "CARPOOL" || ride.isSharedRide;
@@ -30,13 +12,32 @@ export const recalculateRideCheckoutAmount = async (ride: any, userId: string) =
 
   const seatCount = passengerEntry ? Number(passengerEntry.seats || 1) : 1;
   const baseRidePrice = Number(ride.originalPrice || ride.price || 0);
-  const baseSeatPrice = Number(ride.originalPricePerSeat || ride.pricePerSeat || 0);
+  const baseSeatPrice = Number(
+    passengerEntry?.originalSeatPrice ||
+    ride.originalPricePerSeat ||
+    ride.pricePerSeat ||
+    0
+  );
 
   let effectiveRidePrice = Number(ride.price || baseRidePrice || 0);
-  let effectiveSeatPrice = Number(ride.pricePerSeat || baseSeatPrice || 0);
+  let effectiveSeatPrice = Number(
+    passengerEntry?.finalSeatPrice ||
+    ride.pricePerSeat ||
+    baseSeatPrice ||
+    0
+  );
   let appliedDiscountAmount = 0;
 
-  if ((ride.discountId || ride.promoCode) && baseRidePrice > 0) {
+  if (
+    isSharedRide &&
+    passengerEntry?.discountId &&
+    passengerEntry?.originalSeatPrice
+  ) {
+    effectiveSeatPrice = Number(passengerEntry.finalSeatPrice || baseSeatPrice || 0);
+    appliedDiscountAmount = roundMoney(
+      (Number(passengerEntry.originalSeatPrice || 0) - effectiveSeatPrice) * seatCount
+    );
+  } else if ((ride.discountId || ride.promoCode) && baseRidePrice > 0) {
     const discount = await Discount.findOne({
       $or: [
         ...(ride.discountId ? [{ _id: ride.discountId }] : []),
@@ -46,7 +47,7 @@ export const recalculateRideCheckoutAmount = async (ride: any, userId: string) =
 
     if (discount) {
       effectiveRidePrice = calculateDiscountedAmount(baseRidePrice, discount as any);
-      appliedDiscountAmount = roundCurrency(baseRidePrice - effectiveRidePrice);
+      appliedDiscountAmount = roundMoney(baseRidePrice - effectiveRidePrice);
 
       if (isSharedRide && baseSeatPrice > 0) {
         effectiveSeatPrice = calculateDiscountedAmount(baseSeatPrice, discount as any);
@@ -72,23 +73,23 @@ export const recalculateRideCheckoutAmount = async (ride: any, userId: string) =
   }
 
   if (!isSharedRide) {
-    return {
-      amount: roundCurrency(effectiveRidePrice),
-      discountAmount: roundCurrency(appliedDiscountAmount),
+      return {
+      amount: roundMoney(effectiveRidePrice),
+      discountAmount: roundMoney(appliedDiscountAmount),
     };
   }
 
   if (passengerEntry) {
     return {
-      amount: roundCurrency(effectiveSeatPrice * seatCount),
-      discountAmount: roundCurrency((baseSeatPrice - effectiveSeatPrice) * seatCount),
+      amount: roundMoney(effectiveSeatPrice * seatCount),
+      discountAmount: roundMoney((baseSeatPrice - effectiveSeatPrice) * seatCount),
     };
   }
 
   if (String(ride.createdBy) === String(userId)) {
     return {
-      amount: roundCurrency(effectiveSeatPrice || effectiveRidePrice),
-      discountAmount: roundCurrency(baseSeatPrice - effectiveSeatPrice),
+      amount: roundMoney(effectiveSeatPrice || effectiveRidePrice),
+      discountAmount: roundMoney(baseSeatPrice - effectiveSeatPrice),
     };
   }
 
