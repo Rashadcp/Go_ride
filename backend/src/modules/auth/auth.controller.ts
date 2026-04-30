@@ -7,7 +7,6 @@ import Vehicle from "../../models/vehicle";
 import Transaction from "../../models/transaction";
 import { sendOTP } from "../../config/mail";
 import { generateAccessToken, generateRefreshToken } from "../../common/utils/token";
-import { clearRefreshTokenCookie, getRefreshTokenFromRequest, setRefreshTokenCookie } from "../../common/utils/auth-cookie";
 import { createNotification, createNotificationsForRole } from "../notification/notification.controller";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3 } from "../../config/s3";
@@ -81,7 +80,6 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   newUser.refreshToken = refreshTokenValue;
   await newUser.save();
-  setRefreshTokenCookie(res, refreshTokenValue);
 
   await createNotification(
     newUser._id.toString(),
@@ -135,7 +133,6 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     { _id: userDoc._id },
     { $set: { refreshToken } }
   );
-  setRefreshTokenCookie(res, refreshToken);
 
   let vehicle = null;
   if (userDoc.role === "DRIVER") {
@@ -160,7 +157,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const refreshToken = asyncHandler(async (req: Request, res: Response) => {
-  const token = req.body?.refreshToken || getRefreshTokenFromRequest(req);
+  const token = req.body?.refreshToken;
   if (!token) {
     throwHttpError(res, 401, "Refresh Token is required");
   }
@@ -168,7 +165,6 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 
   const user = await User.findOne({ refreshToken: refreshTokenValue });
   if (!user) {
-    clearRefreshTokenCookie(res);
     throwHttpError(res, 403, "Invalid Refresh Token");
   }
 
@@ -180,7 +176,6 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
       { _id: userDoc._id },
       { $unset: { refreshToken: 1 } }
     );
-    clearRefreshTokenCookie(res);
     throwHttpError(res, 403, "Refresh token expired or invalid");
   }
 
@@ -191,7 +186,6 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
     { _id: userDoc._id },
     { $set: { refreshToken: newRefreshToken } }
   );
-  setRefreshTokenCookie(res, newRefreshToken);
 
   res.json({
     accessToken,
@@ -200,7 +194,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
 });
 
 export const logout = asyncHandler(async (req: any, res: Response) => {
-  const refreshToken = req.body?.refreshToken || getRefreshTokenFromRequest(req);
+  const refreshToken = req.body?.refreshToken;
 
   if (refreshToken) {
     const user = await User.findOne({ refreshToken });
@@ -213,8 +207,6 @@ export const logout = asyncHandler(async (req: any, res: Response) => {
       await User.updateOne({ _id: user._id }, { $unset: { refreshToken: 1 } });
     }
   }
-
-  clearRefreshTokenCookie(res);
 
   res.json({ message: "Logged out successfully" });
 });

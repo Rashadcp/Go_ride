@@ -5,7 +5,6 @@ import { upload } from "../../common/middleware/upload.middleware";
 import { protect } from "../../common/middleware/auth.middleware";
 import passport from "../../config/passport";
 import { generateRefreshToken } from "../../common/utils/token";
-import { setRefreshTokenCookie } from "../../common/utils/auth-cookie";
 import User from "../../models/user";
 
 const router = express.Router();
@@ -55,7 +54,6 @@ router.get(
       const refreshTokenValue = generateRefreshToken(user);
 
       await User.updateOne({ _id: user._id }, { $set: { refreshToken: refreshTokenValue } });
-      setRefreshTokenCookie(res, refreshTokenValue);
 
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       console.log(`Google Login Success: ${user.email} (${user.role}), Syncing via callback`);
