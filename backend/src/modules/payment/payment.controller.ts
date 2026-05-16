@@ -61,12 +61,14 @@ export const createPayment = asyncHandler(async (req: any, res: Response) => {
                 throw new Error("Ride not found for payment.");
             }
 
-            if (!ride.driverId) {
+            const finalDriverId = ride.driverId || (ride.type === "CARPOOL" ? ride.createdBy : null);
+            
+            if (!finalDriverId) {
                 res.status(400);
                 throw new Error("Driver is not assigned to this ride yet.");
             }
 
-            if (driverId && String(ride.driverId) !== String(driverId)) {
+            if (driverId && String(finalDriverId) !== String(driverId)) {
                 res.status(400);
                 throw new Error("Ride payment does not match the assigned driver.");
             }
@@ -105,7 +107,7 @@ export const createPayment = asyncHandler(async (req: any, res: Response) => {
             notes.purpose = "RIDE_SETTLEMENT";
             notes.rideId = ride.rideId;
             notes.rideDbId = String(ride._id);
-            notes.driverId = String(ride.driverId);
+            notes.driverId = String(finalDriverId);
         }
 
         const order = await razorpay.orders.create({
@@ -169,12 +171,14 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
             throw new Error("Ride not found for verification.");
         }
 
-        if (!ride.driverId) {
+        const finalDriverId = ride.driverId || (ride.type === "CARPOOL" ? ride.createdBy : null);
+        
+        if (!finalDriverId) {
             res.status(400);
             throw new Error("This ride does not have an assigned driver yet.");
         }
 
-        if (driverId && String(ride.driverId) !== String(driverId)) {
+        if (driverId && String(finalDriverId) !== String(driverId)) {
             res.status(400);
             throw new Error("Ride payment does not match the assigned driver.");
         }
@@ -207,7 +211,7 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
             return;
         }
 
-        const driver = await User.findById(ride.driverId);
+        const driver = await User.findById(finalDriverId);
         if (!driver) {
             res.status(404);
             throw new Error("Driver account not found for this ride.");
