@@ -17,6 +17,7 @@ import { RideSummaryPage } from "./RideSummaryPage";
 import { CarSeatSelector } from "./CarSeatSelector";
 import { MessageCircle } from "lucide-react";
 import { calculateRideQuote } from "@/features/ride/utils/pricing";
+import { useAuthStore } from "@/store/authStore";
 
 const MapComponent = dynamic(() => import("@/components/map/MapComponent"), {
   ssr: false,
@@ -27,6 +28,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   const rideState = useRideStore();
   const mapLogic = useMapLogic();
   const { handleCancelRide } = useRideSocket(user, false);
+  const { accessToken, sessionChecked } = useAuthStore();
 
   const [isExpanding, setIsExpanding] = useState(false);
   const [rating, setRating] = useState(0);
@@ -81,8 +83,9 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
   };
 
   useEffect(() => {
+    if (!sessionChecked || !accessToken) return;
     fetchPromotions();
-  }, []);
+  }, [sessionChecked, accessToken]);
 
   // Emergency Report State
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -491,7 +494,7 @@ export function PassengerView({ user, isNotificationsOpen, setIsNotificationsOpe
           }
           onLocate={mapLogic.handleLocate}
           onRouteInfo={(dist: number, dur: number) => rideState.setRouteInfo({ distance: dist, duration: dur })}
-          nearbyDrivers={activeRide ? (activeRide.driverInfo ? [activeRide.driverInfo] : []) : visibleNearbyDrivers}
+          nearbyDrivers={(activeRide && !["PENDING", "SEARCHING"].includes(activeRide.status) && activeRide.driverInfo) ? [activeRide.driverInfo] : visibleNearbyDrivers}
         />
       </div>
 

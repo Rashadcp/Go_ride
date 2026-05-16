@@ -5,8 +5,33 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & {
     _retry?: boolean;
 };
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+
+export const isUsableAuthToken = (token: unknown): token is string => {
+    if (typeof token !== 'string') return false;
+
+    const trimmedToken = token.trim();
+    if (!trimmedToken || trimmedToken === 'undefined' || trimmedToken === 'null') return false;
+
+    return trimmedToken.split('.').length === 3;
+};
+
+const authApi = axios.create({
+    baseURL: API_BASE_URL,
+    withCredentials: true,
+});
+
+export const refreshAuthSession = async (refreshToken: string) => {
+    if (!isUsableAuthToken(refreshToken)) {
+        throw new Error('Missing refresh token');
+    }
+
+    const { data } = await authApi.post('/auth/refresh-token', { refreshToken });
+    return data as { accessToken?: string; refreshToken?: string };
+};
+
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api',
+    baseURL: API_BASE_URL,
     withCredentials: true,
 });
 
@@ -30,22 +55,25 @@ const setAuthorizationHeader = (config: RetryableRequestConfig, token: string) =
     config.headers = headers;
 };
 
-const refreshAccessToken = async () => {
+export const refreshAccessToken = async () => {
     if (typeof window === 'undefined') return null;
 
-    if (!refreshRequest) {
-        const currentRefreshToken = useAuthStore.getState().refreshToken;
-        refreshRequest = api
-            .post('/auth/refresh-token', { refreshToken: currentRefreshToken })
-            .then((response) => {
-                const { accessToken, refreshToken } = response.data;
+    const currentRefreshToken = useAuthStore.getState().refreshToken;
+    if (!isUsableAuthToken(currentRefreshToken)) {
+        useAuthStore.getState().clearAuth();
+        return null;
+    }
 
-                if (!accessToken) {
+    if (!refreshRequest) {
+        refreshRequest = refreshAuthSession(currentRefreshToken)
+            .then(({ accessToken, refreshToken }) => {
+
+                if (!isUsableAuthToken(accessToken)) {
                     throw new Error('Token refresh response is incomplete');
                 }
 
                 useAuthStore.getState().setAccessToken(accessToken);
-                if (refreshToken) {
+                if (isUsableAuthToken(refreshToken)) {
                     useAuthStore.getState().setRefreshToken(refreshToken);
                 }
 

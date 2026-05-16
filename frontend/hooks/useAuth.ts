@@ -12,7 +12,7 @@ export const useUser = () => {
             const { data } = await api.get("/auth/me");
             return data;
         },
-        enabled: sessionChecked && (!!accessToken || !!storeUser),
+        enabled: sessionChecked && !!accessToken,
     });
 
     // Sync with zustand store
@@ -24,7 +24,7 @@ export const useUser = () => {
 
     return {
         user: query.data || storeUser,
-        isLoading: query.isLoading,
+        isLoading: !sessionChecked || query.isLoading,
         isError: query.isError,
         refetch: query.refetch
     };

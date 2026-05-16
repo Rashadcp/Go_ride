@@ -28,6 +28,17 @@ export const useMapLogic = () => {
         toast.error("Geolocation is not supported by your browser.");
         return;
     }
+
+    // Stage 1: Quick check for cached position (near-instant)
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            setUserLoc([pos.coords.latitude, pos.coords.longitude]);
+        },
+        () => {}, // Ignore errors for the cached hit
+        { enableHighAccuracy: false, timeout: 2000, maximumAge: 60000 }
+    );
+
+    // Stage 2: High accuracy request (slower but precise)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const newLoc: [number, number] = [pos.coords.latitude, pos.coords.longitude];
@@ -51,16 +62,17 @@ export const useMapLogic = () => {
         let errorMsg = "Could not get live location.";
         if (err.code === err.PERMISSION_DENIED) errorMsg = "Location access denied.";
         else if (err.code === err.TIMEOUT) {
+            // Final fallback: just get whatever you can
             navigator.geolocation.getCurrentPosition(
               (p) => setUserLoc([p.coords.latitude, p.coords.longitude]), 
-              () => { /* just skip if second attempt fails */ }, 
-              { enableHighAccuracy: false, timeout: 10000 }
+              () => { /* just skip */ }, 
+              { enableHighAccuracy: false, timeout: 5000 }
             );
             return;
         }
         toast.error(errorMsg);
       }, 
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   }, [setUserLoc, setStops]);
 

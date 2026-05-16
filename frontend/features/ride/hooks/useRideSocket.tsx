@@ -5,8 +5,10 @@ import { MessageCircle, Info } from "lucide-react";
 import { socket, connectSocket, disconnectSocket } from "@/lib/socket";
 import { useRideStore } from "@/features/ride/store/useRideStore";
 import api from "@/lib/axios";
+import { useAuthStore } from "@/store/authStore";
 
 export function useRideSocket(user: any, enableListeners = true): { handleCancelRide: () => void } {
+  const { accessToken, sessionChecked } = useAuthStore();
   const {
     setActiveRide,
     setPendingRideId,
@@ -31,7 +33,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!enableListeners || !user) return;
+    if (!enableListeners || !user || !sessionChecked || !accessToken) return;
 
     connectSocket();
 
@@ -41,15 +43,21 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       const normalizedRide = { ...(previousRide || {}), ...rideData };
       const currentUserId = String(user?.id || user?._id || "");
       const rawDriver = normalizedRide.driverId;
+      const rawDriverName = (rawDriver && typeof rawDriver === "object")
+        ? (rawDriver.name || [rawDriver.firstName, rawDriver.lastName].filter(Boolean).join(" ").trim())
+        : (normalizedRide.driverName || "");
 
       if (rawDriver && typeof rawDriver === "object") {
         normalizedRide.driverInfo = {
           ...(previousRide?.driverInfo || {}),
           ...(normalizedRide.driverInfo || {}),
           ...rawDriver,
-          name: rawDriver.name || normalizedRide.driverInfo?.name || previousRide?.driverInfo?.name,
-          profilePhoto: rawDriver.profilePhoto || rawDriver.photo || normalizedRide.driverInfo?.profilePhoto || previousRide?.driverInfo?.profilePhoto,
-          vehiclePlate: rawDriver.vehicleNumber || rawDriver.vehiclePlate || normalizedRide.driverInfo?.vehiclePlate || previousRide?.driverInfo?.vehiclePlate || "NOT AVAILABLE",
+          driverId: rawDriver._id || rawDriver.id || normalizedRide.driverId,
+          vehicleType: rawDriver.vehicleType || normalizedRide.requestedVehicleType || previousRide?.driverInfo?.vehicleType || normalizedRide.vehicleType || "go",
+          name: rawDriverName || rawDriver.name || normalizedRide.driverInfo?.name || previousRide?.driverInfo?.name || normalizedRide.driverName,
+          rating: rawDriver.rating || normalizedRide.driverRating || normalizedRide.driverInfo?.rating || previousRide?.driverInfo?.rating || "4.9",
+          profilePhoto: rawDriver.profilePhoto || rawDriver.photo || normalizedRide.driverInfo?.profilePhoto || previousRide?.driverInfo?.profilePhoto || normalizedRide.driverPhoto,
+          vehiclePlate: rawDriver.vehiclePlate || rawDriver.vehicleNumber || rawDriver.numberPlate || normalizedRide.driverInfo?.vehiclePlate || previousRide?.driverInfo?.vehiclePlate || normalizedRide.vehiclePlate || "TN 01 AB 1234",
           location: normalizedRide.driverLocation || normalizedRide.driverInfo?.location || previousRide?.driverInfo?.location
         };
         normalizedRide.driverId = rawDriver._id || rawDriver.id;
@@ -393,10 +401,10 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       disconnectSocket();
       clearInterval(pollInterval);
     };
-  }, [user?.id, user?._id, enableListeners, isDriverMode]);
+  }, [user?.id, user?._id, enableListeners, isDriverMode, sessionChecked, accessToken]);
 
   useEffect(() => {
-    if (!enableListeners || !user || !isSharedRide) return;
+    if (!enableListeners || !user || !isSharedRide || !sessionChecked || !accessToken) return;
     const fetchPools = () => {
       const state = useRideStore.getState();
       if (!state.activeRide) {
@@ -411,12 +419,22 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       }
     };
     fetchPools();
-  }, [isSharedRide, stops, userLoc, enableListeners, user?.id, user?._id]);
+  }, [isSharedRide, stops, userLoc, enableListeners, user?.id, user?._id, sessionChecked, accessToken]);
 
   const handleCancelRide = () => {
     const { activeRide, pendingRideId } = useRideStore.getState();
     const rideId = activeRide?.rideId || pendingRideId;
     if (!rideId || !user) return;
+    if (activeRide?.type === "CARPOOL") {
+        socket.emit("carpool:join:cancel", {
+            rideId: activeRide.rideId || activeRide._id,
+            userId: user.id || user._id
+        });
+        resetRideState();
+        toast.success("Join request cancelled");
+        return;
+    }
+
     socket.emit("ride-cancel", {
         rideId,
         passengerId: user.id || user._id || "507f1f77bcf86cd799439011",

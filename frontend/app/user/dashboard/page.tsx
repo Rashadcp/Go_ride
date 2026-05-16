@@ -72,7 +72,16 @@ export default function UserDashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (mounted && !userLoading && user?.role === "DRIVER" && ["PENDING", "AWAITING_APPROVAL"].includes(user?.status || "")) {
+    if (!mounted || userLoading) {
+      return;
+    }
+
+    if (!user) {
+      router.push("/login?expired=true");
+      return;
+    }
+
+    if (user.role === "DRIVER" && ["PENDING", "AWAITING_APPROVAL"].includes(user.status || "")) {
       router.push("/driver/onboarding");
     }
   }, [mounted, router, user, userLoading]);
@@ -85,7 +94,7 @@ export default function UserDashboard() {
     );
   }
 
-  if (user?.role === "DRIVER" && ["PENDING", "AWAITING_APPROVAL"].includes(user?.status || "")) {
+  if (!user || (user.role === "DRIVER" && ["PENDING", "AWAITING_APPROVAL"].includes(user.status || ""))) {
     return null;
   }
 

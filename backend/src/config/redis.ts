@@ -31,7 +31,15 @@ const buildRedisUrl = () => {
 
 const getRedisOptions = () => {
   const url = buildRedisUrl();
-  return url ? { url } : null;
+  return url
+    ? {
+        url,
+        socket: {
+          connectTimeout: 1000,
+          reconnectStrategy: false as const,
+        },
+      }
+    : null;
 };
 
 const attachRedisLogging = (client: RedisClientType, name: string) => {

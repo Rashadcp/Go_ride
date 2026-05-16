@@ -334,6 +334,26 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
         }
     });
 
+    // Carpool Join Cancel (Passenger -> Server -> Driver)
+    socket.on("carpool:join:cancel", async (data: { rideId: string; userId: string }) => {
+        try {
+            const ride = await Ride.findOne({ rideId: data.rideId });
+            if (!ride || ride.type !== "CARPOOL") return;
+
+            // Notify driver to remove the request from their list
+            if (ride.driverId) {
+                io.to(`driver:${ride.driverId}`).emit("ride-cancelled", { 
+                   rideId: data.rideId,
+                   userId: data.userId, // Include userId so driver knows which specific card to remove
+                   isJoinRequest: true 
+                });
+            }
+            console.log(`❌ Carpool join cancelled for ride ${data.rideId} by user ${data.userId}`);
+        } catch (error) {
+            console.error("Carpool join cancel error:", error);
+        }
+    });
+
     // Carpool Join Reject
     socket.on("carpool:join:reject", async (data: { rideId: string; userId: string; passengerSocketId: string }) => {
         try {
@@ -570,7 +590,7 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                 ride.passengers.forEach((p: any) => {
                     const passengerId = p.userId?._id || p.userId;
                     if (passengerId) {
-                        io.to(`user:${passengerId}`).emit("ride:cancelled", { 
+                        io.to(`user:${passengerId}`).emit("ride-cancelled", { 
                             rideId: data.rideId,
                             reason: "The driver has cancelled this carpool session."
                         });

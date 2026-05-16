@@ -10,6 +10,12 @@ import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
 import { calculateDiscountedAmount } from "../../common/utils/fare-engine";
 
+const getDisplayName = (user: any, fallback = "Driver") => {
+    if (!user) return fallback;
+    const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+    return user?.name || fullName || fallback;
+};
+
 const throwHttpError = (res: Response, status: number, message: string): never => {
     res.status(status);
     throw new Error(message);
@@ -25,7 +31,7 @@ export const getUserRides = asyncHandler(async (req: any, res: Response) => {
         ]
     })
         .populate("createdBy", "name email phone profilePhoto")
-        .populate("driverId", "name email phone profilePhoto rating")
+        .populate("driverId", "name firstName lastName email phone profilePhoto rating")
         .sort({ createdAt: -1 });
 
     const ridesWithVehicle = await Promise.all(rides.map(async (ride) => {
@@ -94,7 +100,7 @@ export const getActiveRide = asyncHandler(async (req: any, res: Response) => {
         createdAt: { $gte: twelveHoursAgo }
     })
         .populate("createdBy", "name email phone profilePhoto")
-        .populate("driverId", "name email phone profilePhoto");
+        .populate("driverId", "name firstName lastName email phone profilePhoto rating");
 
     if (!ride) {
         res.json(null);
@@ -128,13 +134,19 @@ export const getActiveRide = asyncHandler(async (req: any, res: Response) => {
     if (ride.driverId) {
         const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
         if (vehicle) {
-            rideObj.driverId = {
+            const driverInfo = {
                 ...(rideObj.driverId as any),
+                name: getDisplayName(rideObj.driverId),
+                vehiclePlate: vehicle.numberPlate,
                 vehicleNumber: vehicle.numberPlate,
                 vehicleType: vehicle.vehicleType,
                 vehicleModel: vehicle.vehicleModel
             };
-            rideObj.driverInfo = rideObj.driverId;
+            rideObj.driverId = driverInfo;
+            rideObj.driverInfo = driverInfo;
+            rideObj.driverName = driverInfo.name;
+            rideObj.vehiclePlate = vehicle.numberPlate;
+            rideObj.vehicleModel = vehicle.vehicleModel;
         }
     }
 

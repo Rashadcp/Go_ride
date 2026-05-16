@@ -33,6 +33,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
    const [chatReceiver, setChatReceiver] = useState<any>(null);
    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
    const [processingPassengerId, setProcessingPassengerId] = useState<string | null>(null);
+   const [isStartingTrip, setIsStartingTrip] = useState(false);
    const [localConfirmedPassengers, setLocalConfirmedPassengers] = useState<any[]>([]);
 
    const resolveProfileImage = (rawPhoto: string | undefined, name: string) => {
@@ -320,12 +321,34 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          }
       };
 
+      const handleRideCancelled = (data: { rideId: string, reason?: string, userId?: string, isJoinRequest?: boolean }) => {
+         // If it's a join request cancellation, just remove that request card
+         if (data.isJoinRequest && data.userId) {
+            rideState.setIncomingCarpoolRequests((prev: any[]) => 
+               prev.filter((r: any) => {
+                  const rKey = String(r.userId || r.passengerSocketId || r.id || r._id || "");
+                  return rKey !== String(data.userId);
+               })
+            );
+            return;
+         }
+
+         // Otherwise, if the main ride is cancelled (e.g. Solo taxi or Entire Pool), reset everything
+         const currentRide = useRideStore.getState().activeRide;
+         if (currentRide && (String(currentRide.rideId) === String(data.rideId) || String(currentRide._id) === String(data.rideId))) {
+            rideState.resetRideState();
+            toast.error(data.reason || "The passenger has cancelled the ride.");
+         }
+      };
+
       socket.on("ride:update", handleRideUpdate);
       socket.on("carpool:join:new_request", handleCarpoolJoinNewRequest);
+      socket.on("ride-cancelled", handleRideCancelled);
 
       return () => {
          socket.off("ride:update", handleRideUpdate);
          socket.off("carpool:join:new_request", handleCarpoolJoinNewRequest);
+         socket.off("ride-cancelled", handleRideCancelled);
       };
    }, [user?.id, user?._id]);
 
@@ -374,19 +397,30 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       const dId = user?.id || user?._id;
       if (!dId || !userLoc || !isDriverTripActive) return;
 
-      // Distance check (threshold: 5 meters approx)
+      // Distance check (threshold: 3 meters approx for live tracking)
+      const threshold = 0.00003; 
       if (lastSentLoc) {
          const dist = Math.sqrt(
             Math.pow(userLoc[0] - lastSentLoc[0], 2) + 
             Math.pow(userLoc[1] - lastSentLoc[1], 2)
          );
-         // 0.00005 deg is roughly 5-6 meters
-         if (dist < 0.00005 && rideState.activeRide?.status === "OPEN") return;
+         if (dist < threshold) return;
       }
 
-      const locPayload = { lat: userLoc[0], lng: userLoc[1] };
+      // Calculate bearing
+      let heading = 0;
+      if (lastSentLoc) {
+          const lat1 = lastSentLoc[0] * Math.PI / 180;
+          const lat2 = userLoc[0] * Math.PI / 180;
+          const dLon = (userLoc[1] - lastSentLoc[1]) * Math.PI / 180;
+          const y = Math.sin(dLon) * Math.cos(lat2);
+          const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+          heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      }
 
-      // General availability update (so nearby passengers see them moving)
+      const locPayload = { lat: userLoc[0], lng: userLoc[1], heading };
+
+      // General availability update
       socket.emit("driver-online", {
          driverId: dId,
          location: locPayload,
@@ -399,7 +433,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
 
       setLastSentLoc(userLoc);
 
-      // Specific live trip tracking update (so current passenger sees them moving)
+      // Specific live trip tracking update
       if (rideState.activeRide) {
          socket.emit("driver:location:update", {
             driverId: dId,
@@ -421,6 +455,7 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
          return;
       }
 
+      setIsStartingTrip(true);
       console.log("🚀 Starting Shared Ride with coords:", { pickup: userLoc, drop: driverDest.coords });
 
       try {
@@ -454,6 +489,8 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
       } catch (err: any) {
          console.error("❌ Driver trip activation error:", err);
          toast.error(err.response?.data?.message || "Failed to start trip");
+      } finally {
+         setIsStartingTrip(false);
       }
    };
 
@@ -546,8 +583,12 @@ export function DriverView({ user, isNotificationsOpen, setIsNotificationsOpen }
                            </div>
                         )}
                      </div>
-                     <button onClick={handleStartDriverTrip} className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50">
-                        Start Driving Now
+                     <button 
+                        onClick={handleStartDriverTrip} 
+                        disabled={isStartingTrip}
+                        className="w-full py-5 bg-[#0A192F] hover:bg-black text-[#FFD700] rounded-[20px] font-black text-[15px] uppercase tracking-[0.2em] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 flex items-center justify-center gap-2"
+                     >
+                        {isStartingTrip ? "Starting..." : "Start Driving Now"}
                      </button>
                   </div>
                )}

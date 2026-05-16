@@ -15,7 +15,7 @@ type SavedAddress = {
 export const useDashboardData = () => {
   const queryClient = useQueryClient();
   const { accessToken, sessionChecked, user } = useAuthStore();
-  const canQuery = sessionChecked && (!!accessToken || !!user);
+  const canQuery = sessionChecked && !!accessToken && !!user;
 
   // Queries
   const { data: activeRide, isLoading: loadingActiveRide } = useQuery({

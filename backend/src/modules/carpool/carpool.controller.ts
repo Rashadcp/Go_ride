@@ -6,55 +6,86 @@ import { calculateRideQuote } from "../../common/utils/fare-engine";
 export const createCarpool = asyncHandler(async (req: any, res: Response) => {
     const { rideId, pickup, drop, distance, duration, departureTime, availableSeats, vehicleType, carType } = req.body;
     
-    await Ride.updateMany(
-        { driverId: req.user.id, type: "CARPOOL", status: "OPEN" },
-        { status: "CANCELLED" }
-    );
+    console.log("Creating carpool ride:", { rideId, userId: req.user?._id });
 
-    if (!pickup?.lat || !pickup?.lng || !drop?.lat || !drop?.lng) {
-        console.error("Missing coordinates in carpool request:", { pickup, drop });
+    if (!req.user?._id) {
+        res.status(401);
+        throw new Error("Authentication required. User ID not found.");
+    }
+
+    // Cancel any existing OPEN carpool rides for this driver to avoid duplicates
+    try {
+        await Ride.updateMany(
+            { driverId: req.user._id, type: "CARPOOL", status: "OPEN" },
+            { status: "CANCELLED" }
+        );
+    } catch (updateErr) {
+        console.error("Error cancelling existing carpools:", updateErr);
+        // Continue anyway as this is a cleanup step
+    }
+
+    // Strict coordinate validation (allowing 0)
+    const isValidCoord = (val: any) => typeof val === 'number' && !isNaN(val);
+    
+    if (!isValidCoord(pickup?.lat) || !isValidCoord(pickup?.lng) || 
+        !isValidCoord(drop?.lat) || !isValidCoord(drop?.lng)) {
+        console.error("Invalid coordinates in carpool request:", { pickup, drop });
         res.status(400);
-        throw new Error("Pickup and destination coordinates are required.");
+        throw new Error("Valid pickup and destination coordinates are required.");
     }
     
+    const seatCount = Number(availableSeats || 1);
+
     const quote = calculateRideQuote({
         vehicleType,
         distanceKm: distance,
         durationMinutes: duration,
         isSharedRide: true,
-        seatCount: Number(availableSeats || 1),
+        seatCount: seatCount,
     });
 
     const newRide = new Ride({
-        rideId,
+        rideId: rideId || `POOL-${Date.now()}`,
         type: "CARPOOL",
-        createdBy: req.user.id,
-        driverId: req.user.id,
+        createdBy: req.user._id,
+        driverId: req.user._id,
         status: "OPEN",
         pickup: {
             ...pickup,
-            location: { type: "Point", coordinates: [pickup.lng, pickup.lat] }
+            location: { type: "Point", coordinates: [Number(pickup.lng), Number(pickup.lat)] }
         },
         drop: {
             ...drop,
-            location: { type: "Point", coordinates: [drop.lng, drop.lat] }
+            location: { type: "Point", coordinates: [Number(drop.lng), Number(drop.lat)] }
         },
         price: quote.totalFare,
         originalPrice: quote.totalFare,
         pricePerSeat: quote.perSeatFare,
         originalPricePerSeat: quote.perSeatFare,
-        distance,
-        duration,
-        departureTime,
-        availableSeats,
+        distance: Number(distance || 0),
+        duration: Number(duration || 0),
+        departureTime: departureTime || new Date().toISOString(),
+        availableSeats: seatCount,
         requestedVehicleType: vehicleType || "go",
         carType,
         isSharedRide: true
     });
 
-    await newRide.save();
-    
-    res.status(201).json(newRide);
+    try {
+        await newRide.save();
+        console.log("Successfully created carpool ride:", newRide.rideId);
+        res.status(201).json(newRide);
+    } catch (saveErr: any) {
+        console.error("Error saving carpool ride:", saveErr);
+        
+        if (saveErr.code === 11000) {
+            res.status(409);
+            throw new Error("A ride with this ID already exists. Please try again.");
+        }
+        
+        res.status(500);
+        throw new Error(`Failed to create carpool: ${saveErr.message}`);
+    }
 });
 
 export const searchCarpools = asyncHandler(async (req: any, res: Response) => {

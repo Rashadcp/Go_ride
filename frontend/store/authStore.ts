@@ -29,6 +29,15 @@ interface AuthState {
     setUser: (user: User) => void;
 }
 
+const normalizeAuthToken = (token?: string | null) => {
+    if (typeof token !== "string") return null;
+
+    const trimmedToken = token.trim();
+    if (!trimmedToken || trimmedToken === "undefined" || trimmedToken === "null") return null;
+
+    return trimmedToken.split(".").length === 3 ? trimmedToken : null;
+};
+
 export const useAuthStore = create<AuthState>()(
     persist(
         (set) => ({
@@ -36,10 +45,15 @@ export const useAuthStore = create<AuthState>()(
             accessToken: null,
             refreshToken: null,
             sessionChecked: false,
-            setAuth: (user, accessToken, refreshToken) => 
-                set((state) => ({ user, accessToken, refreshToken: refreshToken || state.refreshToken, sessionChecked: true })),
-            setAccessToken: (accessToken) => set({ accessToken }),
-            setRefreshToken: (refreshToken) => set({ refreshToken }),
+            setAuth: (user, accessToken, refreshToken) =>
+                set((state) => ({
+                    user,
+                    accessToken: normalizeAuthToken(accessToken),
+                    refreshToken: normalizeAuthToken(refreshToken) || normalizeAuthToken(state.refreshToken),
+                    sessionChecked: true,
+                })),
+            setAccessToken: (accessToken) => set({ accessToken: normalizeAuthToken(accessToken) }),
+            setRefreshToken: (refreshToken) => set({ refreshToken: normalizeAuthToken(refreshToken) }),
             setSessionChecked: (sessionChecked) => set({ sessionChecked }),
             clearAuth: () => {
                 set({ user: null, accessToken: null, refreshToken: null, sessionChecked: true });

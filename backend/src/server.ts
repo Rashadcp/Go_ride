@@ -98,7 +98,7 @@ app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 5001;
 
 const bootstrap = async () => {
   await connectMongo();

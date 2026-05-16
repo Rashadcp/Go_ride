@@ -21,6 +21,11 @@ const buildCacheKey = (prefix: string, payload: Record<string, unknown>) => {
 router.get("/suggestions", async (req, res) => {
     try {
         const { q, limit, lat, lon } = req.query;
+        
+        if (!q || String(q).trim().length < 2) {
+            return res.json({ features: [] });
+        }
+
         const cacheKey = buildCacheKey("maps:suggestions", { q, limit, lat, lon });
         const cached = await getCache(cacheKey);
 
@@ -28,7 +33,7 @@ router.get("/suggestions", async (req, res) => {
             return res.json(JSON.parse(cached));
         }
         
-        console.log(`Nominatim search for: ${q} at [${lat}, ${lon}]`);
+        console.log(`Nominatim search for: "${q}" at [${lat}, ${lon}]`);
         
         const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
             params: {
@@ -41,14 +46,15 @@ router.get("/suggestions", async (req, res) => {
                 lon
             },
             headers: {
-                'User-Agent': 'GoRideApp/1.0'
-            }
+                'User-Agent': 'GoRideApp/1.0 (contact@gorideapp.com)'
+            },
+            timeout: 5000 // 5 second timeout
         });
 
         // Convert Nominatim format to a clean GeoJSON-like format for the frontend
-        const features = response.data.map((item: any) => {
-            const addr = item.address;
-            const name = item.display_name.split(',')[0];
+        const features = (response.data || []).map((item: any) => {
+            const addr = item.address || {};
+            const name = item.display_name ? item.display_name.split(',')[0] : "Unknown";
             const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || addr.county || "";
             
             return {
@@ -71,8 +77,11 @@ router.get("/suggestions", async (req, res) => {
         res.json(payload);
 
     } catch (error: any) {
-        console.error("Nominatim geocoding error:", error.message);
-        res.status(500).json({ message: "Failed to fetch suggestions" });
+        const errorDetails = error.response?.data || error.message || "Unknown error";
+        console.error("Nominatim geocoding error:", errorDetails);
+        
+        // Return 200 with empty features instead of 500 to keep the UI from crashing
+        res.status(200).json({ features: [], error: "Map service temporarily unavailable" });
     }
 });
 
@@ -80,6 +89,10 @@ router.get("/suggestions", async (req, res) => {
 router.get("/reverse-geocode", async (req, res) => {
     try {
         const { lat, lon } = req.query;
+        if (!lat || !lon) {
+            return res.status(400).json({ message: "Latitude and longitude are required" });
+        }
+
         const cacheKey = buildCacheKey("maps:reverse", { lat, lon });
         const cached = await getCache(cacheKey);
 
@@ -95,13 +108,14 @@ router.get("/reverse-geocode", async (req, res) => {
                 addressdetails: 1
             },
             headers: { 
-                'User-Agent': 'GoRideApp/1.0' 
-            }
+                'User-Agent': 'GoRideApp/1.0 (contact@gorideapp.com)' 
+            },
+            timeout: 5000
         });
         
-        const addr = response.data.address;
+        const addr = response.data?.address || {};
         const result = {
-            locality: addr.suburb || addr.neighbourhood || addr.village || addr.city_district || "",
+            locality: addr.suburb || addr.neighbourhood || addr.village || addr.city_district || addr.city || "",
             city: addr.city || addr.town || addr.municipality || addr.county || "",
             principalSubdivision: addr.state || "",
         };
@@ -109,8 +123,16 @@ router.get("/reverse-geocode", async (req, res) => {
         res.json(result);
 
     } catch (error: any) {
-        console.error("Nominatim reverse geocoding error:", error.message);
-        res.status(500).json({ message: "Failed to resolve location" });
+        const errorDetails = error.response?.data || error.message || "Unknown error";
+        console.error("Nominatim reverse geocoding error:", errorDetails);
+        
+        // Return 200 with default name instead of 500
+        res.status(200).json({ 
+            locality: "Unknown Location", 
+            city: "", 
+            principalSubdivision: "",
+            error: "Map service unavailable" 
+        });
     }
 });
 

@@ -3,7 +3,7 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
-import api from "@/lib/axios";
+import api, { isUsableAuthToken, refreshAccessToken } from "@/lib/axios";
 import { toast } from "react-hot-toast";
 import { Loader2 } from "lucide-react";
 
@@ -16,23 +16,27 @@ function AuthCallbackContent() {
         const syncSocialLogin = async () => {
             try {
                 const urlRefreshToken = searchParams.get("refreshToken");
-                if (urlRefreshToken) {
+                if (isUsableAuthToken(urlRefreshToken)) {
                     setRefreshToken(urlRefreshToken);
                 }
 
-                const currentRefreshToken = urlRefreshToken || useAuthStore.getState().refreshToken;
+                const currentRefreshToken = isUsableAuthToken(urlRefreshToken)
+                    ? urlRefreshToken
+                    : useAuthStore.getState().refreshToken;
+                if (!isUsableAuthToken(currentRefreshToken)) {
+                    throw new Error("Missing refresh token for social login sync");
+                }
 
-                const refreshResponse = await api.post("/auth/refresh-token", { refreshToken: currentRefreshToken });
-                const accessToken = refreshResponse.data?.accessToken;
-                const newRefreshToken = refreshResponse.data?.refreshToken;
+                const accessToken = await refreshAccessToken();
 
-                if (!accessToken) {
+                if (!isUsableAuthToken(accessToken)) {
                     throw new Error("Missing access token after social login");
                 }
 
                 const { data: user } = await api.get("/auth/me");
+                const latestRefreshToken = useAuthStore.getState().refreshToken;
 
-                setAuth(user, accessToken, newRefreshToken || currentRefreshToken);
+                setAuth(user, accessToken, latestRefreshToken || currentRefreshToken);
 
                 toast.success(`Welcome back, ${user.name}!`);
 
@@ -55,7 +59,7 @@ function AuthCallbackContent() {
         };
 
         void syncSocialLogin();
-    }, [router, setAuth]);
+    }, [router, searchParams, setAuth, setRefreshToken]);
 
     return (
         <div className="h-screen bg-bg-main flex flex-col items-center justify-center gap-6 transition-colors duration-500">

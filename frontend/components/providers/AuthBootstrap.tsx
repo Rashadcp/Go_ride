@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import api from "@/lib/axios";
+import api, { isUsableAuthToken, refreshAccessToken } from "@/lib/axios";
 import { useAuthStore } from "@/store/authStore";
 
 export default function AuthBootstrap() {
-    const { accessToken, user, setAccessToken, setSessionChecked, setUser, clearAuth, sessionChecked } = useAuthStore();
+    const { accessToken, setSessionChecked, setUser, clearAuth, sessionChecked } = useAuthStore();
 
     useEffect(() => {
         if (sessionChecked) {
@@ -20,19 +20,15 @@ export default function AuthBootstrap() {
 
                 if (!currentAccessToken) {
                     const currentRefreshToken = useAuthStore.getState().refreshToken;
-                    const refreshResponse = await api.post("/auth/refresh-token", { refreshToken: currentRefreshToken });
-                    currentAccessToken = refreshResponse.data?.accessToken || null;
-                    const newRefreshToken = refreshResponse.data?.refreshToken || null;
-
-                    if (currentAccessToken) {
-                        setAccessToken(currentAccessToken);
-                    }
-                    if (newRefreshToken) {
-                        useAuthStore.getState().setRefreshToken(newRefreshToken);
+                    if (!isUsableAuthToken(currentRefreshToken)) {
+                        clearAuth();
+                        return;
+                    } else {
+                        currentAccessToken = await refreshAccessToken();
                     }
                 }
 
-                if (currentAccessToken || user) {
+                if (isUsableAuthToken(currentAccessToken)) {
                     const { data } = await api.get("/auth/me");
                     if (!isCancelled) {
                         setUser(data);
@@ -54,7 +50,7 @@ export default function AuthBootstrap() {
         return () => {
             isCancelled = true;
         };
-    }, [accessToken, clearAuth, sessionChecked, setAccessToken, setSessionChecked, setUser, user]);
+    }, [accessToken, clearAuth, sessionChecked, setSessionChecked, setUser]);
 
     return null;
 }

@@ -17,6 +17,11 @@ import {
     rideRequestToDriverPayload
 } from "../../modules/taxi/taxi.service";
 
+const getDisplayName = (user: any, fallback = "Driver") => {
+    const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+    return user?.name || fullName || fallback;
+};
+
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     // Taxi Request
     socket.on("ride-request", async (data: any) => {
@@ -288,16 +293,20 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                         pickup: updatedRide.pickup?.label || "Current Location",
                         destination: updatedRide.drop?.label || "Selected Destination",
                         fare: updatedRide.price,
-                        driverName: driver?.name || "Your Driver",
+                        driverName: getDisplayName(driver, driverInfo?.name || "Your Driver"),
                         vehicleInfo: vehicle ? `${vehicle.vehicleModel} (${vehicle.numberPlate})` : "Standard Vehicle"
                     };
 
                     if (passenger.email) {
-                        await sendBookingConfirmation(passenger.email, details);
+                        void sendBookingConfirmation(passenger.email, details).catch((emailErr) => {
+                            console.error("Booking email send error:", emailErr);
+                        });
                     }
 
                     if (passenger.phone) {
-                        await sendWhatsAppConfirmation(passenger.phone, details);
+                        void sendWhatsAppConfirmation(passenger.phone, details).catch((whatsAppErr) => {
+                            console.error("Booking WhatsApp send error:", whatsAppErr);
+                        });
                     }
                 }
             } catch (emailErr) {
@@ -309,11 +318,12 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
             
             const fullDriverInfo = {
-                name: driver?.name || "Driver",
+                name: getDisplayName(driver, driverInfo?.name || "Driver"),
                 profilePhoto: driver?.profilePhoto,
                 rating: driver?.rating || 4.9,
                 vehicleModel: vehicle?.vehicleModel || driverInfo?.vehicleModel || "Premium Transport",
                 vehiclePlate: vehicle?.numberPlate || driverInfo?.vehiclePlate || "TN 01 AB 1234",
+                vehicleNumber: vehicle?.numberPlate || driverInfo?.vehiclePlate || "TN 01 AB 1234",
                 location: driverInfo?.location
             };
 
@@ -543,12 +553,40 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
             const recipientId = passengerId || updatedRide.createdBy;
             io.to(`user:${recipientId}`).emit("ride-cancelled", { rideId });
 
+            // Notify specific driver if assigned
             if (driverId) {
                 io.to(`driver:${driverId}`).emit("ride-cancelled", { rideId });
                 await updateDriverStatus(driverId, "available");
+            } else {
+                // If searching, notify all drivers in the pool to remove the request card
+                io.to("drivers-pool").emit("ride-cancelled", { rideId });
+            }
+
+            // Also broadcast to the ride room for any other observers
+            io.to(`ride:${rideId}`).emit("ride-cancelled", { rideId });
+            console.log(`❌ Ride ${rideId} cancelled by passenger ${passengerId}`);
+        } catch (error) {
+            console.error("Ride cancel error:", error);
+        }
+    });
+
+    // Handle generic ride request cancellation (when timeout occurs or user cancels before matching)
+    socket.on("cancel-ride-request", async (data: { passengerId: string }) => {
+        try {
+            const { passengerId } = data;
+            const ride = await Ride.findOneAndUpdate(
+                { createdBy: passengerId, status: "PENDING", type: "SOLO" },
+                { status: "CANCELLED", cancelledAt: new Date() },
+                { new: true }
+            );
+
+            if (ride) {
+                const rideId = ride._id.toString();
+                io.to("drivers-pool").emit("ride-cancelled", { rideId });
+                console.log(`❌ Pending ride request cancelled for passenger ${passengerId}`);
             }
         } catch (error) {
-            console.error("Cancel ride error:", error);
+            console.error("Cancel ride request error:", error);
         }
     });
 

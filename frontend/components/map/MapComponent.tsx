@@ -30,7 +30,7 @@ const DestIcon = L.icon({
     iconAnchor: [12, 41],
 });
 
-const getMarkerIcon = (type?: string) => {
+const getMarkerIcon = (type?: string, rotation: number = 0) => {
     const color = "#0A192F";
     const highlight = "#FFD700";
 
@@ -38,7 +38,7 @@ const getMarkerIcon = (type?: string) => {
     if (type === 'bike') {
         return L.divIcon({
             html: `
-                <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+                <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
                     <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <!-- Shadow -->
                         <ellipse cx="50" cy="85" rx="30" ry="10" fill="black" fill-opacity="0.2"/>
@@ -54,7 +54,7 @@ const getMarkerIcon = (type?: string) => {
                     </svg>
                 </div>
             `,
-            className: "",
+            className: "smooth-marker",
             iconSize: [40, 40],
             iconAnchor: [20, 20],
         });
@@ -64,7 +64,7 @@ const getMarkerIcon = (type?: string) => {
     if (type === 'auto') {
         return L.divIcon({
             html: `
-                <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+                <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
                     <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect x="25" y="20" width="50" height="60" rx="10" fill="${color}"/>
                         <rect x="30" y="30" width="40" height="25" rx="5" fill="${highlight}" fill-opacity="0.7"/>
@@ -73,7 +73,7 @@ const getMarkerIcon = (type?: string) => {
                     </svg>
                 </div>
             `,
-            className: "",
+            className: "smooth-marker",
             iconSize: [38, 38],
             iconAnchor: [19, 19],
         });
@@ -82,7 +82,7 @@ const getMarkerIcon = (type?: string) => {
     // Default Car (Go/Premium) SVG
     return L.divIcon({
         html: `
-            <div style="transform: rotate(0deg); transition: transform 0.3s ease;">
+            <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
                 <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <!-- Main Body (Clean Pill Shape) -->
                     <rect x="25" y="10" width="50" height="80" rx="15" fill="${color}"/>
@@ -94,7 +94,7 @@ const getMarkerIcon = (type?: string) => {
                 </svg>
             </div>
         `,
-        className: "",
+        className: "smooth-marker",
         iconSize: [32, 32],
         iconAnchor: [16, 16],
     });
@@ -151,7 +151,7 @@ interface MapProps {
     showUserMarker?: boolean;
     nearbyDrivers?: {
         driverId: string;
-        location: { lat: number; lng: number };
+        location: { lat: number; lng: number; heading?: number };
         name?: string;
         photo?: string;
         rating?: number;
@@ -342,12 +342,12 @@ export default function MapComponent({
                     );
                 })}
 
-                {/* Nearby Online Drivers */}
+                {/* Nearby Online Drivers & Active Trip Driver */}
                 {nearbyDrivers.filter((driver) => driver.location?.lat != null && driver.location?.lng != null).map((driver, idx) => (
                     <Marker
-                        key={`driver-${driver.driverId || idx}-${driver.location.lat}-${driver.location.lng}`}
+                        key={`driver-${driver.driverId || idx}`}
                         position={[driver.location.lat, driver.location.lng]}
-                        icon={getMarkerIcon(driver.vehicleType)}
+                        icon={getMarkerIcon(driver.vehicleType, driver.location.heading)}
                     >
                         <Popup className="font-bold">
                             <div className="flex flex-col items-center gap-1">
@@ -404,6 +404,9 @@ export default function MapComponent({
         .leaflet-overlay-pane path {
            stroke-linejoin: round;
            stroke-linecap: round;
+        }
+        .leaflet-marker-icon {
+            transition: transform 0.8s linear, left 0.8s linear, top 0.8s linear;
         }
         .user-marker-pulse {
             position: relative;

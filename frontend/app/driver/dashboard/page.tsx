@@ -177,13 +177,25 @@ export default function DriverDashboard() {
     }, [userLoc, locationName]);
 
     const handleLocateLive = async () => {
-        setIsLocating(true);
         if (!navigator.geolocation) {
             toast.error("Geolocation is not supported");
-            setIsLocating(false);
             return;
         }
 
+        setIsLocating(true);
+
+        // Fast hit (Cached/Low accuracy)
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setUserLoc([latitude, longitude]);
+                setIsLocating(false);
+            },
+            () => {}, 
+            { enableHighAccuracy: false, timeout: 3000, maximumAge: 30000 }
+        );
+
+        // Precision hit (GPS)
         navigator.geolocation.getCurrentPosition(async (position) => {
             try {
                 const { latitude, longitude } = position.coords;
@@ -191,15 +203,34 @@ export default function DriverDashboard() {
                 localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
                 await reverseGeocode(latitude, longitude);
             } catch (err) {
-                setLocationName("Live Location");
+                console.error("Locate error:", err);
             } finally {
                 setIsLocating(false);
             }
-        }, () => {
-            toast.error("Location access denied");
+        }, (err) => {
+            if (err.code !== err.TIMEOUT) {
+                toast.error("Location access denied");
+            }
             setIsLocating(false);
-        });
+        }, { enableHighAccuracy: true, timeout: 10000 });
     };
+
+    // Continuous Tracking Effect
+    useEffect(() => {
+        if (!isOnline || !navigator.geolocation) return;
+
+        const watchId = navigator.geolocation.watchPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setUserLoc([latitude, longitude]);
+                localStorage.setItem("driverLastLocation", JSON.stringify([latitude, longitude]));
+            },
+            (err) => console.warn("Watch position error:", err),
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, [isOnline]);
 
     const handleLogout = async () => {
         await logoutUser();
