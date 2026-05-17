@@ -1,9 +1,9 @@
 import crypto from "crypto";
 import type { NextFunction } from "express";
 import { createPayment, verifyPayment } from "../../../src/modules/payment/payment.controller";
-import Ride from "../../../src/models/ride";
-import Transaction from "../../../src/models/transaction";
-import User from "../../../src/models/user";
+import Ride from "../../../src/modules/ride/ride.model";
+import Transaction from "../../../src/modules/payment/transaction.model";
+import User from "../../../src/modules/auth/user.model";
 import { createNotification } from "../../../src/modules/notification/notification.controller";
 
 var razorpayOrderCreateMock: jest.Mock;
@@ -18,7 +18,7 @@ jest.mock("razorpay", () => {
   };
 });
 
-jest.mock("../../../src/models/ride", () => ({
+jest.mock("../../../src/modules/ride/ride.model", () => ({
   __esModule: true,
   default: {
     findOne: jest.fn(),
@@ -26,7 +26,7 @@ jest.mock("../../../src/models/ride", () => ({
   },
 }));
 
-jest.mock("../../../src/models/transaction", () => {
+jest.mock("../../../src/modules/payment/transaction.model", () => {
   const ctor: any = jest.fn().mockImplementation((data) => ({
     ...data,
     save: jest.fn().mockResolvedValue(undefined),
@@ -38,7 +38,7 @@ jest.mock("../../../src/models/transaction", () => {
   };
 });
 
-jest.mock("../../../src/models/user", () => ({
+jest.mock("../../../src/modules/auth/user.model", () => ({
   __esModule: true,
   default: {
     findById: jest.fn(),

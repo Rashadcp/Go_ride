@@ -1,9 +1,9 @@
 import { NextFunction, Response } from "express";
 import jwt from "jsonwebtoken";
-import User from "../../../src/models/user";
+import User from "../../../src/modules/auth/user.model";
 import { adminProtect, protect } from "../../../src/common/middleware/auth.middleware";
 
-jest.mock("../../../src/models/user", () => ({
+jest.mock("../../../src/modules/auth/user.model", () => ({
   __esModule: true,
   default: {
     findById: jest.fn(),

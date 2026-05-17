@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { NextFunction } from "express";
 import { forgotPassword, resetPassword } from "../../../src/modules/auth/auth.controller";
-import User from "../../../src/models/user";
+import User from "../../../src/modules/auth/user.model";
 import { sendOTP } from "../../../src/config/mail";
 
 jest.mock("bcryptjs", () => ({
@@ -12,7 +12,7 @@ jest.mock("bcryptjs", () => ({
   },
 }));
 
-jest.mock("../../../src/models/user", () => ({
+jest.mock("../../../src/modules/auth/user.model", () => ({
   __esModule: true,
   default: {
     findOne: jest.fn(),
@@ -20,14 +20,14 @@ jest.mock("../../../src/models/user", () => ({
   },
 }));
 
-jest.mock("../../../src/models/vehicle", () => ({
+jest.mock("../../../src/modules/vehicle/vehicle.model", () => ({
   __esModule: true,
   default: {
     findOne: jest.fn(),
   },
 }));
 
-jest.mock("../../../src/models/transaction", () => {
+jest.mock("../../../src/modules/payment/transaction.model", () => {
   const ctor: any = jest.fn().mockImplementation((data) => ({
     ...data,
     save: jest.fn().mockResolvedValue(undefined),
