@@ -85,6 +85,8 @@ Health check:
 curl http://localhost:5001/health
 ```
 
+The CD workflow waits up to 60 seconds for `/health` after recreating containers. If health still fails, it prints the last backend logs in the GitHub Actions output. Common causes are a missing `backend/.env.production`, invalid `MONGO_URI`, Atlas network access blocking the EC2 public IP, or a backend startup exception.
+
 ## 4. Point the frontend to EC2
 
 Your frontend should call:
