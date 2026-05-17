@@ -34,7 +34,7 @@ sudo apt update
 sudo apt install -y docker-compose-plugin
 ```
 
-The GitHub Actions deploy workflow supports both modern `docker compose` and legacy `docker-compose`, but one of them must exist on the EC2 instance.
+The GitHub Actions deploy workflow supports both modern `docker compose` and legacy `docker-compose`, but one of them must exist on the EC2 instance. Prefer Compose v2. Legacy `docker-compose` v1.29.2 can fail during container recreation with `KeyError: 'ContainerConfig'`; the workflow works around that by removing old compose containers before `up`, without deleting named volumes.
 
 ## 2. Copy the project and configure env
 

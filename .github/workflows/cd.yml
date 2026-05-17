@@ -43,14 +43,20 @@ jobs:
 
             if docker compose version >/dev/null 2>&1; then
               COMPOSE="docker compose"
+              COMPOSE_IS_LEGACY="false"
             elif command -v docker-compose >/dev/null 2>&1; then
               COMPOSE="docker-compose"
+              COMPOSE_IS_LEGACY="true"
             else
               echo "Docker Compose is not installed. Install docker-compose-plugin or docker-compose on the EC2 instance."
               exit 1
             fi
 
             $COMPOSE -f docker-compose.prod.yml pull
+            if [ "$COMPOSE_IS_LEGACY" = "true" ]; then
+              echo "Legacy docker-compose detected; removing old containers before recreate to avoid ContainerConfig errors."
+              $COMPOSE -f docker-compose.prod.yml down --remove-orphans || true
+            fi
             $COMPOSE -f docker-compose.prod.yml up -d
             $COMPOSE -f docker-compose.prod.yml ps
             curl --fail http://localhost:5001/health
