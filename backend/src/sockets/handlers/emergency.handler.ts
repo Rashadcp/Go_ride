@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
-import EmergencyReport from "../../models/emergencyReport";
-import Ride from "../../models/ride";
+import EmergencyReport from "../../modules/emergency/emergencyReport.model";
+import Ride from "../../modules/ride/ride.model";
 import { createNotificationsForRole } from "../../modules/notification/notification.controller";
 
 export const registerEmergencyHandlers = (io: Server, socket: Socket) => {

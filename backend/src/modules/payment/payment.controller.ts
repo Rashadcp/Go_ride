@@ -4,9 +4,9 @@ import crypto from "crypto";
 import dotenv from "dotenv";
 import Razorpay from "razorpay";
 import { createNotification } from "../notification/notification.controller";
-import Ride from "../../models/ride";
-import Transaction from "../../models/transaction";
-import User from "../../models/user";
+import Ride from "../ride/ride.model";
+import Transaction from "./transaction.model";
+import User from "../auth/user.model";
 import { recalculateRideCheckoutAmount } from "../../common/utils/ride-pricing";
 
 dotenv.config();
@@ -219,8 +219,12 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
 
         const isCarpoolRide = ride.type === "CARPOOL" || ride.isSharedRide;
         const currentFeeRate = isCarpoolRide ? 0.15 : PLATFORM_FEE_RATE;
-        const finalEarned = Math.round(expectedAmount * (1 - currentFeeRate));
-        driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+        
+        const grossFare = ride.originalPrice || ride.price;
+        const platformFee = Math.round(grossFare * currentFeeRate);
+        const netEarning = grossFare - platformFee;
+
+        driver.walletBalance = (driver.walletBalance || 0) + netEarning;
         await driver.save();
 
         if (isCarpoolRide) {
@@ -241,10 +245,17 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
             userId: driver._id,
             rideId: ride._id,
             type: "CREDIT",
-            amount: finalEarned,
-            description: `Trip settlement via UPI for Ride ${ride.rideId}`,
+            amount: netEarning,
+            description: `Trip settlement via UPI for Ride ${ride.rideId} (Gross: ₹${grossFare})`,
             status: "SUCCESS",
             method: "ONLINE",
+            metadata: {
+                grossAmount: grossFare,
+                discountedAmount: normalizedAmount,
+                platformFee: platformFee,
+                commissionRate: currentFeeRate,
+                netEarning: netEarning
+            }
         }).save();
 
         await new Transaction({
@@ -260,7 +271,7 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
         await createNotification(
             String(driver._id),
             "Payment Received",
-            `You earned ₹${finalEarned} from ride ${ride.rideId}.`,
+            `You earned ₹${netEarning} from ride ${ride.rideId}.`,
             "PAYMENT"
         );
         await createNotification(
@@ -274,7 +285,7 @@ export const verifyPayment = asyncHandler(async (req: any, res: Response) => {
             message: "Trip settled successfully",
             type: "RIDE_SETTLEMENT",
             settledAmount: expectedAmount,
-            driverEarnings: finalEarned,
+            driverEarnings: netEarning,
         });
         return;
     }

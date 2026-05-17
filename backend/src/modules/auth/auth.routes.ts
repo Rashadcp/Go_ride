@@ -5,7 +5,7 @@ import { upload } from "../../common/middleware/upload.middleware";
 import { protect } from "../../common/middleware/auth.middleware";
 import passport from "../../config/passport";
 import { generateRefreshToken } from "../../common/utils/token";
-import User from "../../models/user";
+import User from "./user.model";
 
 const router = express.Router();
 

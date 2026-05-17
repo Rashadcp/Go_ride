@@ -41,6 +41,8 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
       if (!rideData) return rideData;
 
       const normalizedRide = { ...(previousRide || {}), ...rideData };
+      console.log("[normalizeRide] Input rideData:", rideData);
+      console.log("[normalizeRide] Input previousRide:", previousRide);
       const currentUserId = String(user?.id || user?._id || "");
       const rawDriver = normalizedRide.driverId;
       const rawDriverName = (rawDriver && typeof rawDriver === "object")
@@ -55,9 +57,14 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
           driverId: rawDriver._id || rawDriver.id || normalizedRide.driverId,
           vehicleType: rawDriver.vehicleType || normalizedRide.requestedVehicleType || previousRide?.driverInfo?.vehicleType || normalizedRide.vehicleType || "go",
           name: rawDriverName || rawDriver.name || normalizedRide.driverInfo?.name || previousRide?.driverInfo?.name || normalizedRide.driverName,
+          phone: rawDriver.phone || normalizedRide.driverInfo?.phone || normalizedRide.driverPhone || previousRide?.driverInfo?.phone || previousRide?.driverPhone || "",
+          email: rawDriver.email || normalizedRide.driverInfo?.email || previousRide?.driverInfo?.email || "",
           rating: rawDriver.rating || normalizedRide.driverRating || normalizedRide.driverInfo?.rating || previousRide?.driverInfo?.rating || "4.9",
           profilePhoto: rawDriver.profilePhoto || rawDriver.photo || normalizedRide.driverInfo?.profilePhoto || previousRide?.driverInfo?.profilePhoto || normalizedRide.driverPhoto,
           vehiclePlate: rawDriver.vehiclePlate || rawDriver.vehicleNumber || rawDriver.numberPlate || normalizedRide.driverInfo?.vehiclePlate || previousRide?.driverInfo?.vehiclePlate || normalizedRide.vehiclePlate || "TN 01 AB 1234",
+          vehicleNumber: rawDriver.vehicleNumber || rawDriver.vehiclePlate || rawDriver.numberPlate || normalizedRide.driverInfo?.vehicleNumber || previousRide?.driverInfo?.vehicleNumber || normalizedRide.vehiclePlate || "TN 01 AB 1234",
+          vehicleModel: rawDriver.vehicleModel || normalizedRide.driverInfo?.vehicleModel || previousRide?.driverInfo?.vehicleModel || normalizedRide.vehicleModel || "Premium Transport",
+          vehiclePhoto: rawDriver.vehiclePhoto || normalizedRide.driverInfo?.vehiclePhoto || previousRide?.driverInfo?.vehiclePhoto || "",
           location: normalizedRide.driverLocation || normalizedRide.driverInfo?.location || previousRide?.driverInfo?.location
         };
         normalizedRide.driverId = rawDriver._id || rawDriver.id;
@@ -66,6 +73,24 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
           ...(previousRide?.driverInfo || {}),
           ...(normalizedRide.driverInfo || {}),
           location: normalizedRide.driverLocation || normalizedRide.driverInfo?.location || previousRide?.driverInfo?.location
+        };
+      }
+
+      // ✅ Indestructible Fallback Sync: Reconstruct driverInfo from root attributes if missing
+      if (normalizedRide.driverInfo || normalizedRide.driverName || previousRide?.driverInfo || previousRide?.driverName) {
+        normalizedRide.driverInfo = {
+          driverId: normalizedRide.driverId?._id || normalizedRide.driverId?.id || normalizedRide.driverId || previousRide?.driverId || previousRide?.driverInfo?.driverId || "",
+          name: normalizedRide.driverInfo?.name || normalizedRide.driverName || previousRide?.driverInfo?.name || previousRide?.driverName || "Driver",
+          phone: normalizedRide.driverInfo?.phone || normalizedRide.driverPhone || previousRide?.driverInfo?.phone || previousRide?.driverPhone || "",
+          email: normalizedRide.driverInfo?.email || previousRide?.driverInfo?.email || "",
+          profilePhoto: normalizedRide.driverInfo?.profilePhoto || normalizedRide.driverPhoto || previousRide?.driverInfo?.profilePhoto || previousRide?.driverPhoto || "",
+          rating: normalizedRide.driverInfo?.rating || normalizedRide.driverRating || previousRide?.driverInfo?.rating || previousRide?.driverRating || "4.9",
+          vehiclePlate: normalizedRide.driverInfo?.vehiclePlate || normalizedRide.vehiclePlate || previousRide?.driverInfo?.vehiclePlate || previousRide?.vehiclePlate || "TN 01 AB 1234",
+          vehicleNumber: normalizedRide.driverInfo?.vehicleNumber || normalizedRide.driverInfo?.vehiclePlate || normalizedRide.vehiclePlate || previousRide?.driverInfo?.vehicleNumber || previousRide?.driverInfo?.vehiclePlate || previousRide?.vehiclePlate || "TN 01 AB 1234",
+          vehicleType: normalizedRide.driverInfo?.vehicleType || normalizedRide.vehicleType || previousRide?.driverInfo?.vehicleType || previousRide?.vehicleType || "go",
+          vehicleModel: normalizedRide.driverInfo?.vehicleModel || normalizedRide.vehicleModel || previousRide?.driverInfo?.vehicleModel || previousRide?.vehicleModel || "Premium Transport",
+          vehiclePhoto: normalizedRide.driverInfo?.vehiclePhoto || previousRide?.driverInfo?.vehiclePhoto || "",
+          location: normalizedRide.driverInfo?.location || normalizedRide.driverLocation || previousRide?.driverInfo?.location || previousRide?.driverLocation
         };
       }
 
@@ -92,6 +117,7 @@ export function useRideSocket(user: any, enableListeners = true): { handleCancel
         }
       }
 
+      console.log("[normalizeRide] Output normalizedRide:", normalizedRide);
       return normalizedRide;
     };
 

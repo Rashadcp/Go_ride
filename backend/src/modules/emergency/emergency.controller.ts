@@ -1,6 +1,6 @@
 import { Response } from "express";
-import EmergencyReport from "../../models/emergencyReport";
-import Ride from "../../models/ride";
+import EmergencyReport from "./emergencyReport.model";
+import Ride from "../ride/ride.model";
 import asyncHandler from "express-async-handler";
 
 export const reportEmergency = asyncHandler(async (req: any, res: Response) => {

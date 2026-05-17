@@ -9,6 +9,7 @@ const transactionSchema = new mongoose.Schema(
         description: { type: String, required: true },
         status: { type: String, enum: ['SUCCESS', 'FAILED', 'PENDING'], default: 'SUCCESS' },
         method: { type: String, enum: ['ONLINE', 'WALLET', 'CASH'], default: 'WALLET' },
+        metadata: { type: Object, default: null }, // To store grossAmount, platformFee, etc.
     },
     { timestamps: true }
 );

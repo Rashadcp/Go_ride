@@ -1,6 +1,6 @@
 import { Response } from "express";
 import asyncHandler from "express-async-handler";
-import Ride from "../../models/ride";
+import Ride from "../ride/ride.model";
 import { calculateRideQuote } from "../../common/utils/fare-engine";
 
 export const createCarpool = asyncHandler(async (req: any, res: Response) => {

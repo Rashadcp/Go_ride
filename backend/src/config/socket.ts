@@ -15,7 +15,7 @@ import {
     setSocketDriver,
     DriverPresence
 } from "../sockets/state";
-import User from "../models/user";
+import User from "../modules/auth/user.model";
 import {
     getPendingRideRequestsForDriver,
     markRideRequestsBroadcastedToDriver,

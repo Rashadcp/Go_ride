@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import { Server, Socket } from "socket.io";
 import { getActiveDriver, getAvailableDrivers, updateDriverStatus } from "../state";
-import Ride from "../../models/ride";
-import User from "../../models/user";
-import Transaction from "../../models/transaction";
-import Discount from "../../models/discount";
-import Vehicle from "../../models/vehicle";
+import Ride from "../../modules/ride/ride.model";
+import User from "../../modules/auth/user.model";
+import Transaction from "../../modules/payment/transaction.model";
+import Discount from "../../modules/ride/discount.model";
+import Vehicle from "../../modules/vehicle/vehicle.model";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
 import { calculateDiscountedAmount, calculateRideQuote } from "../../common/utils/fare-engine";
@@ -20,6 +20,26 @@ import {
 const getDisplayName = (user: any, fallback = "Driver") => {
     const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
     return user?.name || fullName || fallback;
+};
+
+const buildDriverInfo = (driver: any, vehicle: any, fallbackInfo: any = {}) => {
+    const vehiclePlate = vehicle?.numberPlate || fallbackInfo?.vehiclePlate || fallbackInfo?.vehicleNumber || "TN 01 AB 1234";
+
+    return {
+        ...(fallbackInfo || {}),
+        driverId: driver?._id || fallbackInfo?.driverId,
+        name: getDisplayName(driver, fallbackInfo?.name || "Driver"),
+        phone: driver?.phone || fallbackInfo?.phone || "",
+        email: driver?.email || fallbackInfo?.email || "",
+        profilePhoto: driver?.profilePhoto || fallbackInfo?.profilePhoto || fallbackInfo?.photo || "",
+        rating: driver?.rating || fallbackInfo?.rating || 5.0,
+        vehicleType: vehicle?.vehicleType || fallbackInfo?.vehicleType || "Go",
+        vehicleModel: vehicle?.vehicleModel || fallbackInfo?.vehicleModel || "Premium Transport",
+        vehiclePlate,
+        vehicleNumber: vehiclePlate,
+        vehiclePhoto: vehicle?.vehiclePhotos?.[0] || fallbackInfo?.vehiclePhoto || "",
+        location: fallbackInfo?.location
+    };
 };
 
 export const registerTaxiHandlers = (io: Server, socket: Socket) => {
@@ -250,8 +270,15 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
         try {
             const { rideId, driverId, driverInfo } = data;
             const finalDriverId = driverId || socket.data.user?.id || socket.data.user?._id;
+            console.log("[ride-accept socket event] Received data:", { rideId, driverId, finalDriverId });
             await expirePendingRideRequests();
             
+            // ✅ Get full driver & vehicle info to persist on the ride
+            const driver = await User.findById(finalDriverId);
+            const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
+            
+            const fullDriverInfo = buildDriverInfo(driver, vehicle, driverInfo);
+
             const updatedRide = await Ride.findOneAndUpdate({
                 rideId,
                 status: { $in: ["PENDING", "SEARCHING"] },
@@ -272,9 +299,11 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 ]
             }, {
                 driverId: finalDriverId,
+                driverInfo: fullDriverInfo,
                 status: 'ACCEPTED',
                 acceptedAt: new Date()
             }, { new: true }).populate('createdBy').populate('driverId');
+            console.log("[ride-accept socket event] Database update result:", updatedRide ? { _id: updatedRide._id, driverId: updatedRide.driverId, status: updatedRide.status } : "null");
 
             if (!updatedRide) {
                 socket.emit("ride-request-failed", { reason: "This ride request is no longer available." });
@@ -313,30 +342,12 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 console.error("Booking email trigger error:", emailErr);
             }
 
-            // ✅ Notify the accepted user
-            const driver = updatedRide.driverId as any;
-            const vehicle = await Vehicle.findOne({ ownerId: driver?._id });
-            
-            const fullDriverInfo = {
-                name: getDisplayName(driver, driverInfo?.name || "Driver"),
-                profilePhoto: driver?.profilePhoto,
-                rating: driver?.rating || 4.9,
-                vehicleModel: vehicle?.vehicleModel || driverInfo?.vehicleModel || "Premium Transport",
-                vehiclePlate: vehicle?.numberPlate || driverInfo?.vehiclePlate || "TN 01 AB 1234",
-                vehicleNumber: vehicle?.numberPlate || driverInfo?.vehiclePlate || "TN 01 AB 1234",
-                location: driverInfo?.location
-            };
-
             io.to(`user:${updatedRide.createdBy._id || updatedRide.createdBy}`).emit("ride-accepted", {
                 rideId,
                 driverId: finalDriverId,
                 driverInfo: fullDriverInfo,
                 status: 'ACCEPTED',
-                ride: {
-                    ...updatedRide.toObject(),
-                    driverId: finalDriverId,
-                    driverInfo: fullDriverInfo
-                }
+                ride: updatedRide.toObject()
             });
 
             const notifiedDriverIds = (updatedRide.broadcastedDrivers || []).map((id: any) => String(id));
@@ -390,14 +401,36 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
     socket.on("update-ride-status", async (data: any) => {
         try {
             const { rideId, status, driverId } = data;
+            console.log("[update-ride-status socket event] Received data:", { rideId, status, driverId });
             const updatedRide = await Ride.findOneAndUpdate({ rideId }, {
                 status,
+                ...(driverId ? { driverId } : {}),
                 ...(status === 'ARRIVED' ? { arrivedAt: new Date() } : {}),
                 ...(status === 'STARTED' ? { startedAt: new Date() } : {}),
                 ...(status === 'COMPLETED' ? { completedAt: new Date() } : {})
-            }, { new: true });
+            }, { new: true }).populate('driverId');
+            console.log("[update-ride-status socket event] Database update result:", updatedRide ? { _id: updatedRide._id, driverId: updatedRide.driverId, status: updatedRide.status } : "null");
 
-            if (!updatedRide) return;
+            if (!updatedRide) {
+                console.log("[update-ride-status socket event] No ride found for rideId:", rideId);
+                return;
+            }
+
+            // ✅ Fix: Construct full driver & vehicle details during any status updates
+            if (updatedRide.driverId) {
+                const driver = updatedRide.driverId as any;
+                const vehicle = await Vehicle.findOne({ ownerId: driver._id });
+                const fullDriverInfo = buildDriverInfo(driver, vehicle, {
+                    ...(updatedRide.driverInfo || {}),
+                    location: updatedRide.driverInfo?.location || updatedRide.driverLocation
+                });
+                
+                updatedRide.driverInfo = fullDriverInfo;
+                await Ride.updateOne({ _id: updatedRide._id }, { $set: { driverInfo: fullDriverInfo } });
+                console.log("[update-ride-status socket event] Successfully persisted driverInfo:", fullDriverInfo);
+            } else {
+                console.log("[update-ride-status socket event] updatedRide has NO driverId! Cannot populate driverInfo details.");
+            }
 
             const payload = {
                 ...data,
@@ -419,25 +452,26 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                 const driverIdFromRide = updatedRide.driverId;
                 const isCarpool = updatedRide.type === 'CARPOOL' || updatedRide.isSharedRide;
 
-                const processPayment = async (pId: string, amount: number, paymentMethod: string) => {
+                const processPayment = async (pId: string, discountedAmount: number, paymentMethod: string, originalAmount?: number) => {
                     const person = await User.findById(pId);
                     if (!person) return false;
                     
+                    const grossFare = originalAmount || discountedAmount;
                     let paymentSuccessful = false;
 
                     if (paymentMethod === 'WALLET') {
-                        if ((person.walletBalance || 0) < amount) {
+                        if ((person.walletBalance || 0) < discountedAmount) {
                             io.to(`user:${pId}`).emit("ride-request-failed", { reason: "Insufficient wallet balance to complete payment." });
                             return false;
                         }
-                        person.walletBalance -= amount;
+                        person.walletBalance -= discountedAmount;
                         await person.save();
                         
                         await new Transaction({
                             userId: pId,
                             rideId: updatedRide._id,
                             type: 'DEBIT',
-                            amount: amount,
+                            amount: discountedAmount,
                             description: `Payment for Ride ${rideId}`,
                             status: 'SUCCESS',
                             method: 'WALLET'
@@ -451,7 +485,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                             userId: pId,
                             rideId: updatedRide._id,
                             type: 'DEBIT',
-                            amount: amount,
+                            amount: discountedAmount,
                             description: `Cash payment for Ride ${rideId}`,
                             status: 'SUCCESS',
                             method: 'CASH'
@@ -466,25 +500,36 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                         const driver = await User.findById(driverIdFromRide);
                         if (driver) {
                             const feeRate = isCarpool ? 0.15 : 0.25;
-                            const platformFee = Math.round(amount * feeRate); // 15% or 25% platform commission
+                            const platformFee = Math.round(grossFare * feeRate); 
+                            const netEarning = grossFare - platformFee;
+                            
                             let description = '';
-                            let txType = 'CREDIT';
+                            let txType: 'CREDIT' | 'DEBIT' = 'CREDIT';
                             let txAmount = 0;
 
                             if (paymentMethod === 'WALLET') {
-                                // Driver gets fare directly via platform, minus fee
-                                const finalEarned = amount - platformFee;
-                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
-                                description = `Earnings for Ride ${rideId} (Platform fee ₹${platformFee} deducted)`;
+                                // Driver gets net earning directly via platform
+                                driver.walletBalance = (driver.walletBalance || 0) + netEarning;
+                                description = `Earnings for Ride ${rideId} (Gross: ₹${grossFare}, Fee: ₹${platformFee})`;
                                 txType = 'CREDIT';
-                                txAmount = finalEarned;
+                                txAmount = netEarning;
                             } else {
-                                // Passenger paid driver directly (CASH/UPI)
-                                // We MUST deduct the platform fee from the driver's platform wallet
-                                driver.walletBalance = (driver.walletBalance || 0) - platformFee;
-                                description = `Platform fee deducted for Ride ${rideId} (Paid via ${paymentMethod})`;
-                                txType = 'DEBIT';
-                                txAmount = platformFee;
+                                // Passenger paid discountedAmount directly to driver (CASH/UPI)
+                                // Driver should have received netEarning.
+                                // If discountedAmount > netEarning (e.g. no discount), we deduct the excess (fee).
+                                // If discountedAmount < netEarning (e.g. big discount), we credit the difference.
+                                const adjustment = netEarning - discountedAmount;
+                                
+                                driver.walletBalance = (driver.walletBalance || 0) + adjustment;
+                                if (adjustment >= 0) {
+                                    description = `Reimbursement for discount on Ride ${rideId} (Net Earning: ₹${netEarning}, Received: ₹${discountedAmount})`;
+                                    txType = 'CREDIT';
+                                    txAmount = adjustment;
+                                } else {
+                                    description = `Platform fee for Ride ${rideId} (Gross: ₹${grossFare}, Fee: ₹${platformFee})`;
+                                    txType = 'DEBIT';
+                                    txAmount = Math.abs(adjustment);
+                                }
                             }
 
                             await driver.save();
@@ -496,7 +541,14 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                                 amount: txAmount,
                                 description,
                                 status: 'SUCCESS',
-                                method: 'WALLET'
+                                method: 'WALLET',
+                                metadata: {
+                                    grossAmount: grossFare,
+                                    discountedAmount: discountedAmount,
+                                    platformFee: platformFee,
+                                    commissionRate: feeRate,
+                                    netEarning: netEarning
+                                }
                             }).save();
 
                             io.to(`user:${driverIdFromRide}`).emit("wallet-update", { balance: driver.walletBalance });
@@ -512,6 +564,7 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                             if (p.userId) {
                                 const passengerPaymentMethod = (p as any).paymentMethod || updatedRide.paymentMethod || 'CASH';
                                 const passengerAmount = (updatedRide.pricePerSeat || (updatedRide.price / updatedRide.passengers.length)) * Number((p as any).seats || 1);
+                                const passengerOriginalAmount = (updatedRide.originalPricePerSeat || ((updatedRide.originalPrice ?? updatedRide.price) / updatedRide.passengers.length)) * Number((p as any).seats || 1);
 
                                 io.to(`user:${p.userId}`).emit("ride-status-update", {
                                     rideId,
@@ -522,12 +575,12 @@ export const registerTaxiHandlers = (io: Server, socket: Socket) => {
                                     }
                                 });
 
-                                await processPayment(p.userId.toString(), passengerAmount, passengerPaymentMethod);
+                                await processPayment(p.userId.toString(), passengerAmount, passengerPaymentMethod, passengerOriginalAmount || passengerAmount);
                             }
                         }
                     }
                 } else {
-                    await processPayment(updatedRide.createdBy.toString(), updatedRide.price, updatedRide.paymentMethod);
+                    await processPayment(updatedRide.createdBy.toString(), updatedRide.price, updatedRide.paymentMethod, updatedRide.originalPrice ?? updatedRide.price);
                 }
 
                 const completedDriverId = driverIdFromRide?.toString();

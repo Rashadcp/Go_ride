@@ -220,6 +220,26 @@ const rideSchema = new mongoose.Schema(
             ref: "Discount",
             default: null,
         },
+        driverInfo: {
+            driverId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+            name: String,
+            phone: String,
+            email: String,
+            profilePhoto: String,
+            rating: { type: Number, default: 5.0 },
+            vehicleType: String,
+            vehicleModel: String,
+            vehiclePlate: String,
+            vehicleNumber: String,
+            vehiclePhoto: String,
+            location: {
+                lat: Number,
+                lng: Number
+            }
+        }
     },
     { timestamps: true }
 );

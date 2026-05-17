@@ -11,6 +11,7 @@ import { logoutUser } from "@/lib/logout";
 // Modular Components
 import { DriverSidebar } from "@/features/driver/components/DriverSidebar";
 import { MobileNav } from "@/features/driver/components/MobileNav";
+import { MobileHeader } from "@/features/driver/components/MobileHeader";
 import { LiveConsole } from "@/features/driver/components/LiveConsole";
 import { TripHistory } from "@/features/driver/components/TripHistory";
 import { ReviewsList } from "@/features/driver/components/ReviewsList";
@@ -56,6 +57,7 @@ export default function DriverDashboard() {
     const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
     const [reviews, setReviews] = useState<any[]>([]);
     const [trips, setTrips] = useState<any[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
     const resolvedVehicleType =
         (user as any)?.vehicleType ||
         vehicle?.vehicleType ||
@@ -68,6 +70,15 @@ export default function DriverDashboard() {
             setTrips(data);
         } catch (err) {
             console.error("Failed to fetch history:", err);
+        }
+    };
+    
+    const fetchTransactions = async () => {
+        try {
+            const { data } = await api.get("/payment/transactions");
+            setTransactions(data);
+        } catch (err) {
+            console.error("Failed to fetch transactions:", err);
         }
     };
 
@@ -83,12 +94,13 @@ export default function DriverDashboard() {
     };
 
     useEffect(() => {
-        const loadTrips = async () => {
+        const loadData = async () => {
             setLoading(true);
-            await fetchTrips();
+            if (activeTab === 'history' || activeTab === 'earnings') await fetchTrips();
+            if (activeTab === 'earnings') await fetchTransactions();
             setLoading(false);
         };
-        if (user && (activeTab === 'history' || activeTab === 'earnings')) loadTrips();
+        if (user && (activeTab === 'history' || activeTab === 'earnings')) loadData();
     }, [user, activeTab]);
 
     useEffect(() => {
@@ -238,8 +250,11 @@ export default function DriverDashboard() {
     };
 
     useEffect(() => {
-        if (!(isOnline && user && userLoc)) {
-            if (isOnline && !userLoc) handleLocateLive();
+        if (isOnline && !userLoc) {
+            handleLocateLive();
+        }
+
+        if (!(isOnline && user)) {
             return;
         }
 
@@ -249,38 +264,46 @@ export default function DriverDashboard() {
         }
 
         connectSocket();
+        
+        // Use a flag to avoid redundant join emits if needed, 
+        // but the main issue is the disconnect on cleanup below.
         socket.emit("join", { userId: user.id || user._id, role: "DRIVER" });
-        socket.emit("driver-online", {
-            driverId: user.id || user._id,
-            location: { lat: userLoc[0], lng: userLoc[1] },
-            name: user.name,
-            profilePhoto: user.profilePhoto,
-            rating: user?.rating || 5.0,
-            vehicleType: resolvedVehicleType
-        });
+        
+        if (userLoc) {
+            socket.emit("driver-online", {
+                driverId: user.id || user._id,
+                location: { lat: userLoc[0], lng: userLoc[1] },
+                name: user.name,
+                profilePhoto: user.profilePhoto,
+                rating: user?.rating || 5.0,
+                vehicleType: resolvedVehicleType
+            });
+        }
 
-        void (async () => {
-            try {
-                const { data } = await api.post("/taxi/pending-requests", {
-                    location: { lat: userLoc[0], lng: userLoc[1] },
-                    vehicleType: resolvedVehicleType
-                });
-
-                if (Array.isArray(data?.requests) && data.requests.length > 0) {
-                    setIncomingRequests(prev => {
-                        const existingIds = new Set(prev.map((request: any) => getRequestKey(request)));
-                        const nextRequests = data.requests.filter((request: any) => {
-                            const requestId = getRequestKey(request);
-                            return requestId && !existingIds.has(requestId);
-                        });
-
-                        return [...nextRequests, ...prev];
+        if (userLoc) {
+            void (async () => {
+                try {
+                    const { data } = await api.post("/taxi/pending-requests", {
+                        location: { lat: userLoc[0], lng: userLoc[1] },
+                        vehicleType: resolvedVehicleType
                     });
+
+                    if (Array.isArray(data?.requests) && data.requests.length > 0) {
+                        setIncomingRequests(prev => {
+                            const existingIds = new Set(prev.map((request: any) => getRequestKey(request)));
+                            const nextRequests = data.requests.filter((request: any) => {
+                                const requestId = getRequestKey(request);
+                                return requestId && !existingIds.has(requestId);
+                            });
+
+                            return [...nextRequests, ...prev];
+                        });
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch pending driver requests:", error);
                 }
-            } catch (error) {
-                console.error("Failed to fetch pending driver requests:", error);
-            }
-        })();
+            })();
+        }
 
         const handleIncoming = (request: any) => {
             setIncomingRequests(prev => {
@@ -387,7 +410,7 @@ export default function DriverDashboard() {
             socket.off("system:alert");
             disconnectSocket();
         };
-    }, [isOnline, user, userLoc, resolvedVehicleType]);
+    }, [isOnline, user?.id, resolvedVehicleType]);
 
     useEffect(() => {
         if (isOnline && userLoc && user) {
@@ -520,8 +543,9 @@ export default function DriverDashboard() {
     return (
         <div className="min-h-screen lg:h-screen w-screen bg-[#0A192F] flex flex-col lg:flex-row overflow-hidden font-sans selection:bg-[#FFD700] selection:text-[#0A192F]">
             <DriverSidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
+            <MobileHeader handleLogout={handleLogout} userName={user?.name} userPhoto={user?.profilePhoto} />
 
-            <main className="flex-1 flex flex-col h-full bg-[#0A192F] relative overflow-hidden pb-16 lg:pb-0 min-w-0">
+            <main className="flex-1 flex flex-col h-full bg-[#0A192F] relative overflow-hidden pt-20 pb-16 lg:pt-0 lg:pb-0 min-w-0">
                 {activeTab === "dashboard" ? (
                     <LiveConsole 
                         user={user} userLoc={userLoc} isOnline={isOnline} locationName={locationName}
@@ -536,7 +560,7 @@ export default function DriverDashboard() {
                 ) : activeTab === "reviews" ? (
                     <ReviewsList reviews={reviews} user={user} onRefresh={() => {}} />
                 ) : activeTab === "earnings" ? (
-                    <EarningsTab trips={trips} />
+                    <EarningsTab trips={trips} transactions={transactions} />
                 ) : activeTab === "notifications" ? (
                     <NotificationsTab />
                 ) : activeTab === "profile" ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SocialAuth from "@/components/auth/SocialAuth";
 import { AxiosError } from "axios";
@@ -12,8 +12,9 @@ import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
 
 export default function RegisterPage() {
-    const { setAuth } = useAuthStore();
+    const { setAuth, user, sessionChecked } = useAuthStore();
     const router = useRouter();
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [role, setRole] = useState<"USER" | "DRIVER">("USER");
     const [loading, setLoading] = useState(false);
@@ -29,6 +30,34 @@ export default function RegisterPage() {
         confirmPassword: "",
     });
     const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+
+    useEffect(() => {
+        if (!sessionChecked) return;
+        if (user) {
+            router.push("/dashboard");
+        }
+    }, [router, sessionChecked, user]);
+
+    if (!sessionChecked || user) {
+        return (
+            <div className="min-h-screen bg-[#0A192F] flex flex-col items-center justify-center gap-6 select-none font-[family-name:var(--font-montserrat)]">
+                <div className="relative flex items-center justify-center">
+                    <div className="absolute w-24 h-24 rounded-full border border-[#FFD700]/10 animate-ping duration-1000" />
+                    <div className="absolute w-16 h-16 rounded-full border-2 border-t-[#FFD700] border-r-transparent border-b-transparent border-l-transparent animate-spin duration-700" />
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative z-10">
+                        <Navigation className="w-6 h-6 text-[#FFD700] fill-current animate-pulse" />
+                    </div>
+                </div>
+                <div className="text-center space-y-1.5 z-10">
+                    <h2 className="text-white font-black text-xs uppercase tracking-[0.3em]">GO<span className="text-[#FFD700]">RIDE</span></h2>
+                    <p className="text-slate-400 font-semibold text-[9px] uppercase tracking-widest animate-pulse">Syncing Session...</p>
+                </div>
+            </div>
+        );
+    }
+
+
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

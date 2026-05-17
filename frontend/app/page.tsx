@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   UserPlus,
@@ -13,7 +13,12 @@ import {
   ChevronRight,
   Instagram,
   Twitter,
-  Facebook
+  Facebook,
+  Bike,
+  Car,
+  Users,
+  Zap,
+  Sparkles
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { logoutUser } from "@/lib/logout";
@@ -22,6 +27,7 @@ export default function Home() {
   const router = useRouter();
   const { user, sessionChecked } = useAuthStore();
   const isLoggedIn = !!user;
+  const [selectedClass, setSelectedClass] = useState<string>("carpool");
 
   useEffect(() => {
     if (!sessionChecked) {
@@ -32,6 +38,24 @@ export default function Home() {
       router.push("/dashboard");
     }
   }, [router, sessionChecked, user]);
+
+  if (!sessionChecked || user) {
+    return (
+      <div className="min-h-screen bg-[#0A192F] flex flex-col items-center justify-center gap-6 select-none font-[family-name:var(--font-montserrat)]">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-24 h-24 rounded-full border border-[#FFD700]/10 animate-ping duration-1000" />
+          <div className="absolute w-16 h-16 rounded-full border-2 border-t-[#FFD700] border-r-transparent border-b-transparent border-l-transparent animate-spin duration-700" />
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative z-10">
+            <Navigation className="w-6 h-6 text-[#FFD700] fill-current animate-pulse" />
+          </div>
+        </div>
+        <div className="text-center space-y-1.5 z-10">
+          <h2 className="text-white font-black text-xs uppercase tracking-[0.3em]">GO<span className="text-[#FFD700]">RIDE</span></h2>
+          <p className="text-slate-400 font-semibold text-[9px] uppercase tracking-widest animate-pulse">Syncing Session...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     await logoutUser();
@@ -97,6 +121,7 @@ export default function Home() {
               Join as Passenger
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </button>
+
             <button
               onClick={() => router.push('/register?role=DRIVER')}
               className="flex items-center justify-center gap-3 px-8 sm:px-10 py-4 sm:py-5 bg-white border border-[#E5E5E0] rounded-2xl font-black uppercase tracking-widest text-[11px] sm:text-xs text-[#1A1A1A] transition-all hover:bg-slate-50 hover:-translate-y-1 shadow-sm active:scale-95 w-full sm:w-auto"
@@ -107,13 +132,173 @@ export default function Home() {
         </div>
       </section>
 
+      {/* --- Interactive Ride Class Preview --- */}
+      <section className="py-16 sm:py-20 px-4 sm:px-6 md:px-12 lg:px-24 max-w-7xl mx-auto border-t border-[#E5E5E0]">
+        <div className="text-center mb-12 sm:mb-16 font-[family-name:var(--font-montserrat)]">
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#B8860B] mb-2 block">Interactive Fleet Preview</span>
+          <h2 className="text-3xl sm:text-4xl font-black text-[#1A1A1A] uppercase tracking-tight">Choose Your Class</h2>
+          <div className="w-16 h-1 bg-[#FFD700] mx-auto rounded-full mt-3"></div>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8 items-stretch">
+          {/* Selector List */}
+          <div className="w-full lg:w-[40%] flex flex-col gap-4 font-[family-name:var(--font-montserrat)]">
+            {[
+              { id: "bike", label: "Go-Ride Bike", desc: "Fastest solo commutes", price: "₹6/km", icon: <Bike className="w-5 h-5" /> },
+              { id: "auto", label: "Go-Ride Auto", desc: "Classic city commutes", price: "₹12/km", icon: <Zap className="w-5 h-5" /> },
+              { id: "sedan", label: "Go-Ride Sedan", desc: "Comfortable premium rides", price: "₹18/km", icon: <Car className="w-5 h-5" /> },
+              { id: "carpool", label: "Go-Ride Carpool", desc: "Smart shared rides", price: "₹5/seat-km", icon: <Users className="w-5 h-5" /> },
+            ].map((fleet) => (
+              <button
+                key={fleet.id}
+                onClick={() => setSelectedClass(fleet.id)}
+                className={`flex items-center justify-between p-5 rounded-[22px] border-2 text-left transition-all duration-300 ${
+                  selectedClass === fleet.id
+                    ? "border-[#1A1A1A] bg-white shadow-xl translate-x-2"
+                    : "border-transparent bg-white/40 hover:bg-white/60 hover:translate-x-1"
+                }`}
+              >
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                    selectedClass === fleet.id ? "bg-[#FFD700] text-[#1A1A1A]" : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {fleet.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-black text-sm text-[#1A1A1A] uppercase tracking-tight">{fleet.label}</p>
+                    <p className="text-[11px] font-semibold text-slate-400 truncate mt-0.5">{fleet.desc}</p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Starting</p>
+                  <p className="font-mono font-black text-sm text-[#B8860B]">{fleet.price}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Interactive Feature Showcard */}
+          <div className="flex-1 rounded-[36px] bg-[#0A192F] text-white p-8 sm:p-12 relative overflow-hidden flex flex-col justify-between border border-white/5 shadow-2xl transition-all duration-500 min-h-[380px] group">
+            {/* Ambient gold glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFD700]/5 rounded-full blur-[100px] pointer-events-none group-hover:scale-110 transition-transform duration-700"></div>
+            
+            {(() => {
+              const details: Record<string, { title: string; tagline: string; details: string[]; statTitle: string; statValue: string; statSub: string; badge: string; imagePath: string }> = {
+                bike: {
+                  title: "Go-Ride Bike",
+                  tagline: "Zip through traffic with ease",
+                  details: [
+                    "Zero traffic delays - best for rush hours",
+                    "Includes sanitised professional helmet",
+                    "Ultra affordable - starting from only ₹6/km",
+                    "Real-time route-sync & SOS tracking"
+                  ],
+                  statTitle: "AVERAGE ETA",
+                  statValue: "3 MINS",
+                  statSub: "Fastest option",
+                  badge: "RAPID COMMUTE",
+                  imagePath: "/assets/bike_preview.png"
+                },
+                auto: {
+                  title: "Go-Ride Auto",
+                  tagline: "Your reliable, open-air city drive",
+                  details: [
+                    "Fits up to 3 passengers comfortably",
+                    "Perfect for local commutes & errands",
+                    "Fixed transparent pricing - no surcharges",
+                    "Safe and experienced local auto partners"
+                  ],
+                  statTitle: "LOCAL FARE",
+                  statValue: "₹12/KM",
+                  statSub: "Flat base rate",
+                  badge: "LOCAL CLASSIC",
+                  imagePath: "/assets/auto_preview.png"
+                },
+                sedan: {
+                  title: "Go-Ride Sedan",
+                  tagline: "Luxury rides, maximum comfort",
+                  details: [
+                    "Spacious executive class Sedans",
+                    "Premium professional drivers & climate control",
+                    "Ideal for airport travel & business trips",
+                    "Complimentary bottled water & phone charger"
+                  ],
+                  statTitle: "COMFORT SCORE",
+                  statValue: "5.0 ★",
+                  statSub: "Top tier feedback",
+                  badge: "PREMIUM COMFORT",
+                  imagePath: "/assets/sedan_preview.png"
+                },
+                carpool: {
+                  title: "Smart Carpool",
+                  tagline: "The greenest way to ride",
+                  details: [
+                    "Split costs automatically per seat",
+                    "Eco-friendly - reduce your carbon footprint",
+                    "Meet fellow commuters along your route",
+                    "Smart route-matching minimizes detours"
+                  ],
+                  statTitle: "CO2 SAVED",
+                  statValue: "45%",
+                  statSub: "On average trip",
+                  badge: "ECO & BUDGET SHARING",
+                  imagePath: "/assets/carpool_preview.png"
+                }
+              };
+
+              const current = details[selectedClass] || details.carpool;
+
+              return (
+                <div className="h-full flex flex-col justify-between gap-8 relative z-10 font-[family-name:var(--font-montserrat)]">
+                  {/* Top Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/20 text-[9px] font-black uppercase tracking-widest text-[#FFD700] mb-3">
+                        <Sparkles className="w-3 h-3 animate-pulse" /> {current.badge}
+                      </span>
+                      <h3 className="text-3xl font-black text-white uppercase tracking-tight">{current.title}</h3>
+                      <p className="text-slate-400 font-semibold text-xs mt-1 font-[family-name:var(--font-roboto)]">{current.tagline}</p>
+                    </div>
+
+                    {/* Quick Stats Panel */}
+                    <div className="px-5 py-4 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md self-start shrink-0 text-center sm:text-right">
+                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[#FFD700] mb-1">{current.statTitle}</p>
+                      <p className="text-2xl font-black text-white tracking-tight">{current.statValue}</p>
+                      <p className="text-[9px] font-semibold text-slate-400 leading-none mt-1 font-[family-name:var(--font-roboto)]">{current.statSub}</p>
+                    </div>
+                  </div>
+
+                  {/* Bullet Benefits list */}
+                  <div className="space-y-3 font-[family-name:var(--font-roboto)]">
+                    {current.details.map((detail, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700] mt-2 shrink-0 animate-ping" />
+                        <p className="text-sm font-semibold text-slate-300 leading-relaxed">{detail}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bottom Action Area */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-white/5">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">
+                      Sync live with verified drivers
+                    </p>
+                    <button
+                      onClick={() => router.push('/register')}
+                      className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-[#FFD700] hover:bg-[#FFC000] text-[#1A1A1A] rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl shadow-[#FFD700]/10 hover:-translate-y-1 active:translate-y-0"
+                    >
+                      Book Now <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </section>
+
       {/* --- For Users Section --- */}
       <section id="how-it-works" className="py-20 sm:py-24 md:py-32 px-4 sm:px-6 md:px-12 lg:px-24 max-w-7xl mx-auto scroll-mt-20">
-        <div className="text-center mb-24 font-[family-name:var(--font-montserrat)]">
-          <h2 className="text-4xl font-black text-[#1A1A1A] mb-4 uppercase tracking-tight">How it Works</h2>
-          <div className="w-20 h-1 bg-[#FFD700] mx-auto rounded-full mb-6"></div>
-          <p className="text-[#4A4A48] font-medium max-w-lg mx-auto font-[family-name:var(--font-roboto)]">Choose between a private taxi or split the cost with our smart shared ride system.</p>
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {[

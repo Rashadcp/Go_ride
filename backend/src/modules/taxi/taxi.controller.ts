@@ -1,5 +1,5 @@
 import { Response } from "express";
-import Ride from "../../models/ride";
+import Ride from "../ride/ride.model";
 import asyncHandler from "express-async-handler";
 import {
     createPendingTaxiRideRequest,

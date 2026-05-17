@@ -1,4 +1,4 @@
-import Discount from "../../models/discount";
+import Discount from "../../modules/ride/discount.model";
 import { calculateDiscountedAmount, roundMoney } from "./fare-engine";
 
 export const recalculateRideCheckoutAmount = async (ride: any, userId: string) => {

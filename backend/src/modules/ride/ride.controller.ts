@@ -1,11 +1,11 @@
 import { Response } from "express";
 import asyncHandler from "express-async-handler";
-import Ride from "../../models/ride";
-import User from "../../models/user";
-import Rating from "../../models/rating";
-import Discount from "../../models/discount";
-import Vehicle from "../../models/vehicle";
-import Transaction from "../../models/transaction";
+import Ride from "./ride.model";
+import User from "../auth/user.model";
+import Rating from "../rating/rating.model";
+import Discount from "./discount.model";
+import Vehicle from "../vehicle/vehicle.model";
+import Transaction from "../payment/transaction.model";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
 import { calculateDiscountedAmount } from "../../common/utils/fare-engine";
@@ -68,14 +68,13 @@ export const getUserRides = asyncHandler(async (req: any, res: Response) => {
 
         if (ride.driverId) {
             const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
-            if (vehicle) {
-                rideObj.driverId = {
-                    ...(rideObj.driverId as any),
-                    vehicleNumber: vehicle.numberPlate,
-                    vehicleType: vehicle.vehicleType,
-                    vehicleModel: vehicle.vehicleModel
-                };
-            }
+            rideObj.driverId = {
+                ...(rideObj.driverId as any),
+                name: getDisplayName(ride.driverId),
+                vehicleNumber: vehicle?.numberPlate || "TN 01 AB 1234",
+                vehicleType: vehicle?.vehicleType || "Go",
+                vehicleModel: vehicle?.vehicleModel || "Premium Transport"
+            };
         }
 
         rideObj.originalPrice = rideObj.originalPrice || rideObj.price;
@@ -133,23 +132,31 @@ export const getActiveRide = asyncHandler(async (req: any, res: Response) => {
 
     if (ride.driverId) {
         const vehicle = await Vehicle.findOne({ ownerId: (ride.driverId as any)._id });
-        if (vehicle) {
-            const driverInfo = {
-                ...(rideObj.driverId as any),
-                name: getDisplayName(rideObj.driverId),
-                vehiclePlate: vehicle.numberPlate,
-                vehicleNumber: vehicle.numberPlate,
-                vehicleType: vehicle.vehicleType,
-                vehicleModel: vehicle.vehicleModel
-            };
-            rideObj.driverId = driverInfo;
-            rideObj.driverInfo = driverInfo;
-            rideObj.driverName = driverInfo.name;
-            rideObj.vehiclePlate = vehicle.numberPlate;
-            rideObj.vehicleModel = vehicle.vehicleModel;
-        }
+        const vehiclePlate = vehicle?.numberPlate || rideObj.driverInfo?.vehiclePlate || rideObj.driverInfo?.vehicleNumber || "TN 01 AB 1234";
+        const driverInfo = {
+            ...(rideObj.driverInfo || {}),
+            ...(rideObj.driverId as any),
+            name: getDisplayName(rideObj.driverId),
+            phone: (rideObj.driverId as any)?.phone || rideObj.driverInfo?.phone || "",
+            email: (rideObj.driverId as any)?.email || rideObj.driverInfo?.email || "",
+            profilePhoto: (rideObj.driverId as any)?.profilePhoto || rideObj.driverInfo?.profilePhoto || "",
+            rating: (rideObj.driverId as any)?.rating || rideObj.driverInfo?.rating || 5.0,
+            vehiclePlate,
+            vehicleNumber: vehiclePlate,
+            vehicleType: vehicle?.vehicleType || rideObj.driverInfo?.vehicleType || "Go",
+            vehicleModel: vehicle?.vehicleModel || rideObj.driverInfo?.vehicleModel || "Premium Transport",
+            vehiclePhoto: vehicle?.vehiclePhotos?.[0] || rideObj.driverInfo?.vehiclePhoto || "",
+            location: rideObj.driverInfo?.location || rideObj.driverLocation
+        };
+        rideObj.driverId = driverInfo;
+        rideObj.driverInfo = driverInfo;
+        rideObj.driverName = driverInfo.name;
+        rideObj.driverPhone = driverInfo.phone;
+        rideObj.vehiclePlate = driverInfo.vehiclePlate;
+        rideObj.vehicleModel = driverInfo.vehicleModel;
     }
 
+    console.log("[getActiveRide API] Responding with rideObj driverInfo:", rideObj?.driverInfo || "undefined");
     res.json(rideObj);
 });
 

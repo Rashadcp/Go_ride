@@ -1,6 +1,6 @@
 import { Response } from "express";
-import Vehicle from "../../models/vehicle";
-import User from "../../models/user";
+import Vehicle from "./vehicle.model";
+import User from "../auth/user.model";
 import asyncHandler from "express-async-handler";
 
 export const getMyVehicle = asyncHandler(async (req: any, res: Response) => {

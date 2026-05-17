@@ -110,20 +110,23 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        console.error('API Error:', error.response?.status, error.response?.data || error.message);
-
         const originalRequest = error.config as RetryableRequestConfig | undefined;
         const requestUrl = originalRequest?.url || '';
 
-        if (
+        const isRetryable401 = 
             error.response?.status === 401 &&
             typeof window !== 'undefined' &&
             originalRequest &&
             !originalRequest._retry &&
             !requestUrl.includes('/auth/login') &&
             !requestUrl.includes('/auth/register') &&
-            !requestUrl.includes('/auth/refresh-token')
-        ) {
+            !requestUrl.includes('/auth/refresh-token');
+
+        if (!isRetryable401) {
+            console.error('API Error:', error.response?.status, error.response?.data || error.message);
+        }
+
+        if (isRetryable401) {
             originalRequest._retry = true;
 
             try {

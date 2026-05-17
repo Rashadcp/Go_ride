@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import asyncHandler from "express-async-handler";
 import mongoose, { Types } from "mongoose";
-import User from "../../models/user";
-import Vehicle from "../../models/vehicle";
-import Transaction from "../../models/transaction";
-import EmergencyReport from "../../models/emergencyReport";
-import Discount from "../../models/discount";
-import Ride from "../../models/ride";
+import User from "../auth/user.model";
+import Vehicle from "../vehicle/vehicle.model";
+import Transaction from "../payment/transaction.model";
+import EmergencyReport from "../emergency/emergencyReport.model";
+import Discount from "../ride/discount.model";
+import Ride from "../ride/ride.model";
 import { io } from "../../config/socket";
 import { createNotification, bulkCreateNotifications } from "../notification/notification.controller";
 import { emitDriverApprovalStatusChanged } from "./admin.events";

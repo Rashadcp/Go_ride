@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Ride from "../../models/ride";
+import Ride from "../ride/ride.model";
 import type { DriverPresence } from "../../sockets/state";
 
 const MAX_DRIVER_MATCH_DISTANCE_KM = 20;

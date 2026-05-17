@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import asyncHandler from "express-async-handler";
-import { Notification } from "../../models/notification";
-import User from "../../models/user";
+import { Notification } from "./notification.model";
+import User from "../auth/user.model";
 import { io } from "../../config/socket";
 
 export const getNotifications = asyncHandler(async (req: Request, res: Response) => {

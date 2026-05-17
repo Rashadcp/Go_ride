@@ -1,8 +1,8 @@
 import { Response } from "express";
 import asyncHandler from "express-async-handler";
-import Rating from "../../models/rating";
-import Ride from "../../models/ride";
-import User from "../../models/user";
+import Rating from "./rating.model";
+import Ride from "../ride/ride.model";
+import User from "../auth/user.model";
 
 export const createRating = asyncHandler(async (req: any, res: Response) => {
     const { rideId, rating, feedback, targetId } = req.body;

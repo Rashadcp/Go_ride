@@ -1,10 +1,10 @@
 import { Server, Socket } from "socket.io";
-import Ride from "../../models/ride";
-import Vehicle from "../../models/vehicle";
-import Transaction from "../../models/transaction";
+import Ride from "../../modules/ride/ride.model";
+import Vehicle from "../../modules/vehicle/vehicle.model";
+import Transaction from "../../modules/payment/transaction.model";
 import { sendBookingConfirmation } from "../../config/mail";
 import { sendWhatsAppConfirmation } from "../../config/twilio";
-import User from "../../models/user";
+import User from "../../modules/auth/user.model";
 import { removeActiveDriver } from "../state";
 import { calculateRideQuote } from "../../common/utils/fare-engine";
 
@@ -415,30 +415,32 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
             try {
                 const driverId = ride.driverId?._id || ride.driverId;
                 const passengerId = data.userId;
-                const amount = Number((passenger as any).finalSeatPrice || ride.pricePerSeat || 0) * releasedSeats;
+                const discountedAmount = Number((passenger as any).finalSeatPrice || ride.pricePerSeat || 0) * releasedSeats;
+                const originalAmount = Number((passenger as any).originalSeatPrice || (ride.originalPricePerSeat || ride.pricePerSeat || 0)) * releasedSeats;
                 const paymentMethod = passenger.paymentMethod || "CASH";
 
-                if (amount > 0 && driverId) {
+                if (discountedAmount > 0 && driverId) {
                     const driver = await User.findById(driverId);
-                    if (driver) {
+                    const passUser = await User.findById(passengerId);
+                    
+                    if (driver && passUser) {
                         const feeRate = 0.15; // 15% for Carpool
-                        const platformFee = Math.round(amount * feeRate);
+                        const platformFee = Math.round(originalAmount * feeRate);
+                        const netEarning = originalAmount - platformFee;
                         
+                        let paymentSuccessful = false;
+
                         if (paymentMethod === "WALLET") {
-                            // Deduct from passenger already happened? No, needs to happen here for Carpool
-                            const passUser = await User.findById(passengerId);
-                            if (passUser && (passUser.walletBalance || 0) >= amount) {
-                                passUser.walletBalance -= amount;
+                            if ((passUser.walletBalance || 0) >= discountedAmount) {
+                                passUser.walletBalance -= discountedAmount;
                                 await passUser.save();
-                                (passenger as any).paymentStatus = "COMPLETED";
-                                ride.markModified("passengers");
-                                await ride.save();
+                                paymentSuccessful = true;
                                 
                                 await new Transaction({
                                     userId: passengerId,
                                     rideId: ride._id,
                                     type: 'DEBIT',
-                                    amount: amount,
+                                    amount: discountedAmount,
                                     description: `Payment for Carpool Ride ${ride.rideId}`,
                                     status: 'SUCCESS',
                                     method: 'WALLET'
@@ -446,36 +448,70 @@ export const registerCarpoolHandlers = (io: Server, socket: Socket) => {
                                 io.to(`user:${passengerId}`).emit("wallet-update", { balance: passUser.walletBalance });
 
                                 // Credit Driver
-                                const finalEarned = amount - platformFee;
-                                driver.walletBalance = (driver.walletBalance || 0) + finalEarned;
+                                driver.walletBalance = (driver.walletBalance || 0) + netEarning;
                                 await driver.save();
+                                
                                 await new Transaction({
                                     userId: driverId,
                                     rideId: ride._id,
                                     type: 'CREDIT',
-                                    amount: finalEarned,
-                                    description: `Earnings for Carpool ${ride.rideId} (15% fee ₹${platformFee})`,
+                                    amount: netEarning,
+                                    description: `Earnings for Carpool ${ride.rideId} (Gross: ₹${originalAmount}, Fee: ₹${platformFee})`,
                                     status: 'SUCCESS',
-                                    method: 'WALLET'
+                                    method: 'WALLET',
+                                    metadata: {
+                                        grossAmount: originalAmount,
+                                        discountedAmount: discountedAmount,
+                                        platformFee: platformFee,
+                                        commissionRate: feeRate,
+                                        netEarning: netEarning
+                                    }
                                 }).save();
-                                io.to(`user:${driverId}`).emit("wallet-update", { balance: driver.walletBalance });
                             }
                         } else if (paymentMethod === "CASH" || paymentMethod === "UPI") {
-                            (passenger as any).paymentStatus = "COMPLETED";
-                            ride.markModified("passengers");
-                            await ride.save();
-                            // Driver received full amount, deduct fee from their wallet
-                            driver.walletBalance = (driver.walletBalance || 0) - platformFee;
+                            paymentSuccessful = true;
+                            // Passenger paid discountedAmount directly to driver
+                            // Driver should have received netEarning.
+                            const adjustment = netEarning - discountedAmount;
+                            driver.walletBalance = (driver.walletBalance || 0) + adjustment;
                             await driver.save();
+
+                            let description = '';
+                            let txType: 'CREDIT' | 'DEBIT' = 'CREDIT';
+                            let txAmount = 0;
+
+                            if (adjustment >= 0) {
+                                description = `Reimbursement for discount on Carpool ${ride.rideId} (Net Earning: ₹${netEarning}, Received: ₹${discountedAmount})`;
+                                txType = 'CREDIT';
+                                txAmount = adjustment;
+                            } else {
+                                description = `Platform fee for Carpool ${ride.rideId} (Gross: ₹${originalAmount}, Fee: ₹${platformFee})`;
+                                txType = 'DEBIT';
+                                txAmount = Math.abs(adjustment);
+                            }
+
                             await new Transaction({
                                 userId: driverId,
                                 rideId: ride._id,
-                                type: 'DEBIT',
-                                amount: platformFee,
-                                description: `Platform fee for Carpool ${ride.rideId} (Paid via ${paymentMethod})`,
+                                type: txType,
+                                amount: txAmount,
+                                description,
                                 status: 'SUCCESS',
-                                method: 'WALLET'
+                                method: 'WALLET',
+                                metadata: {
+                                    grossAmount: originalAmount,
+                                    discountedAmount: discountedAmount,
+                                    platformFee: platformFee,
+                                    commissionRate: feeRate,
+                                    netEarning: netEarning
+                                }
                                 }).save();
+                        }
+
+                        if (paymentSuccessful) {
+                            (passenger as any).paymentStatus = "COMPLETED";
+                            ride.markModified("passengers");
+                            await ride.save();
                             io.to(`user:${driverId}`).emit("wallet-update", { balance: driver.walletBalance });
                         }
                     }

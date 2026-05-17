@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, ZoomControl }
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
-import { Target, MapPin } from "lucide-react";
+import { Target, MapPin, Navigation } from "lucide-react";
 
 // Fix for default marker icons
 const DefaultIcon = L.icon({
@@ -30,74 +30,68 @@ const DestIcon = L.icon({
     iconAnchor: [12, 41],
 });
 
-const getMarkerIcon = (type?: string, rotation: number = 0) => {
+const iconCache: Record<string, L.DivIcon> = {};
+
+const getMarkerIcon = (type: string = 'go', rotation: number = 0) => {
     const color = "#0A192F";
     const highlight = "#FFD700";
+    
+    // Normalize rotation to nearest 5 degrees to avoid excessive cache entries
+    // and keep transitions smooth but stable
+    const normalizedRotation = Math.round(rotation / 5) * 5;
+    const cacheKey = `${type}-${normalizedRotation}`;
+    
+    if (iconCache[cacheKey]) return iconCache[cacheKey];
 
-    // Bike SVG (Rapido Style)
+    let iconHtml = '';
+    
     if (type === 'bike') {
-        return L.divIcon({
-            html: `
-                <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
-                    <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Shadow -->
-                        <ellipse cx="50" cy="85" rx="30" ry="10" fill="black" fill-opacity="0.2"/>
-                        <!-- Motorbike Body (Side View) -->
-                        <path d="M20 70H80V60C80 50 70 45 60 45H40C30 45 20 50 20 60V70Z" fill="#FFD700"/>
-                        <path d="M35 45L45 25H55L65 45" stroke="#FFD700" stroke-width="8" stroke-linecap="round"/>
-                        <!-- Wheels -->
-                        <circle cx="25" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
-                        <circle cx="75" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
-                        <!-- Seat/Handlebar -->
-                        <rect x="40" y="40" width="20" height="8" rx="2" fill="#0A192F"/>
-                        <path d="M55 25L65 20" stroke="#0A192F" stroke-width="4" stroke-linecap="round"/>
-                    </svg>
-                </div>
-            `,
-            className: "smooth-marker",
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-        });
-    }
-
-    // Auto SVG
-    if (type === 'auto') {
-        return L.divIcon({
-            html: `
-                <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
-                    <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="25" y="20" width="50" height="60" rx="10" fill="${color}"/>
-                        <rect x="30" y="30" width="40" height="25" rx="5" fill="${highlight}" fill-opacity="0.7"/>
-                        <circle cx="50" cy="85" r="8" fill="black"/>
-                        <rect x="30" y="20" width="40" height="5" rx="2" fill="${highlight}"/>
-                    </svg>
-                </div>
-            `,
-            className: "smooth-marker",
-            iconSize: [38, 38],
-            iconAnchor: [19, 19],
-        });
-    }
-
-    // Default Car (Go/Premium) SVG
-    return L.divIcon({
-        html: `
-            <div style="transform: rotate(${rotation}deg); transition: transform 0.5s ease-out;">
+        iconHtml = `
+            <div style="transform: rotate(${normalizedRotation}deg); transition: transform 0.5s ease-out;">
+                <svg width="40" height="40" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="50" cy="85" rx="30" ry="10" fill="black" fill-opacity="0.2"/>
+                    <path d="M20 70H80V60C80 50 70 45 60 45H40C30 45 20 50 20 60V70Z" fill="#FFD700"/>
+                    <path d="M35 45L45 25H55L65 45" stroke="#FFD700" stroke-width="8" stroke-linecap="round"/>
+                    <circle cx="25" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
+                    <circle cx="75" cy="70" r="12" fill="#0A192F" stroke="white" stroke-width="3"/>
+                    <rect x="40" y="40" width="20" height="8" rx="2" fill="#0A192F"/>
+                    <path d="M55 25L65 20" stroke="#0A192F" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+            </div>
+        `;
+    } else if (type === 'auto') {
+        iconHtml = `
+            <div style="transform: rotate(${normalizedRotation}deg); transition: transform 0.5s ease-out;">
+                <svg width="38" height="38" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="25" y="20" width="50" height="60" rx="10" fill="${color}"/>
+                    <rect x="30" y="30" width="40" height="25" rx="5" fill="${highlight}" fill-opacity="0.7"/>
+                    <circle cx="50" cy="85" r="8" fill="black"/>
+                    <rect x="30" y="20" width="40" height="5" rx="2" fill="${highlight}"/>
+                </svg>
+            </div>
+        `;
+    } else {
+        iconHtml = `
+            <div style="transform: rotate(${normalizedRotation}deg); transition: transform 0.5s ease-out;">
                 <svg width="32" height="32" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Main Body (Clean Pill Shape) -->
                     <rect x="25" y="10" width="50" height="80" rx="15" fill="${color}"/>
-                    <!-- Front Window -->
                     <rect x="30" y="25" width="40" height="15" rx="4" fill="${highlight}" fill-opacity="0.6"/>
-                    <!-- Headlights (Simple Dots) -->
                     <circle cx="35" cy="18" r="4" fill="white" fill-opacity="0.9"/>
                     <circle cx="65" cy="18" r="4" fill="white" fill-opacity="0.9"/>
                 </svg>
             </div>
-        `,
+        `;
+    }
+
+    const icon = L.divIcon({
+        html: iconHtml,
         className: "smooth-marker",
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+        iconSize: type === 'bike' ? [40, 40] : (type === 'auto' ? [38, 38] : [32, 32]),
+        iconAnchor: type === 'bike' ? [20, 20] : (type === 'auto' ? [19, 19] : [16, 16]),
     });
+
+    iconCache[cacheKey] = icon;
+    return icon;
 };
 
 const UserMarkerIcon = L.divIcon({
@@ -113,20 +107,23 @@ const UserMarkerIcon = L.divIcon({
 });
 
 // Helper to auto-fit map bounds
-function BoundsHandler({ points }: { points: [number, number][] }) {
+function BoundsHandler({ points, stopsCount }: { points: [number, number][], stopsCount: number }) {
     const map = useMap();
-    const pointsKey = JSON.stringify(points);
+    const [lastStopsCount, setLastStopsCount] = useState(-1);
 
     useEffect(() => {
-        if (points.length > 0) {
+        // Only trigger fitBounds if the number of stops changes (e.g. new destination or trip started)
+        // or if it's the first time the map is mounting with points.
+        if (points.length > 0 && stopsCount !== lastStopsCount) {
             try {
                 const bounds = L.latLngBounds(points);
-                map.fitBounds(bounds, { padding: [80, 80], animate: true });
+                map.fitBounds(bounds, { padding: [80, 80], animate: true, duration: 1.5 });
+                setLastStopsCount(stopsCount);
             } catch (err) {
                 console.warn("Map Bounds Error:", err);
             }
         }
-    }, [pointsKey, map]);
+    }, [points, stopsCount, lastStopsCount, map]);
     return null;
 }
 
@@ -173,22 +170,28 @@ export default function MapComponent({
 }: MapProps) {
     const [routeData, setRouteData] = useState<[number, number][]>([]);
     const [mapMounted, setMapMounted] = useState(false);
+    const [mapLoading, setMapLoading] = useState(true);
 
     useEffect(() => {
         setMapMounted(true);
-        return () => setMapMounted(false);
+        const timer = setTimeout(() => {
+            setMapLoading(false);
+        }, 1500);
+        return () => {
+            setMapMounted(false);
+            clearTimeout(timer);
+        };
     }, []);
 
     // Fetch Route from OSRM
     useEffect(() => {
         const fetchRoute = async () => {
-            // Find ANY valid driver info to start the route from your position
-            const activeDriver = nearbyDrivers?.[0] || (userLoc ? { location: { lat: userLoc[0], lng: userLoc[1] } } : null);
+            // The assigned driver is passed as the first element in nearbyDrivers when a ride is active
+            const activeDriver = nearbyDrivers?.[0] || null;
 
             let waypoints: [number, number][] = [];
 
             if (rideStatus === "ACCEPTED" || rideStatus === "ARRIVED") {
-                // Route from Driver to Passenger Pickup
                 const destination = passengerLoc || (stops.length > 0 ? stops[0] : null);
                 if (activeDriver?.location && destination) {
                     waypoints = [
@@ -197,14 +200,12 @@ export default function MapComponent({
                     ];
                 }
             } else if (rideStatus === "STARTED") {
-                // Route from current position to Destination
                 const pickup = passengerLoc || userLoc;
                 const destination = stops.length > 0 ? stops[stops.length - 1] : null;
                 if (pickup && destination) {
                     waypoints = [pickup, destination];
                 }
             } else {
-                // Standard mode: Route through all stops
                 if (stops.length >= 2) {
                     waypoints = [...stops];
                 } else if (userLoc && stops.length === 1) {
@@ -212,70 +213,55 @@ export default function MapComponent({
                 }
             }
 
-
             if (waypoints.length < 2) {
                 setRouteData([]);
                 onRouteInfo?.(0, 0);
                 return;
             }
 
-            // If the leg is extremely long (e.g., cross-continent), OSRM often returns 400.
-            // Fallback to a straight line approximation to avoid spamming failed requests.
-            const toRad = (deg: number) => deg * Math.PI / 180;
-            const haversine = (a: [number, number], b: [number, number]) => {
-                const R = 6371; // km
-                const dLat = toRad(b[0] - a[0]);
-                const dLon = toRad(b[1] - a[1]);
-                const lat1 = toRad(a[0]);
-                const lat2 = toRad(b[0]);
-                const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-                return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-            };
-            const approxDistanceKm = haversine(waypoints[0], waypoints[waypoints.length - 1]);
-            if (approxDistanceKm > 2000) {
-                setRouteData([...waypoints]);
-                const estDurationMins = (approxDistanceKm / 60) * 60; // assume 60km/h
-                onRouteInfo?.(approxDistanceKm, estDurationMins);
-                return;
-            }
-
             const coordsString = waypoints.map(p => `${p[1]},${p[0]}`).join(';');
-
             try {
                 const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`);
-
-                if (!response.ok) {
-                    setRouteData([...waypoints]);
-                    onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
-                    return;
-                }
+                if (!response.ok) return;
 
                 const data = await response.json();
                 if (data.code === "Ok" && data.routes.length > 0) {
                     const route = data.routes[0];
                     const coords = route.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
                     setRouteData(coords);
-
-                    const distanceKm = route.distance / 1000;
-                    const durationMins = route.duration / 60;
-                    onRouteInfo?.(distanceKm, durationMins);
-                } else {
-                    setRouteData([...waypoints]);
-                    onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
+                    onRouteInfo?.(route.distance / 1000, route.duration / 60);
                 }
             } catch (err) {
-                setRouteData([...waypoints]);
-                onRouteInfo?.(approxDistanceKm, (approxDistanceKm / 50) * 60);
+                console.error("OSRM Error:", err);
             }
         };
 
         const timer = setTimeout(fetchRoute, 500);
         return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userLoc, JSON.stringify(stops), rideStatus, passengerLoc, JSON.stringify(nearbyDrivers)]);
+    }, [
+        userLoc?.[0], userLoc?.[1], 
+        JSON.stringify(stops), 
+        rideStatus, 
+        passengerLoc?.[0], passengerLoc?.[1],
+        nearbyDrivers?.[0]?.driverId // Only re-run if the assigned driver changes, not on every move
+    ]);
 
     if (!mapMounted) {
-        return <div className="w-full h-full bg-slate-100 animate-pulse flex items-center justify-center font-medium text-slate-400">Initializing Map...</div>;
+        return (
+            <div className="w-full h-full bg-[#0A192F] flex flex-col items-center justify-center gap-6 select-none font-[family-name:var(--font-montserrat)] rounded-[32px] overflow-hidden">
+                <div className="relative flex items-center justify-center">
+                    <div className="absolute w-24 h-24 rounded-full border border-[#FFD700]/10 animate-ping duration-1000" />
+                    <div className="absolute w-16 h-16 rounded-full border-2 border-t-[#FFD700] border-r-transparent border-b-transparent border-l-transparent animate-spin duration-700" />
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative z-10">
+                        <Navigation className="w-6 h-6 text-[#FFD700] fill-current animate-pulse" />
+                    </div>
+                </div>
+                <div className="text-center space-y-1.5 z-10">
+                    <h2 className="text-white font-black text-xs uppercase tracking-[0.3em]">GO<span className="text-[#FFD700]">RIDE</span></h2>
+                    <p className="text-slate-400 font-semibold text-[9px] uppercase tracking-widest animate-pulse">Initializing Live Map...</p>
+                </div>
+            </div>
+        );
     }
 
     const driverPoints = nearbyDrivers
@@ -291,7 +277,24 @@ export default function MapComponent({
     const center = userLoc || driverPoints[0] || defaultCenter;
 
     return (
-        <div className="w-full h-full relative z-0 group">
+        <div className="w-full h-full relative z-0 group rounded-[32px] overflow-hidden">
+            {/* Elegant glassmorphic Map Loader Overlay */}
+            <div className={`absolute inset-0 bg-[#0A192F] flex flex-col items-center justify-center gap-6 z-[9999] transition-all duration-700 pointer-events-none select-none font-[family-name:var(--font-montserrat)] ${
+                mapLoading ? "opacity-100 scale-100" : "opacity-0 scale-105"
+            }`}>
+                <div className="relative flex items-center justify-center">
+                    <div className="absolute w-24 h-24 rounded-full border border-[#FFD700]/10 animate-ping duration-1000" />
+                    <div className="absolute w-16 h-16 rounded-full border-2 border-t-[#FFD700] border-r-transparent border-b-transparent border-l-transparent animate-spin duration-700" />
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shadow-2xl relative z-10">
+                        <Navigation className="w-6 h-6 text-[#FFD700] fill-current animate-pulse" />
+                    </div>
+                </div>
+                <div className="text-center space-y-1.5 z-10">
+                    <h2 className="text-white font-black text-xs uppercase tracking-[0.3em]">GO<span className="text-[#FFD700]">RIDE</span></h2>
+                    <p className="text-slate-400 font-semibold text-[9px] uppercase tracking-widest animate-pulse">Loading Live Map...</p>
+                </div>
+            </div>
+
             <MapContainer
                 key="driver-main-map"
                 center={center}
@@ -379,8 +382,8 @@ export default function MapComponent({
                     />
                 )}
 
-                {/* Adjust View to fit all points */}
-                <BoundsHandler points={allPoints} />
+                {/* Adjust View only when route structure changes (stops) */}
+                <BoundsHandler points={allPoints} stopsCount={stops.length + (passengerLoc ? 1 : 0)} />
 
                 {/* Specifically center when nothing to fit yet */}
                 {allPoints.length === 0 && <RecenterHandler center={center} />}
