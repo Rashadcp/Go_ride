@@ -21,6 +21,21 @@ sudo usermod -aG docker $USER
 
 Log out and back in after adding your user to the `docker` group.
 
+Verify Compose is available:
+
+```bash
+docker compose version
+```
+
+If your Ubuntu package repository does not provide `docker-compose-v2`, install the plugin package instead:
+
+```bash
+sudo apt update
+sudo apt install -y docker-compose-plugin
+```
+
+The GitHub Actions deploy workflow supports both modern `docker compose` and legacy `docker-compose`, but one of them must exist on the EC2 instance.
+
 ## 2. Copy the project and configure env
 
 Clone the repo onto the instance, then create the production env file:

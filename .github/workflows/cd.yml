@@ -39,7 +39,17 @@ jobs:
           script: |
             cd "${{ secrets.EC2_APP_DIR }}"
             export DOCKERHUB_USERNAME="${{ secrets.DOCKER_USERNAME }}"
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml ps
+
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            elif command -v docker-compose >/dev/null 2>&1; then
+              COMPOSE="docker-compose"
+            else
+              echo "Docker Compose is not installed. Install docker-compose-plugin or docker-compose on the EC2 instance."
+              exit 1
+            fi
+
+            $COMPOSE -f docker-compose.prod.yml pull
+            $COMPOSE -f docker-compose.prod.yml up -d
+            $COMPOSE -f docker-compose.prod.yml ps
             curl --fail http://localhost:5001/health
