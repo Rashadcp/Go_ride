@@ -31,7 +31,11 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
+          port: ${{ secrets.EC2_SSH_PORT || 22 }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 10m
+          script_stop: true
           script: |
             cd "${{ secrets.EC2_APP_DIR }}"
             export DOCKERHUB_USERNAME="${{ secrets.DOCKER_USERNAME }}"

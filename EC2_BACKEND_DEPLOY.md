@@ -6,7 +6,7 @@ This project can run the backend on a single EC2 instance with Docker Compose, w
 
 Use Ubuntu 24.04 or 22.04 and open these security group ports:
 
-- `22` for SSH
+- `22` for SSH, or the custom SSH port stored in the `EC2_SSH_PORT` GitHub secret
 - `5001` if you want to expose the API directly
 - `80` and `443` if you plan to put Nginx in front of the API
 
@@ -39,6 +39,17 @@ Important values:
 - `ALLOWED_ORIGINS` can contain multiple comma-separated origins
 - `GOOGLE_CALLBACK_URL` should use your EC2 API domain or public host
 - `REDIS_URL` can stay `redis://redis:6379` for the bundled Redis container
+
+GitHub Actions deployment secrets:
+
+- `EC2_HOST`: the current EC2 public IPv4 address or public DNS name
+- `EC2_USER`: usually `ubuntu` for Ubuntu AMIs
+- `EC2_SSH_KEY`: the private key that matches the EC2 instance key pair
+- `EC2_SSH_PORT`: optional; defaults to `22` when omitted
+- `EC2_APP_DIR`: absolute path to this repo on the EC2 instance
+- `DOCKER_USERNAME` and `DOCKER_PASSWORD`: Docker Hub credentials
+
+If deploy fails with `dial tcp <host>:22: i/o timeout`, GitHub cannot reach SSH on the instance. Check that the instance is running, `EC2_HOST` is current, the security group allows inbound TCP on the SSH port, the network ACL allows it, and `sudo systemctl status ssh` is healthy on the instance.
 
 ## 3. Start the backend
 
